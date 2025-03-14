@@ -1,6 +1,6 @@
 module deMCMC
 export run_deMCMC
-import Random, TransformedLogDensities, LogDensityProblems, Logging
+import Random, TransformedLogDensities, LogDensityProblems, Logging, ProgressMeter
 
 struct deMCMC_params
     βs::Array{Float64, 4}
@@ -97,22 +97,28 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, γ
         burns = 1:n_burn;
         burn_de_params = deMCMC_params(burns, 1:1, chains, params, β, rng);
         burn_samples, burn_sample_ld = setup_samples(burns, chains, params);
+        burn_p = ProgressMeter.Progress(n_burn; dt = 1.0, desc = "Burn in")
         for it in burns
             for chain in chains
                 update_chain!(X, X_ld, burn_de_params, ld, γ, it, 1, chain)
             end
             update_sample!(burn_samples, burn_sample_ld, X, X_ld, it);
+            ProgressMeter.next!(burn_p)
         end
+        ProgressMeter.finish!(burn_p)
     end
 
     #sampling run
     samples, sample_ld = setup_samples(iterations, chains, params);
+    sampling_p = ProgressMeter.Progress(n_its; dt = 1.0, desc = "Sampling")
     for it in iterations
         for gen in iteration_generation, chain in chains
             update_chain!(X, X_ld, de_params, ld, γ, it, gen, chain)
         end
         update_sample!(samples, sample_ld, X, X_ld, it);
+        ProgressMeter.next!(sampling_p)
     end
+    ProgressMeter.finish!(sampling_p)
 
     #format output
     output = (
