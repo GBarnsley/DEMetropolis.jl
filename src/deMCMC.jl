@@ -1,6 +1,6 @@
 module deMCMC
 export run_deMCMC
-import Random
+import Random, TransformedLogDensities, LogDensityProblems
 
 struct deMCMC_params
     βs::Array{Float64, 4}
@@ -131,6 +131,14 @@ function run_deMCMC(ld::Function, dim; n_its = 1000, n_burn = 5000, n_thin = 1, 
     end
 
     return output
+end
+
+function run_deMCMC(ld::TransformedLogDensity; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = nothing, γ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG)
+    function _ld_func(x)
+        LogDensityProblems.logdensity(ld, x)
+    end
+
+    run_deMCMC(_ld_func, LogDensityProblems.dimension(ld); n_its = n_its, n_burn = n_burn, n_thin = n_thin, n_chains = n_chains, γ = γ, β = β, rng = rng)
 end
 
 end
