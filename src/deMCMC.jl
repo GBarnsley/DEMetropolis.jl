@@ -74,8 +74,16 @@ function update_chain!(X, X_ld, de_params::deMCMC_params, ld, γ, it, gen, chain
     end
 end
 
-function run_deMCMC(ld::Function, dim; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = 10, γ = 0.1, β = 0.1, rng = Random.GLOBAL_RNG)
+function run_deMCMC(ld::Function, dim; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = nothing, γ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG)
     
+    if isnothing(γ)
+        γ = 2.38/sqrt(2*dim);
+    end
+
+    if isnothing(n_chains)
+        n_chains = dim * 2;
+    end
+
     # pre deMCMC setup
     iterations = 1:n_its;
     iteration_generation = 1:n_thin;
@@ -99,8 +107,6 @@ function run_deMCMC(ld::Function, dim; n_its = 1000, n_burn = 5000, n_thin = 1, 
             update_sample!(burn_samples, burn_sample_ld, X, X_ld, it);
         end
     end
-
-    (prod(size(burn_de_params.acceptances)) + prod(size(de_params.acceptances)) * 0.250)/60/60
 
     #sampling run
     samples, sample_ld = setup_samples(iterations, chains, params);
