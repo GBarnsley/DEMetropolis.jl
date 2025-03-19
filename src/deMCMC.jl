@@ -123,7 +123,7 @@ function update_chains!(X, X_ld, de_params::deMCMC_params_parallel, ld, γ, it, 
     end
 end
 
-function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, γ, β, rng, parallel)
+function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, γ, β, rng, parallel, save_burnt)
 
     dim = size(initial_state, 2);
 
@@ -132,11 +132,8 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, γ
     end
 
     # pre deMCMC setup
-    iterations = 1:n_its;
-    iteration_generation = 1:n_thin;
     chains = 1:n_chains;
     params = 1:dim;
-    de_params = deMCMC_params(iterations, iteration_generation, chains, params, β, rng, parallel);
 
     X = copy(initial_state);
     X_ld = map(x -> ld(x), eachrow(X));
@@ -145,17 +142,25 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, γ
     if n_burn > 0
         burns = 1:n_burn;
         burn_de_params = deMCMC_params(burns, 1:1, chains, params, β, rng, parallel);
-        burn_samples, burn_sample_ld = setup_samples(burns, chains, params);
         burn_p = ProgressMeter.Progress(n_burn; dt = 1.0, desc = "Burn in")
+        if save_burnt
+            burn_samples, burn_sample_ld = setup_samples(burns, chains, params);
+        end
         for it in burns
             update_chains!(X, X_ld, burn_de_params, ld, γ, it, 1, chains);
-            update_sample!(burn_samples, burn_sample_ld, X, X_ld, it);
+            if save_burnt
+                update_sample!(burn_samples, burn_sample_ld, X, X_ld, it);
+            end
             ProgressMeter.next!(burn_p)
         end
         ProgressMeter.finish!(burn_p)
     end
 
     #sampling run
+    iterations = 1:n_its;
+    iteration_generation = 1:n_thin;
+    de_params = deMCMC_params(iterations, iteration_generation, chains, params, β, rng, parallel);
+
     samples, sample_ld = setup_samples(iterations, chains, params);
     sampling_p = ProgressMeter.Progress(n_its; dt = 1.0, desc = "Sampling")
     for it in iterations
@@ -170,7 +175,7 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, γ
         samples = samples,
         ld = sample_ld
     )
-    if n_burn > 0
+    if n_burn > 0 && save_burnt
         output = (
             output...,
             burnt_samples = burn_samples,
@@ -182,7 +187,13 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, γ
 end
 
 
-function run_deMCMC(ld::Function, initial_state::Array{Float64, 2}; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = nothing, γ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false)
+function run_deMCMC_defaults(; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = nothing, γ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false, save_burnt = false, kwargs...)
+    (; n_its, n_burn, n_thin, n_chains, γ, β, rng, parallel, save_burnt, kwargs...)
+end
+
+
+function run_deMCMC(ld::Function, initial_state::Array{Float64, 2}; kwargs...)
+    (; n_its, n_burn, n_thin, n_chains, γ, β, rng, parallel, save_burnt) = run_deMCMC_defaults(;kwargs...)
 
     dim = size(initial_state, 2);
 
@@ -206,11 +217,13 @@ function run_deMCMC(ld::Function, initial_state::Array{Float64, 2}; n_its = 1000
         true_initial_state = initial_state[Random.randperm(rng, n_initial_state_chains)[1:n_chains], :];
     end
 
-    run_deMCMC_inner(ld, true_initial_state; n_its = n_its, n_burn = n_burn, n_thin = n_thin, n_chains = n_chains, γ = γ, β = β, rng = rng, parallel = parallel)
+    run_deMCMC_inner(ld, true_initial_state; n_its = n_its, n_burn = n_burn, n_thin = n_thin, n_chains = n_chains, γ = γ, β = β, rng = rng, parallel = parallel, save_burnt = save_burnt)
 end
 
-function run_deMCMC(ld::Function, dim::Int; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = nothing, γ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false)
+function run_deMCMC(ld::Function, dim::Int; kwargs...)
     
+    (; n_its, n_burn, n_thin, n_chains, γ, β, rng, parallel, save_burnt) = run_deMCMC_defaults(; kwargs...)
+
     if isnothing(n_chains)
         n_chains = dim * 2;
     end
@@ -218,23 +231,29 @@ function run_deMCMC(ld::Function, dim::Int; n_its = 1000, n_burn = 5000, n_thin 
     #setup population with random initial values
     initial_state = randn(rng, n_chains, dim);
 
-    run_deMCMC_inner(ld, initial_state; n_its = n_its, n_burn = n_burn, n_thin = n_thin, n_chains = n_chains, γ = γ, β = β, rng = rng, parallel = parallel)
+    run_deMCMC_inner(ld, initial_state; n_its = n_its, n_burn = n_burn, n_thin = n_thin, n_chains = n_chains, γ = γ, β = β, rng = rng, parallel = parallel, save_burnt = save_burnt)
 end 
 
-function run_deMCMC(ld::TransformedLogDensities.TransformedLogDensity, initial_state::Array{Float64, 2}; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = nothing, γ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false)
+function run_deMCMC(ld::TransformedLogDensities.TransformedLogDensity, initial_state::Array{Float64, 2}; kwargs...)
+    
+    (; n_its, n_burn, n_thin, n_chains, γ, β, rng, parallel, save_burnt) = run_deMCMC_defaults(; kwargs...)
+
     function _ld_func(x)
         LogDensityProblems.logdensity(ld, x)
     end
 
-    run_deMCMC(_ld_func, initial_state; n_its = n_its, n_burn = n_burn, n_thin = n_thin, n_chains = n_chains, γ = γ, β = β, rng = rng, parallel = parallel)
+    run_deMCMC(_ld_func, initial_state; n_its = n_its, n_burn = n_burn, n_thin = n_thin, n_chains = n_chains, γ = γ, β = β, rng = rng, parallel = parallel, save_burnt = save_burnt)
 end
 
-function run_deMCMC(ld::TransformedLogDensities.TransformedLogDensity; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = nothing, γ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false)
+function run_deMCMC(ld::TransformedLogDensities.TransformedLogDensity; kwargs...) 
+    
+    (; n_its, n_burn, n_thin, n_chains, γ, β, rng, parallel, save_burnt) = run_deMCMC_defaults(; kwargs...)
+
     function _ld_func(x)
         LogDensityProblems.logdensity(ld, x)
     end
 
-    run_deMCMC(_ld_func, LogDensityProblems.dimension(ld); n_its = n_its, n_burn = n_burn, n_thin = n_thin, n_chains = n_chains, γ = γ, β = β, rng = rng, parallel = parallel)
+    run_deMCMC(_ld_func, LogDensityProblems.dimension(ld); n_its = n_its, n_burn = n_burn, n_thin = n_thin, n_chains = n_chains, γ = γ, β = β, rng = rng, parallel = parallel, save_burnt = save_burnt)
 end
 end
 
