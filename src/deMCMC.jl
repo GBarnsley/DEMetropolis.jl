@@ -123,6 +123,42 @@ function update_chains!(X, X_ld, de_params::deMCMC_params_parallel, ld, γ, it, 
     end
 end
 
+function partition_integer(I::Int, n::Int)
+    base = I ÷ n  # Base size of each group
+    remainder = I % n  # Remaining units to distribute
+
+    # Create n groups: first 'remainder' groups get (base + 1), the rest get 'base'
+    return vcat(fill(base + 1, remainder), fill(base, n - remainder))
+end
+
+function generate_epochs(n_its, n_thin, n_chains, epoch_limit)
+    total_its = n_its * n_chains * n_thin;
+    n_epoch = Int(ceil(total_its / epoch_limit));
+    its_per_epoch = partition_integer(n_its, n_epoch)
+    epochs = 1:n_epoch;
+    return epochs, its_per_epoch
+end
+
+function evolution_epoch!(X, X_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, β, γ, rng, parallel, p)
+    iterations = 1:(its_per_epoch[epoch]);
+    de_params = deMCMC_params(iterations, iteration_generation, chains, params, β, rng, parallel);
+    for it in iterations
+        update_chains!(X, X_ld, de_params, ld, γ, it, iteration_generation, chains);
+        ProgressMeter.next!(p)
+    end
+end
+
+function evolution_epoch_sample!(X, X_ld, samples, sample_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, β, γ, rng, parallel, p)
+    iterations = 1:(its_per_epoch[epoch]);
+    it_offset = sum(its_per_epoch[1:(epoch - 1)]);
+    de_params = deMCMC_params(iterations, iteration_generation, chains, params, β, rng, parallel);
+    for it in iterations
+        update_chains!(X, X_ld, de_params, ld, γ, it, iteration_generation, chains);
+        update_sample!(samples, sample_ld, X, X_ld, it + it_offset);
+        ProgressMeter.next!(p)
+    end
+end
+
 function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, γ, β, rng, parallel, save_burnt)
 
     dim = size(initial_state, 2);
@@ -138,35 +174,32 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, γ
     X = copy(initial_state);
     X_ld = map(x -> ld(x), eachrow(X));
 
+    epoch_limit = max(1e6, n_chains * dim * 1000); #define this better
+
     #burn in run
     if n_burn > 0
-        burns = 1:n_burn;
-        burn_de_params = deMCMC_params(burns, 1:1, chains, params, β, rng, parallel);
         burn_p = ProgressMeter.Progress(n_burn; dt = 1.0, desc = "Burn in")
         if save_burnt
-            burn_samples, burn_sample_ld = setup_samples(burns, chains, params);
+            burn_samples, burn_sample_ld = setup_samples(1:n_burn, chains, params);
         end
-        for it in burns
-            update_chains!(X, X_ld, burn_de_params, ld, γ, it, 1, chains);
+        epochs, its_per_epoch = generate_epochs(n_burn, 1, n_chains, epoch_limit);
+        for epoch in epochs
             if save_burnt
-                update_sample!(burn_samples, burn_sample_ld, X, X_ld, it);
+                evolution_epoch_sample!(X, X_ld, burn_samples, burn_sample_ld, epoch, its_per_epoch, ld, 1:1, chains, params, β, γ, rng, parallel, burn_p);
+            else
+                evolution_epoch!(X, X_ld, epoch, its_per_epoch, ld, 1:1, chains, params, β, γ, rng, parallel, burn_p);
             end
-            ProgressMeter.next!(burn_p)
         end
         ProgressMeter.finish!(burn_p)
     end
 
     #sampling run
-    iterations = 1:n_its;
     iteration_generation = 1:n_thin;
-    de_params = deMCMC_params(iterations, iteration_generation, chains, params, β, rng, parallel);
-
-    samples, sample_ld = setup_samples(iterations, chains, params);
+    epochs, its_per_epoch = generate_epochs(n_its, n_thin, n_chains, epoch_limit);
+    samples, sample_ld = setup_samples(1:n_its, chains, params);
     sampling_p = ProgressMeter.Progress(n_its; dt = 1.0, desc = "Sampling")
-    for it in iterations
-        update_chains!(X, X_ld, de_params, ld, γ, it, iteration_generation, chains);
-        update_sample!(samples, sample_ld, X, X_ld, it);
-        ProgressMeter.next!(sampling_p)
+    for epoch in epochs
+        evolution_epoch_sample!(X, X_ld, samples, sample_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, β, γ, rng, parallel, sampling_p);
     end
     ProgressMeter.finish!(sampling_p)
 
@@ -255,6 +288,23 @@ function run_deMCMC(ld::TransformedLogDensities.TransformedLogDensity; kwargs...
 
     run_deMCMC(_ld_func, LogDensityProblems.dimension(ld); n_its = n_its, n_burn = n_burn, n_thin = n_thin, n_chains = n_chains, γ = γ, β = β, rng = rng, parallel = parallel, save_burnt = save_burnt)
 end
+
+#function ld(x)
+#    # normal distribution
+#    return sum(-0.5 .* ((x .- [1.0, -1.0]) .^ 2))
+#end
+#dim = 2
+#
+#n_its = 1000
+#n_burn = 5000
+#n_thin = 1
+#n_chains = 100
+#γ = 0.5
+#β = 1e-4
+#rng = Random.GLOBAL_RNG
+#parallel = false
+#save_burnt = true
+
 end
 
 #function ld(x)
@@ -270,14 +320,18 @@ end
 #@time output = deMCMC.run_deMCMC(ld, dim; n_its = 1000, n_burn = 5000, n_thin = 10, n_chains = 100, parallel = true);
 #
 #
-#@time output = deMCMC.run_deMCMC(ld, dim; n_its = 10, n_burn = 5000, n_thin = 100, n_chains = 1000);
-#@time output = deMCMC.run_deMCMC(ld, dim; n_its = 10, n_burn = 5000, n_thin = 100, n_chains = 1000, parallel = true);
+#
+#@time output = deMCMC.run_deMCMC(ld, dim; n_its = 100, n_burn = 5000, n_thin = 10, n_chains = 1000, save_burnt = true);
+#@time output = deMCMC.run_deMCMC(ld, dim; n_its = 100, n_burn = 5000, n_thin = 10, n_chains = 1000, parallel = true, save_burnt = true);
+#
+#size(output.samples)
+#size(output.burnt_samples)
 #
 #
 #
 #plot(cat(
-#    output.burnt_samples[:, 1, 1],
-#    output.samples[:, 1, 1],
+#    #output.burnt_samples[:, 1:20:1000, 1],
+#    output.samples[:, 1:20:1000, 1],
 #    dims = 1
 #))
 #
