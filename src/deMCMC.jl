@@ -2,18 +2,32 @@ module deMCMC
 export run_deMCMC
 import Random, TransformedLogDensities, LogDensityProblems, Logging, ProgressMeter, OhMyThreads
 
-struct deMCMC_params
+abstract type deMCMC_params_base end
+
+struct deMCMC_params <: deMCMC_params_base
     βs::Array{Float64, 4}
     acceptances::Array{Float64, 3}
     chain_draws_1::Array{Int64, 3}
     chain_draws_2::Array{Int64, 3}
 end
 
-struct deMCMC_params_parallel
+struct deMCMC_params_rγ <: deMCMC_params_base
+    γs::Array{Float64, 3}
+    base_params::deMCMC_params
+end
+
+abstract type deMCMC_params_base_parallel end
+
+struct deMCMC_params_parallel <: deMCMC_params_base_parallel
     βs::Array{Float64, 4}
     acceptances::Array{Float64, 3}
     chain_draws_1::Array{Int64, 3}
     chain_draws_2::Array{Int64, 3}
+end
+
+struct deMCMC_params_parallel_rγ <: deMCMC_params_base_parallel
+    βs::Array{Float64, 4}
+    base_params::deMCMC_params_parallel
 end
 
 function generate_random_numbers(rng, iterations, iteration_generation, chains; S = Float64)
@@ -46,7 +60,7 @@ function update_sample!(samples, sample_ld, X, X_ld, it)
     sample_ld[it, :] .= X_ld;
 end
 
-function deMCMC_params(iterations, iteration_generation, chains, params, β, rng, parallel)
+function deMCMC_params(iterations, iteration_generation, chains, params, β, rng, parallel, deterministic_γ)
 
     #random β values
     βs = (generate_random_numbers(rng, iterations, iteration_generation, chains, params) .- 0.5) .* 2 .* β;
@@ -67,13 +81,23 @@ function deMCMC_params(iterations, iteration_generation, chains, params, β, rng
         chain_draws_2[i, j, k] = setdiff(other_chains[k], chain_draws_1[i, j, k])[chain_draws_2[i, j, k]]
     end
     
-    if parallel
-        return deMCMC_params_parallel(βs, acceptances, chain_draws_1, chain_draws_2)
+    if deterministic_γ
+        if parallel
+            return deMCMC_params_parallel(βs, acceptances, chain_draws_1, chain_draws_2)
+        else
+            return deMCMC_params(βs, acceptances, chain_draws_1, chain_draws_2)
+        end
     else
-        return deMCMC_params(βs, acceptances, chain_draws_1, chain_draws_2)
+        #random γ values
+        γs = (generate_random_numbers(rng, iterations, iteration_generation, chains) .* 0.5) .+ 0.5;
+        if parallel
+            return deMCMC_params_parallel_rγ(βs, γs, acceptances, chain_draws_1, chain_draws_2)
+        else
+            return deMCMC_params_rγ(βs, γs, acceptances, chain_draws_1, chain_draws_2)
+        end
     end
 end
-
+#alternative idea, split chains into 3 and then do each grouping at a time where group 1 samples group 2 and 3
 function update_chain!(X, X_ld, de_params::deMCMC_params, ld, γ, it, gen, chain)
     r1 = select_element(de_params.chain_draws_1, it, gen, chain);
     r2 = select_element(de_params.chain_draws_2, it, gen, chain);
@@ -83,6 +107,10 @@ function update_chain!(X, X_ld, de_params::deMCMC_params, ld, γ, it, gen, chain
         X[chain, :] .= xₚ;
         X_ld[chain] = ld_xₚ;
     end
+end
+
+function update_chain!(X, X_ld, de_params::deMCMC_params_rγ, ld, γ, it, gen, chain)
+    update_chain!(X, X_ld, de_params.param, ld, select_element(de_params.γs, it, gen, chain), it, gen, chain);
 end
 
 function update_chain(X, X_ld, de_params::deMCMC_params_parallel, ld, γ, it, gen, chain)
@@ -97,7 +125,11 @@ function update_chain(X, X_ld, de_params::deMCMC_params_parallel, ld, γ, it, ge
     end
 end
 
-function update_chains!(X, X_ld, de_params::deMCMC_params, ld, γ, it, iteration_generation, chains)
+function update_chain(X, X_ld, de_params::deMCMC_params_parallel_rγ, ld, γ, it, gen, chain)
+    update_chain(X, X_ld, de_params.param, ld, select_element(de_params.γs, it, gen, chain), it, gen, chain)
+end
+
+function update_chains!(X, X_ld, de_params::deMCMC_params_base, ld, γ, it, iteration_generation, chains)
     for gen in iteration_generation, chain in chains
         update_chain!(X, X_ld, de_params, ld, γ, it, gen, chain)
     end
@@ -110,7 +142,7 @@ function combine_chains(x1, x2)
     )
 end
 
-function update_chains!(X, X_ld, de_params::deMCMC_params_parallel, ld, γ, it, iteration_generation, chains)
+function update_chains!(X, X_ld, de_params::deMCMC_params_base_parallel, ld, γ, it, iteration_generation, chains)
     for gen in iteration_generation
         #slightly different algorithm where we update all chains in parallel based on the previous generation
         output = OhMyThreads.tmapreduce(
@@ -139,19 +171,19 @@ function generate_epochs(n_its, n_thin, n_chains, epoch_limit)
     return epochs, its_per_epoch
 end
 
-function evolution_epoch!(X, X_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, β, γ, rng, parallel, p)
+function evolution_epoch!(X, X_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, β, γ, rng, parallel, p, deterministic_γ)
     iterations = 1:(its_per_epoch[epoch]);
-    de_params = deMCMC_params(iterations, iteration_generation, chains, params, β, rng, parallel);
+    de_params = deMCMC_params(iterations, iteration_generation, chains, params, β, rng, parallel, deterministic_γ);
     for it in iterations
         update_chains!(X, X_ld, de_params, ld, γ, it, iteration_generation, chains);
         ProgressMeter.next!(p)
     end
 end
 
-function evolution_epoch_sample!(X, X_ld, samples, sample_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, β, γ, rng, parallel, p)
+function evolution_epoch_sample!(X, X_ld, samples, sample_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, β, γ, rng, parallel, p, deterministic_γ)
     iterations = 1:(its_per_epoch[epoch]);
     it_offset = sum(its_per_epoch[1:(epoch - 1)]);
-    de_params = deMCMC_params(iterations, iteration_generation, chains, params, β, rng, parallel);
+    de_params = deMCMC_params(iterations, iteration_generation, chains, params, β, rng, parallel, deterministic_γ);
     for it in iterations
         update_chains!(X, X_ld, de_params, ld, γ, it, iteration_generation, chains);
         update_sample!(samples, sample_ld, X, X_ld, it + it_offset);
@@ -159,12 +191,14 @@ function evolution_epoch_sample!(X, X_ld, samples, sample_ld, epoch, its_per_epo
     end
 end
 
-function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, γ, β, rng, parallel, save_burnt)
+function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, γ, β, rng, parallel, save_burnt, deterministic_γ)
 
     dim = size(initial_state, 2);
 
     if isnothing(γ)
-        γ = 2.38/sqrt(2*dim);
+        if deterministic_γ
+            γ = 2.38/sqrt(2*dim);
+        end
     end
 
     # pre deMCMC setup
@@ -185,9 +219,9 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, γ
         epochs, its_per_epoch = generate_epochs(n_burn, 1, n_chains, epoch_limit);
         for epoch in epochs
             if save_burnt
-                evolution_epoch_sample!(X, X_ld, burn_samples, burn_sample_ld, epoch, its_per_epoch, ld, 1:1, chains, params, β, γ, rng, parallel, burn_p);
+                evolution_epoch_sample!(X, X_ld, burn_samples, burn_sample_ld, epoch, its_per_epoch, ld, 1:1, chains, params, β, γ, rng, parallel, burn_p, deterministic_γ);
             else
-                evolution_epoch!(X, X_ld, epoch, its_per_epoch, ld, 1:1, chains, params, β, γ, rng, parallel, burn_p);
+                evolution_epoch!(X, X_ld, epoch, its_per_epoch, ld, 1:1, chains, params, β, γ, rng, parallel, burn_p, deterministic_γ);
             end
         end
         ProgressMeter.finish!(burn_p)
@@ -199,7 +233,7 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, γ
     samples, sample_ld = setup_samples(1:n_its, chains, params);
     sampling_p = ProgressMeter.Progress(n_its; dt = 1.0, desc = "Sampling")
     for epoch in epochs
-        evolution_epoch_sample!(X, X_ld, samples, sample_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, β, γ, rng, parallel, sampling_p);
+        evolution_epoch_sample!(X, X_ld, samples, sample_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, β, γ, rng, parallel, sampling_p, deterministic_γ);
     end
     ProgressMeter.finish!(sampling_p)
 
@@ -220,13 +254,13 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, γ
 end
 
 
-function run_deMCMC_defaults(; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = nothing, γ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false, save_burnt = false, kwargs...)
-    (; n_its, n_burn, n_thin, n_chains, γ, β, rng, parallel, save_burnt, kwargs...)
+function run_deMCMC_defaults(; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = nothing, γ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false, save_burnt = false, deterministic_γ = true, kwargs...)
+    (; n_its, n_burn, n_thin, n_chains, γ, β, rng, parallel, save_burnt, deterministic_γ, kwargs...)
 end
 
 
 function run_deMCMC(ld::Function, initial_state::Array{Float64, 2}; kwargs...)
-    (; n_its, n_burn, n_thin, n_chains, γ, β, rng, parallel, save_burnt) = run_deMCMC_defaults(;kwargs...)
+    (; n_its, n_burn, n_thin, n_chains, γ, β, rng, parallel, save_burnt, deterministic_γ) = run_deMCMC_defaults(;kwargs...)
 
     dim = size(initial_state, 2);
 
@@ -250,7 +284,7 @@ function run_deMCMC(ld::Function, initial_state::Array{Float64, 2}; kwargs...)
         true_initial_state = initial_state[Random.randperm(rng, n_initial_state_chains)[1:n_chains], :];
     end
 
-    run_deMCMC_inner(ld, true_initial_state; n_its = n_its, n_burn = n_burn, n_thin = n_thin, n_chains = n_chains, γ = γ, β = β, rng = rng, parallel = parallel, save_burnt = save_burnt)
+    run_deMCMC_inner(ld, true_initial_state; n_its = n_its, n_burn = n_burn, n_thin = n_thin, n_chains = n_chains, γ = γ, β = β, rng = rng, parallel = parallel, save_burnt = save_burnt, deterministic_γ = deterministic_γ)
 end
 
 function run_deMCMC(ld::Function, dim::Int; kwargs...)
