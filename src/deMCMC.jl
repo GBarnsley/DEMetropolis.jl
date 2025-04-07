@@ -26,7 +26,7 @@ struct deMCMC_params_parallel <: deMCMC_params_base_parallel
 end
 
 struct deMCMC_params_parallel_rγ <: deMCMC_params_base_parallel
-    βs::Array{Float64, 4}
+    γs::Array{Float64, 3}
     base_params::deMCMC_params_parallel
 end
 
@@ -91,9 +91,9 @@ function deMCMC_params(iterations, iteration_generation, chains, params, β, rng
         #random γ values
         γs = (generate_random_numbers(rng, iterations, iteration_generation, chains) .* 0.5) .+ 0.5;
         if parallel
-            return deMCMC_params_parallel_rγ(βs, γs, acceptances, chain_draws_1, chain_draws_2)
+            return deMCMC_params_parallel_rγ(γs, deMCMC_params_parallel(βs, acceptances, chain_draws_1, chain_draws_2))
         else
-            return deMCMC_params_rγ(βs, γs, acceptances, chain_draws_1, chain_draws_2)
+            return deMCMC_params_rγ(γs, deMCMC_params(βs, acceptances, chain_draws_1, chain_draws_2))
         end
     end
 end
@@ -110,7 +110,7 @@ function update_chain!(X, X_ld, de_params::deMCMC_params, ld, γ, it, gen, chain
 end
 
 function update_chain!(X, X_ld, de_params::deMCMC_params_rγ, ld, γ, it, gen, chain)
-    update_chain!(X, X_ld, de_params.param, ld, select_element(de_params.γs, it, gen, chain), it, gen, chain);
+    update_chain!(X, X_ld, de_params.base_params, ld, select_element(de_params.γs, it, gen, chain), it, gen, chain);
 end
 
 function update_chain(X, X_ld, de_params::deMCMC_params_parallel, ld, γ, it, gen, chain)
@@ -126,7 +126,7 @@ function update_chain(X, X_ld, de_params::deMCMC_params_parallel, ld, γ, it, ge
 end
 
 function update_chain(X, X_ld, de_params::deMCMC_params_parallel_rγ, ld, γ, it, gen, chain)
-    update_chain(X, X_ld, de_params.param, ld, select_element(de_params.γs, it, gen, chain), it, gen, chain)
+    update_chain(X, X_ld, de_params.base_params, ld, select_element(de_params.γs, it, gen, chain), it, gen, chain)
 end
 
 function update_chains!(X, X_ld, de_params::deMCMC_params_base, ld, γ, it, iteration_generation, chains)
@@ -289,7 +289,7 @@ end
 
 function run_deMCMC(ld::Function, dim::Int; kwargs...)
     
-    (; n_its, n_burn, n_thin, n_chains, γ, β, rng, parallel, save_burnt) = run_deMCMC_defaults(; kwargs...)
+    (; n_its, n_burn, n_thin, n_chains, γ, β, rng, parallel, save_burnt, deterministic_γ) = run_deMCMC_defaults(; kwargs...)
 
     if isnothing(n_chains)
         n_chains = dim * 2;
@@ -298,29 +298,25 @@ function run_deMCMC(ld::Function, dim::Int; kwargs...)
     #setup population with random initial values
     initial_state = randn(rng, n_chains, dim);
 
-    run_deMCMC_inner(ld, initial_state; n_its = n_its, n_burn = n_burn, n_thin = n_thin, n_chains = n_chains, γ = γ, β = β, rng = rng, parallel = parallel, save_burnt = save_burnt)
+    run_deMCMC_inner(ld, initial_state; n_its = n_its, n_burn = n_burn, n_thin = n_thin, n_chains = n_chains, γ = γ, β = β, rng = rng, parallel = parallel, save_burnt = save_burnt, deterministic_γ = deterministic_γ)
 end 
 
 function run_deMCMC(ld::TransformedLogDensities.TransformedLogDensity, initial_state::Array{Float64, 2}; kwargs...)
-    
-    (; n_its, n_burn, n_thin, n_chains, γ, β, rng, parallel, save_burnt) = run_deMCMC_defaults(; kwargs...)
 
     function _ld_func(x)
         LogDensityProblems.logdensity(ld, x)
     end
 
-    run_deMCMC(_ld_func, initial_state; n_its = n_its, n_burn = n_burn, n_thin = n_thin, n_chains = n_chains, γ = γ, β = β, rng = rng, parallel = parallel, save_burnt = save_burnt)
+    run_deMCMC(_ld_func, initial_state;  kwargs...)
 end
 
 function run_deMCMC(ld::TransformedLogDensities.TransformedLogDensity; kwargs...) 
-    
-    (; n_its, n_burn, n_thin, n_chains, γ, β, rng, parallel, save_burnt) = run_deMCMC_defaults(; kwargs...)
 
     function _ld_func(x)
         LogDensityProblems.logdensity(ld, x)
     end
 
-    run_deMCMC(_ld_func, LogDensityProblems.dimension(ld); n_its = n_its, n_burn = n_burn, n_thin = n_thin, n_chains = n_chains, γ = γ, β = β, rng = rng, parallel = parallel, save_burnt = save_burnt)
+    run_deMCMC(_ld_func, LogDensityProblems.dimension(ld);  kwargs...)
 end
 
 #function ld(x)
@@ -346,9 +342,9 @@ end
 #    return sum(-0.5 .* ((x .- [1.0, -1.0]) .^ 2))
 #end
 #dim = 2
-#
-#output = deMCMC.run_deMCMC(ld, dim; n_its = 1000, n_burn = 5000, n_thin = 10, n_chains = 100);
-#output = deMCMC.run_deMCMC(ld, dim; n_its = 1000, n_burn = 5000, n_thin = 10, n_chains = 100, parallel = true);
+##
+#output = deMCMC.run_deMCMC(ld, dim; n_its = 1000, n_burn = 5000, n_thin = 10, n_chains = 100, deterministic_γ = false);
+#output = deMCMC.run_deMCMC(ld, dim; n_its = 1000, n_burn = 5000, n_thin = 10, n_chains = 100, parallel = true, deterministic_γ = false);
 #
 #@time output = deMCMC.run_deMCMC(ld, dim; n_its = 1000, n_burn = 5000, n_thin = 10, n_chains = 100);
 #@time output = deMCMC.run_deMCMC(ld, dim; n_its = 1000, n_burn = 5000, n_thin = 10, n_chains = 100, parallel = true);
