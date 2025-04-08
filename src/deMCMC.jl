@@ -604,7 +604,7 @@ function update_chain_live!(X, X_ld, it, chain, ld, γ, γₛ, r1, i1, r2, i2, s
     end
 end
 
-function update_chains_live_parallel!(X, X_ld, it, chains, n_chains, γ, γₛ, β, deterministic_γ, snooker_p, rng)
+function update_chains_live_parallel!(X, X_ld, it, chains, ld, n_chains, dim, γ, γₛ, β, deterministic_γ, snooker_p, rng)
     r1 = [rand(rng, setdiff(chains, chain)) for chain in chains];
     r2 = [rand(rng, setdiff(chains, [chain, r1])) for (chain, r1) in enumerate(r1)];
     i1 = rand(rng, 1:it, length(chains));
@@ -619,13 +619,21 @@ function update_chains_live_parallel!(X, X_ld, it, chains, n_chains, γ, γₛ, 
     end
     βs = rand(rng, n_chains, dim) .- 0.5 .* 2 .* β;
     acceptances = log.(rand(rng, n_chains));
-    OhMyThreads.tmap(
-        x -> update_chain_live!(X, X_ld, it, x, ld, γ, γₛ, r1[x], i1[x], r2[x], i2[x], snooker[x], snooker_i[x], βs[x, :], acceptances[x]),
-        chains
-    );
+    if !deterministic_γ
+        γs = (rand(rng, n_chains) .* 0.5) .+ 0.5;
+        OhMyThreads.tmap(
+            x -> update_chain_live!(X, X_ld, it, x, ld, γs[x], γs[x], r1[x], i1[x], r2[x], i2[x], snooker[x], snooker_i[x], βs[x, :], acceptances[x]),
+            chains
+        );
+    else
+        OhMyThreads.tmap(
+            x -> update_chain_live!(X, X_ld, it, x, ld, γ, γₛ, r1[x], i1[x], r2[x], i2[x], snooker[x], snooker_i[x], βs[x, :], acceptances[x]),
+            chains
+        );
+    end
 end
 
-function update_chains_live!(X, X_ld, it, chains, n_chains, γ, γₛ, β, deterministic_γ, snooker_p, rng)
+function update_chains_live!(X, X_ld, it, chains, ld, n_chains, dim, γ, γₛ, β, deterministic_γ, snooker_p, rng)
     for chain in chains
         r1 = rand(rng, setdiff(chains, chain))
         if rand(rng) < snooker_p
@@ -634,24 +642,38 @@ function update_chains_live!(X, X_ld, it, chains, n_chains, γ, γₛ, β, deter
         else
             snooker_r = 0;
             snooker_i = 0;
+        end    
+        if !deterministic_γ
+            γ_rand = (rand(rng) .* 0.5) .+ 0.5;
+            update_chain_live!(
+                X, X_ld, it, chain, ld, γ_rand, γ_rand, 
+                r1,
+                rand(rng, 1:it),
+                rand(rng, setdiff(chains, [chain, r1])),
+                rand(rng, 1:it),
+                snooker_r, snooker_i,
+                rand(rng, dim) .- 0.5 .* 2 .* β,
+                log.(rand(rng))
+            );
+        else
+            update_chain_live!(
+                X, X_ld, it, chain, ld, γ, γₛ, 
+                r1,
+                rand(rng, 1:it),
+                rand(rng, setdiff(chains, [chain, r1])),
+                rand(rng, 1:it),
+                snooker_r, snooker_i,
+                rand(rng, dim),
+                log.(rand(rng))
+            );
         end
-        update_chain_live!(
-            X, X_ld, it, chain, ld, γ, γₛ, 
-            r1,
-            rand(rng, 1:it),
-            rand(rng, setdiff(chains, [chain, r1])),
-            rand(rng, 1:it),
-            snooker_r, snooker_i,
-            rand(rng, dim),
-            log.(rand(rng))
-        );
     end
 end
 
 function chains_converged(X, max_it)
     #check chain via IQR
     rhat = MCMCDiagnosticTools.rhat(X[Int(ceil(max_it * 0.5)):max_it, :, :])
-    println("Rhat: ", rhat)
+    println("Rhat: ", round.(rhat, sigdigits = 3))
     if all(rhat .< 1.2)
         return true
     else
@@ -660,7 +682,7 @@ function chains_converged(X, max_it)
 end
 
 function run_deMCMC_live_inner(ld, initial_state; n_its, n_chains, rng, save_burnt, fitting_parameters)
-    (; check_every, γ, γₛ, β, deterministic_γ, snooker_p, parallel) = fitting_parameters
+    (; check_every, γ, γₛ, β, deterministic_γ, snooker_p, parallel, epoch_limit) = fitting_parameters
 
     dim = size(initial_state, 2);
 
@@ -695,10 +717,10 @@ function run_deMCMC_live_inner(ld, initial_state; n_its, n_chains, rng, save_bur
     max_it = current_it + check_every - 2;
     not_converged = true;
 
-    while not_converged
+    while not_converged && epoch <= epoch_limit
         p = ProgressMeter.Progress(n_its; dt = 1.0, desc = "Epoch " * string(epoch) * ":")
         for it in current_it:max_it
-            update_func(X, X_ld, it, chains, n_chains, γ, γₛ, β, deterministic_γ, snooker_p, rng);
+            update_func(X, X_ld, it, chains, ld, n_chains, dim, γ, γₛ, β, deterministic_γ, snooker_p, rng);
             ProgressMeter.next!(p)
         end
         ProgressMeter.finish!(p)
@@ -744,8 +766,8 @@ function run_deMCMC_live_inner(ld, initial_state; n_its, n_chains, rng, save_bur
 end
 
 
-function run_deMCMC_live_defaults(; n_its = 1000, check_every = 5000, n_chains = nothing, γ = nothing, γₛ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false, save_burnt = false, deterministic_γ = true, snooker_p = 0.1, kwargs...)
-    fitting_parameters = (; check_every, γ, γₛ, β, deterministic_γ, snooker_p, parallel);
+function run_deMCMC_live_defaults(; n_its = 1000, check_every = 5000, n_chains = nothing, γ = nothing, γₛ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false, save_burnt = false, deterministic_γ = true, snooker_p = 0.1, epoch_limit = 100, kwargs...)
+    fitting_parameters = (; check_every, γ, γₛ, β, deterministic_γ, snooker_p, parallel, epoch_limit);
     (; n_its, n_chains, rng, save_burnt, fitting_parameters, kwargs...)
 end
 
@@ -823,13 +845,13 @@ end
 
 #using MCMCDiagnosticTools, Plots
 #function ld(x)
-#    # normal distribution
-#    return sum(-0.5 .* ((x .- [1.0, -1.0]) .^ 2))
+#    # bendy banana 
+#    return (x[1]^2/2) + ((x[2] - x[1]^2)^2 * 2)
 #end
 #dim = 2
 #
-##output = deMCMC.run_deMCMC(ld, dim; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = 100, deterministic_γ = false, memory = true, parallel = true);
-#output = deMCMC.run_deMCMC_live(ld, dim; n_its = 1000, check_every = 5000, n_chains = 100, deterministic_γ = true, parallel = true);
+#output = deMCMC.run_deMCMC(ld, dim; n_its = 1000, n_burn = 10000, n_thin = 1, n_chains = 20, deterministic_γ = true, memory = true, parallel = true);
+#output = deMCMC.run_deMCMC_live(ld, dim; n_its = 1000, check_every = 10000, n_chains = 20, deterministic_γ = true, parallel = true, save_burnt = true);
 #
 #println(ess_rhat(output.samples))
 #plot(
