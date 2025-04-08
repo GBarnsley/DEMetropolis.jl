@@ -109,17 +109,13 @@ function deMCMC_params(iterations, iteration_generation, chains, params, rng, fi
     end
 end
 
-function orthogonal_projection(x₁, l, x₂, l_dot_product)
-    return x₂ .+ (l .* LinearAlgebra.dot(x₁ .- x₂, l) ./ l_dot_product)
-end
-
 function snooker_update(X, chain, r1, r2, snooker_r, ld, γₛ)
-    line = X[chain, :] .- X[snooker_r, :];
-    line_dot_product = LinearAlgebra.dot(line, line);
-    xₚ = X[chain, :] .+ γₛ .* (orthogonal_projection(X[r1, :], line, X[snooker_r, :], line_dot_product) .- orthogonal_projection(X[r2, :], line, X[snooker_r, :], line_dot_product))
+    diff = X[r1, :] .- X[r2, :];
+    e = LinearAlgebra.normalize(X[snooker_r, :] .- X[chain, :]);
+    xₚ = X[chain, :] .+ γₛ .* LinearAlgebra.dot(diff, e) .* e;
     (
         xₚ,
-        ld(xₚ) + (size(X, 2) - 1) * (LinearAlgebra.norm(xₚ .- X[snooker_r, :]) - LinearAlgebra.norm(line))
+        ld(xₚ) + (size(X, 2) - 1) * (LinearAlgebra.norm(X[snooker_r, :] .- xₚ) - LinearAlgebra.norm(X[snooker_r, :] .- X[chain, :]))
     )
 end
 
@@ -362,10 +358,10 @@ function run_deMCMC(ld::TransformedLogDensities.TransformedLogDensity; kwargs...
     run_deMCMC(_ld_func, LogDensityProblems.dimension(ld);  kwargs...)
 end
 
-#function ld(x)
-#    # normal distribution
-#    return sum(-0.5 .* ((x .- [1.0, -1.0]) .^ 2))
-#end
+function ld(x)
+    # normal distribution
+    return sum(-0.5 .* ((x .- [1.0, -1.0]) .^ 2))
+end
 #dim = 2
 #
 #n_its = 1000
