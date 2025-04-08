@@ -115,7 +115,7 @@ function snooker_update(X, chain, r1, r2, snooker_r, ld, γₛ)
     xₚ = X[chain, :] .+ γₛ .* LinearAlgebra.dot(diff, e) .* e;
     (
         xₚ,
-        ld(xₚ) + (size(X, 2) - 1) * (LinearAlgebra.norm(X[snooker_r, :] .- xₚ) - LinearAlgebra.norm(X[snooker_r, :] .- X[chain, :]))
+        ld(xₚ) + (size(X, 2) - 1) * (log(LinearAlgebra.norm(X[snooker_r, :] .- xₚ)) - log(LinearAlgebra.norm(X[snooker_r, :] .- X[chain, :])))
     )
 end
 
