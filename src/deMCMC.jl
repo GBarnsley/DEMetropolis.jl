@@ -1,6 +1,6 @@
 module deMCMC
 export run_deMCMC
-import Random, TransformedLogDensities, LogDensityProblems, Logging, ProgressMeter, OhMyThreads, LinearAlgebra, StatsBase, Logging
+import Random, TransformedLogDensities, LogDensityProblems, Logging, ProgressMeter, OhMyThreads, LinearAlgebra, StatsBase, Logging, MCMCDiagnosticTools
 
 abstract type deMCMC_params_base end
 
@@ -396,6 +396,16 @@ function outlier_chains(X_ld, current_its)
     )
 end
 
+function replace_outlier_chains!(X, X_ld, its)
+    outliers, best_chain = outlier_chains(X_ld, its[end] + 1);
+    if length(outliers) > 0
+        @warn string(length(outliers)) * " outlier chains detected, setting to current best chain"
+        #remove outliers
+        X_ld[its .+ 1, outliers] .= X_ld[its .+ 1, best_chain];
+        X[its .+ 1, outliers, :] .= X[its .+ 1, best_chain:best_chain, :];
+    end
+end
+
 function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rng, save_burnt, fitting_parameters)
 
     dim = size(initial_state, 2);
@@ -441,13 +451,7 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rn
         for (epoch, its) in enumerate(check_epochs)
             evolution_epoch!(X, X_ld, de_params, ld, γ, γₛ, its, chains, update_func, "Burn Epoch " * string(epoch) * ":");
 
-            outliers, best_chain = outlier_chains(X_ld, its[end] + 1);
-            if length(outliers) > 0
-                @warn string(length(outliers)) * " outlier chains detected, setting to current best chain"
-                #remove outliers
-                X_ld[its .+ 1, outliers] .= X_ld[its .+ 1, best_chain];
-                X[its .+ 1, outliers, :] .= X[its .+ 1, best_chain:best_chain, :];
-            end
+            replace_outlier_chains!(X, X_ld, its);
         end
 
         evolution_epoch!(X, X_ld, de_params, ld, γ, γₛ, final_epoch, chains, update_func, "Burn Epoch Final:");
@@ -515,8 +519,8 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rn
 end
 
 
-function run_deMCMC_defaults(; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = nothing, γ = nothing, γₛ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false, save_burnt = false, deterministic_γ = true, snooker_p = 0.1, memory = false, check_chain_epochs = 1, check_chain_add = false, kwargs...)
-    fitting_parameters = (; γ, γₛ, β, parallel, deterministic_γ, snooker_p, memory, check_chain_epochs, check_chain_add);
+function run_deMCMC_defaults(; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = nothing, γ = nothing, γₛ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false, save_burnt = false, deterministic_γ = true, snooker_p = 0.1, memory = false, check_chain_epochs = 1, kwargs...)
+    fitting_parameters = (; γ, γₛ, β, parallel, deterministic_γ, snooker_p, memory, check_chain_epochs);
     (; n_its, n_burn, n_thin, n_chains, rng, save_burnt, fitting_parameters, kwargs...)
 end
 
@@ -581,12 +585,237 @@ function run_deMCMC(ld::TransformedLogDensities.TransformedLogDensity; kwargs...
     run_deMCMC(_ld_func, LogDensityProblems.dimension(ld);  kwargs...)
 end
 
+function update_chain_live!(X, X_ld, it, chain, ld, γ, γₛ, r1, i1, r2, i2, snooker, snooker_i, βs, acceptance)
+    if snooker > 0
+        xₚ, ld_xₚ = snooker_update(
+            X[it, chain, :], X[i1, r1, :], X[i2, r2, :], X[snooker_i, snooker, :], ld, γₛ
+        );
+    else
+        xₚ, ld_xₚ = de_update(
+            X[it, chain, :], X[i1, r1, :], X[i2, r2, :], ld, γ, βs
+        );
+    end
+    if (ld_xₚ - X_ld[it, chain]) > acceptance
+        X[it + 1, chain, :] .= xₚ;
+        X_ld[it + 1, chain] = ld_xₚ;
+    else 
+        X[it + 1, chain, :] .= X[it, chain, :];
+        X_ld[it + 1, chain] = X_ld[it, chain];
+    end
+end
+
+function update_chains_live_parallel!(X, X_ld, it, chains, n_chains, γ, γₛ, β, deterministic_γ, snooker_p, rng)
+    r1 = [rand(rng, setdiff(chains, chain)) for chain in chains];
+    r2 = [rand(rng, setdiff(chains, [chain, r1])) for (chain, r1) in enumerate(r1)];
+    i1 = rand(rng, 1:it, length(chains));
+    i2 = rand(rng, 1:it, length(chains));
+    snooker = zeros(Int64, size(r1));
+    snooker_i = zeros(Int64, size(r1));
+    for c in chains
+        if rand(rng) < snooker_p
+            snooker[c] = rand(rng, setdiff(chains, c));
+            snooker_i[c] = rand(rng, 1:it);
+        end
+    end
+    βs = rand(rng, n_chains, dim) .- 0.5 .* 2 .* β;
+    acceptances = log.(rand(rng, n_chains));
+    OhMyThreads.tmap(
+        x -> update_chain_live!(X, X_ld, it, x, ld, γ, γₛ, r1[x], i1[x], r2[x], i2[x], snooker[x], snooker_i[x], βs[x, :], acceptances[x]),
+        chains
+    );
+end
+
+function update_chains_live!(X, X_ld, it, chains, n_chains, γ, γₛ, β, deterministic_γ, snooker_p, rng)
+    for chain in chains
+        r1 = rand(rng, setdiff(chains, chain))
+        if rand(rng) < snooker_p
+            snooker_r = rand(rng, setdiff(chains, chain));
+            snooker_i = rand(rng, 1:it);
+        else
+            snooker_r = 0;
+            snooker_i = 0;
+        end
+        update_chain_live!(
+            X, X_ld, it, chain, ld, γ, γₛ, 
+            r1,
+            rand(rng, 1:it),
+            rand(rng, setdiff(chains, [chain, r1])),
+            rand(rng, 1:it),
+            snooker_r, snooker_i,
+            rand(rng, dim),
+            log.(rand(rng))
+        );
+    end
+end
+
+function chains_converged(X, max_it)
+    #check chain via IQR
+    rhat = MCMCDiagnosticTools.rhat(X[Int(ceil(max_it * 0.5)):max_it, :, :])
+    println("Rhat: ", rhat)
+    if all(rhat .< 1.2)
+        return true
+    else
+        return false
+    end
+end
+
+function run_deMCMC_live_inner(ld, initial_state; n_its, n_chains, rng, save_burnt, fitting_parameters)
+    (; check_every, γ, γₛ, β, deterministic_γ, snooker_p, parallel) = fitting_parameters
+
+    dim = size(initial_state, 2);
+
+    if isnothing(fitting_parameters.γ) && fitting_parameters.deterministic_γ
+        γ = 2.38/sqrt(2*dim);
+    else 
+        γ = fitting_parameters.γ
+    end
+
+    if isnothing(fitting_parameters.γₛ) && fitting_parameters.deterministic_γ
+        γₛ = 2.38/sqrt(2);
+    else 
+        γₛ = fitting_parameters.γₛ
+    end
+
+    chains = 1:n_chains;
+    params = 1:dim; 
+
+    X = Array{Float64}(undef, check_every, n_chains, dim);
+    X_ld = Array{Float64}(undef, check_every, n_chains);
+    X[1, :, :] .= initial_state;
+    X_ld[1, :] .= map(x -> ld(x), eachrow(initial_state));
+
+    if parallel
+        update_func = update_chains_live_parallel!
+    else
+        update_func = update_chains_live!
+    end
+
+    current_it = 1;
+    epoch = 1;
+    max_it = current_it + check_every - 2;
+    not_converged = true;
+
+    while not_converged
+        p = ProgressMeter.Progress(n_its; dt = 1.0, desc = "Epoch " * string(epoch) * ":")
+        for it in current_it:max_it
+            update_func(X, X_ld, it, chains, n_chains, γ, γₛ, β, deterministic_γ, snooker_p, rng);
+            ProgressMeter.next!(p)
+        end
+        ProgressMeter.finish!(p)
+        #check if converaged
+        if chains_converged(X, max_it)
+            println("Chains converged, stopping sampling")
+            not_converged = false;
+        else
+            #check for outliers
+            replace_outlier_chains!(X, X_ld, 1:max_it);
+            #make space
+            current_it = max_it + 1;
+            max_it = current_it + check_every - 1;
+            X = cat(X, Array{Float64}(undef, check_every, n_chains, dim), dims = 1);
+            X_ld = cat(X_ld, Array{Float64}(undef, check_every, n_chains), dims = 1);
+            epoch = epoch + 1;
+        end
+    end
+
+    #format samples
+    if save_burnt
+        burn_samples = X;
+        burn_sample_ld = X_ld;
+    end
+    #thin the last half to the desired amount
+    min_viable = Int(round((max_it+1)/2));
+    indices = min_viable .+ cumsum(partition_integer(max_it + 1 - min_viable, n_its));
+    samples = X[indices, :, :];
+    sample_ld = X_ld[indices, :];
+
+    output = (
+        samples = samples,
+        ld = sample_ld
+    )
+    if save_burnt
+        output = (
+            output...,
+            burnt_samples = burn_samples,
+            burnt_ld = burn_sample_ld
+        )
+    end
+    return output
+end
+
+
+function run_deMCMC_live_defaults(; n_its = 1000, check_every = 5000, n_chains = nothing, γ = nothing, γₛ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false, save_burnt = false, deterministic_γ = true, snooker_p = 0.1, kwargs...)
+    fitting_parameters = (; check_every, γ, γₛ, β, deterministic_γ, snooker_p, parallel);
+    (; n_its, n_chains, rng, save_burnt, fitting_parameters, kwargs...)
+end
+
+
+function run_deMCMC_live(ld::Function, initial_state::Array{Float64, 2}; kwargs...)
+    (; n_its, n_chains, rng, save_burnt, fitting_parameters) = run_deMCMC_live_defaults(;kwargs...)
+
+    dim = size(initial_state, 2);
+
+    if isnothing(n_chains)
+        n_chains = size(initial_state, 1);
+    end
+
+    if n_chains <= dim
+        @warn "n_chains ≤ the number of variables, sampler will perform poorly"
+    end
+
+    #check initial state matches
+    n_initial_state_chains = size(initial_state, 1);
+    if n_initial_state_chains == n_chains
+        true_initial_state = copy(initial_state);
+    elseif n_initial_state_chains < n_chains
+        @warn "initial_state has fewer chains than n_chains, adding random chains"
+        true_initial_state = cat(initial_state, randn(rng, n_chains - n_initial_state_chains, dim), dims = 1);
+    else
+        @warn "initial_state has more chains than n_chains, removing chains at random"
+        true_initial_state = initial_state[Random.randperm(rng, n_initial_state_chains)[1:n_chains], :];
+    end
+
+    run_deMCMC_live_inner(ld, true_initial_state; n_its = n_its, n_chains = n_chains, rng = rng, save_burnt = save_burnt, fitting_parameters = fitting_parameters)
+end
+
+function run_deMCMC_live(ld::Function, dim::Int; kwargs...)
+    
+    (; n_its, n_chains, rng, save_burnt, fitting_parameters) = run_deMCMC_live_defaults(;kwargs...)
+
+    if isnothing(n_chains)
+        n_chains = dim * 2;
+    end
+
+    #setup population with random initial values
+    initial_state = randn(rng, n_chains, dim);
+
+    run_deMCMC_live_inner(ld, initial_state; n_its = n_its, n_chains = n_chains, rng = rng, save_burnt = save_burnt, fitting_parameters = fitting_parameters)
+end 
+
+function run_deMCMC_live(ld::TransformedLogDensities.TransformedLogDensity, initial_state::Array{Float64, 2}; kwargs...)
+
+    function _ld_func(x)
+        LogDensityProblems.logdensity(ld, x)
+    end
+
+    run_deMCMC_live(_ld_func, initial_state;  kwargs...)
+end
+
+function run_deMCMC_live(ld::TransformedLogDensities.TransformedLogDensity; kwargs...) 
+
+    function _ld_func(x)
+        LogDensityProblems.logdensity(ld, x)
+    end
+
+    run_deMCMC_live(_ld_func, LogDensityProblems.dimension(ld);  kwargs...)
+end
+
 #function ld(x)
 #    # normal distribution
 #    return sum(-0.5 .* ((x .- [1.0, -1.0]) .^ 2))
 #end
 #dim = 2
-#(; n_its, n_burn, n_thin, n_chains, rng, save_burnt, fitting_parameters) = run_deMCMC_defaults();
+#(; n_its, n_chains, rng, save_burnt, fitting_parameters) = run_deMCMC_live_defaults();
 #n_chains = 50;
 #initial_state = randn(rng, n_chains, dim);
 
@@ -599,7 +828,9 @@ end
 #end
 #dim = 2
 #
-#output = deMCMC.run_deMCMC(ld, dim; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = 100, deterministic_γ = false, memory = true, parallel = true);
+##output = deMCMC.run_deMCMC(ld, dim; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = 100, deterministic_γ = false, memory = true, parallel = true);
+#output = deMCMC.run_deMCMC_live(ld, dim; n_its = 1000, check_every = 5000, n_chains = 100, deterministic_γ = true, parallel = true);
+#
 #println(ess_rhat(output.samples))
 #plot(
 #    output.ld
