@@ -388,7 +388,7 @@ end
 
 function outlier_chains(X_ld, current_its)
     #check chain via IQR
-    ld_means = StatsBase.mean(X_ld[Int(ceil(current_its * 0.5)):current_its, :], dims = 1)[1, :];
+    ld_means = StatsBase.mean(X_ld[halve(current_its):current_its, :], dims = 1)[1, :];
     q₁ = StatsBase.quantile(ld_means, 0.25);
     (
         findall(ld_means .< q₁ - 2 * (StatsBase.quantile(ld_means, 0.75) - q₁)),
@@ -403,6 +403,47 @@ function replace_outlier_chains!(X, X_ld, its)
         #remove outliers
         X_ld[its .+ 1, outliers] .= X_ld[its .+ 1, best_chain];
         X[its .+ 1, outliers, :] .= X[its .+ 1, best_chain:best_chain, :];
+        return true
+    else
+        return false
+    end
+end
+
+function halve(i::Int)
+    Int(ceil(i * 0.5))
+end
+
+function poorly_mixing_chains(X, current_its)
+    #calculate average acceptance
+    acceptances = Array{Int64}(undef, size(X, 2));
+    h_its = halve(current_its);
+    for i in h_its:current_its
+        for j in axes(acceptances, 1)        
+            acceptances[j] += X[i-1, j, :] != X[i, j, :];
+        end
+    end
+
+    p_acceptance = acceptances ./ (current_its - h_its);
+
+    (
+        findall(p_acceptance .< 0.05),
+        argmax(abs.(p_acceptance .- 0.24))
+    )
+end
+
+function replace_poorly_mixing_chains!(X, X_ld, its)
+    poorly_mixing, best_chain = poorly_mixing_chains(X_ld, its[end] + 1);
+    if length(poorly_mixing) > size(X, 2) * 0.75
+        @warn "Majority of chains poorly mixing, making no change for diversity"
+        return false
+    elseif length(poorly_mixing) > 0
+        @warn string(length(poorly_mixing)) * " poorly mixed chains detected, setting to current best chain"
+        #remove outliers
+        X_ld[its .+ 1, poorly_mixing] .= X_ld[its .+ 1, best_chain];
+        X[its .+ 1, poorly_mixing, :] .= X[its .+ 1, best_chain:best_chain, :];
+        return true
+    else
+        return false
     end
 end
 
@@ -452,6 +493,7 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rn
             evolution_epoch!(X, X_ld, de_params, ld, γ, γₛ, its, chains, update_func, "Burn Epoch " * string(epoch) * ":");
 
             replace_outlier_chains!(X, X_ld, its);
+            replace_poorly_mixing_chains!(X, X_ld, its);
         end
 
         evolution_epoch!(X, X_ld, de_params, ld, γ, γₛ, final_epoch, chains, update_func, "Burn Epoch Final:");
@@ -670,9 +712,12 @@ function update_chains_live!(X, X_ld, it, chains, ld, n_chains, dim, γ, γₛ, 
     end
 end
 
-function chains_converged(X, max_it)
+function chains_converged(X, max_it; min_viable = nothing)
     #check chain via IQR
-    rhat = MCMCDiagnosticTools.rhat(X[Int(ceil(max_it * 0.5)):max_it, :, :])
+    if isnothing(min_viable)
+        min_viable = halve(max_it);
+    end
+    rhat = MCMCDiagnosticTools.rhat(X[min_viable:max_it, :, :])
     println("Rhat: ", round.(rhat, sigdigits = 3))
     if all(rhat .< 1.2)
         return true
@@ -698,6 +743,10 @@ function run_deMCMC_live_inner(ld, initial_state; n_its, n_chains, rng, save_bur
         γₛ = fitting_parameters.γₛ
     end
 
+    if n_its > check_every
+        @error "n_its > check_every, sampler cannot perform"
+    end
+
     chains = 1:n_chains;
     params = 1:dim; 
 
@@ -715,6 +764,7 @@ function run_deMCMC_live_inner(ld, initial_state; n_its, n_chains, rng, save_bur
     current_it = 1;
     epoch = 1;
     max_it = current_it + check_every - 2;
+    min_viable = halve(max_it+1);
     not_converged = true;
 
     while not_converged && epoch <= epoch_limit
@@ -725,18 +775,26 @@ function run_deMCMC_live_inner(ld, initial_state; n_its, n_chains, rng, save_bur
         end
         ProgressMeter.finish!(p)
         #check if converaged
-        if chains_converged(X, max_it)
+        if chains_converged(X, max_it; min_viable = min_viable)
             println("Chains converged, stopping sampling")
             not_converged = false;
         else
             #check for outliers
-            replace_outlier_chains!(X, X_ld, 1:max_it);
+            if replace_outlier_chains!(X, X_ld, 1:max_it)
+                #since we've replace outliers, before the current iteration we have identical chains
+                #so we can only sample from this point onwards
+                min_viable = max_it;
+            end
+            if replace_poorly_mixing_chains!(X, X_ld, 1:max_it)
+                min_viable = max_it;
+            end
             #make space
             current_it = max_it + 1;
             max_it = current_it + check_every - 1;
             X = cat(X, Array{Float64}(undef, check_every, n_chains, dim), dims = 1);
             X_ld = cat(X_ld, Array{Float64}(undef, check_every, n_chains), dims = 1);
             epoch = epoch + 1;
+            min_viable = max(min_viable, halve(max_it+1));
         end
     end
 
@@ -746,7 +804,6 @@ function run_deMCMC_live_inner(ld, initial_state; n_its, n_chains, rng, save_bur
         burn_sample_ld = X_ld;
     end
     #thin the last half to the desired amount
-    min_viable = Int(round((max_it+1)/2));
     indices = min_viable .+ cumsum(partition_integer(max_it + 1 - min_viable, n_its));
     samples = X[indices, :, :];
     sample_ld = X_ld[indices, :];
@@ -848,7 +905,7 @@ end
 #    # bendy banana 
 #    return (x[1]^2/2) + ((x[2] - x[1]^2)^2 * 2)
 #end
-#dim = 2
+#dim = 2;
 #
 #output = deMCMC.run_deMCMC(ld, dim; n_its = 1000, n_burn = 10000, n_thin = 1, n_chains = 20, deterministic_γ = true, memory = true, parallel = true);
 #output = deMCMC.run_deMCMC_live(ld, dim; n_its = 1000, check_every = 10000, n_chains = 20, deterministic_γ = true, parallel = true, save_burnt = true);
