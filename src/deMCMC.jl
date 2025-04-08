@@ -32,6 +32,29 @@ struct deMCMC_params_parallel_rγ <: deMCMC_params_base_parallel
     base_params::deMCMC_params_parallel
 end
 
+abstract type deMCMC_params_base_memory end
+
+struct deMCMC_params_memory <: deMCMC_params_base_memory
+    βs::Array{Float64, 3}
+    acceptances::Array{Float64, 2}
+    chain_draws_1::Array{Int64, 2}
+    memory_draws_1::Array{Int64, 2}
+    chain_draws_2::Array{Int64, 2}
+    memory_draws_2::Array{Int64, 2}
+    snooker_draw::Array{Int64, 2}
+    snooker_draw_memory::Array{Int64, 2}
+end
+
+struct deMCMC_params_memory_rγ <: deMCMC_params_base_memory
+    γs::Array{Float64, 2}
+    base_params::deMCMC_params_memory
+end
+
+function generate_random_numbers(rng, iterations, chains; S = Float64)
+    # could try vectors of vectors?
+    rand(rng, S,  length(iterations), length(chains))
+end
+
 function generate_random_numbers(rng, iterations, iteration_generation, chains; S = Float64)
     # could try vectors of vectors?
     rand(rng, S,  length(iterations), length(iteration_generation), length(chains))
@@ -40,6 +63,10 @@ end
 function generate_random_numbers(rng, iterations, iteration_generation, chains, params; S = Float64)
     # could try vectors of vectors?
     rand(rng, S,  length(iterations), length(iteration_generation), length(chains), length(params))
+end
+
+function select_element(object, iteration, chain)
+    object[iteration, chain]
 end
 
 function select_element(object, iteration, generation, chain)
@@ -109,18 +136,76 @@ function deMCMC_params(iterations, iteration_generation, chains, params, rng, fi
     end
 end
 
-function snooker_update(X, chain, r1, r2, snooker_r, ld, γₛ)
-    diff = X[r1, :] .- X[r2, :];
-    e = LinearAlgebra.normalize(X[snooker_r, :] .- X[chain, :]);
-    xₚ = X[chain, :] .+ γₛ .* LinearAlgebra.dot(diff, e) .* e;
+
+function deMCMC_params(iterations, chains, params, rng, fitting_parameters)
+    (; β, deterministic_γ, snooker_p) = fitting_parameters;
+
+    #random β values
+    βs = (generate_random_numbers(rng, iterations, chains, params) .- 0.5) .* 2 .* β;
+
+    #random acceptance values
+    acceptances = log.(generate_random_numbers(rng, iterations, chains));
+
+    other_chains = map(x -> setdiff(chains, [x]), chains);
+
+    #random chain draws
+    chain_draws_1 = generate_random_numbers(rng, iterations, chains, S = 1:(length(chains) - 1));
+    for j in axes(chain_draws_1, 2)
+        chain_draws_1[:, j] .= other_chains[j][chain_draws_1[:, j]]
+    end
+
+    chain_draws_2 = generate_random_numbers(rng, iterations, chains, S = 1:(length(chains) - 2));
+    for i in axes(chain_draws_2, 1), j in axes(chain_draws_2, 2)
+        chain_draws_2[i, j] = setdiff(other_chains[j], chain_draws_1[i, j])[chain_draws_2[i, j]]
+    end
+    
+    #memory draws
+    memory_draws_1 = similar(chain_draws_1);
+    memory_draws_2 = similar(chain_draws_2);
+    for i in axes(memory_draws_1, 1)
+        past_iterations = 1:i;
+        memory_draws_1[i, :] .= rand(rng, past_iterations, length(chains));
+        memory_draws_2[i, :] .= rand(rng, past_iterations, length(chains));
+    end
+
+    #random chance of a snooker update
+    snooker_draw = zeros(Int64, size(chain_draws_2));
+    snooker_draw_memory = zeros(Int64, size(chain_draws_2));
+    for i in axes(snooker_draw, 1), j in axes(snooker_draw, 2)
+        if rand(rng) < snooker_p
+            snooker_draw[i, j] = rand(rng, other_chains[j])
+            snooker_draw_memory[i, j] = rand(rng, 1:i)
+        end
+    end
+
+    if deterministic_γ
+        return deMCMC_params_memory(
+            βs, acceptances, chain_draws_1, memory_draws_1, chain_draws_2, memory_draws_2, snooker_draw, snooker_draw_memory
+        )
+    else
+        #random γ values
+        γs = (generate_random_numbers(rng, iterations, chains) .* 0.5) .+ 0.5;
+        deMCMC_params_memory_rγ(
+            γs, 
+            deMCMC_params_memory(
+                βs, acceptances, chain_draws_1, memory_draws_1, chain_draws_2, memory_draws_2, snooker_draw, snooker_draw_memory
+            )
+        )
+    end
+end
+
+function snooker_update(x, x₁, x₂, xₐ, ld, γₛ)
+    diff = x₁ .- x₂;
+    e = LinearAlgebra.normalize(xₐ .- x);
+    xₚ = x .+ γₛ .* LinearAlgebra.dot(diff, e) .* e;
     (
         xₚ,
-        ld(xₚ) + (size(X, 2) - 1) * (log(LinearAlgebra.norm(X[snooker_r, :] .- xₚ)) - log(LinearAlgebra.norm(X[snooker_r, :] .- X[chain, :])))
+        ld(xₚ) + (length(x) - 1) * (log(LinearAlgebra.norm(xₐ .- xₚ)) - log(LinearAlgebra.norm(xₐ .- x)))
     )
 end
 
-function de_update(X, chain, r1, r2, ld, γ, β)
-    xₚ = X[chain, :] .+ γ .* (X[r1, :] .- X[r2, :]) .+ β
+function de_update(x, x₁, x₂, ld, γ, β)
+    xₚ = x .+ γ .* (x₁ .- x₂) .+ β
     (
         xₚ,
         ld(xₚ)
@@ -133,9 +218,13 @@ function update_chain!(X, X_ld, de_params::deMCMC_params, ld, γ, γₛ, it, gen
     r2 = select_element(de_params.chain_draws_2, it, gen, chain);
     snooker_r = select_element(de_params.snooker_draw, it, gen, chain);
     if snooker_r > 0
-        xₚ, ld_xₚ = snooker_update(X, chain, r1, r2, snooker_r, ld, γₛ);
+        xₚ, ld_xₚ = snooker_update(
+            X[chain, :], X[r1, :], X[r2, :], X[snooker_r, :], ld, γₛ
+        );
     else
-        xₚ, ld_xₚ = de_update(X, chain, r1, r2, ld, γ, select_element(de_params.βs, it, gen, chain, :));
+        xₚ, ld_xₚ = de_update(
+            X[chain, :], X[r1, :], X[r2, :], ld, γ, select_element(de_params.βs, it, gen, chain, :)
+        );
     end
     if (ld_xₚ - X_ld[chain]) > select_element(de_params.acceptances, it, gen, chain)
         X[chain, :] .= xₚ;
@@ -154,9 +243,13 @@ function update_chain(X, X_ld, de_params::deMCMC_params_parallel, ld, γ, γₛ,
     r2 = select_element(de_params.chain_draws_2, it, gen, chain);
     snooker_r = select_element(de_params.snooker_draw, it, gen, chain);
     if snooker_r > 0
-        xₚ, ld_xₚ = snooker_update(X, chain, r1, r2, snooker_r, ld, γₛ);
+        xₚ, ld_xₚ = snooker_update(
+            X[chain, :], X[r1, :], X[r2, :], X[snooker_r, :], ld, γₛ
+        );
     else
-        xₚ, ld_xₚ = de_update(X, chain, r1, r2, ld, γ, select_element(de_params.βs, it, gen, chain, :));
+        xₚ, ld_xₚ = de_update(
+            X[chain, :], X[r1, :], X[r2, :], ld, γ, select_element(de_params.βs, it, gen, chain, :)
+        );
     end
     if (ld_xₚ - X_ld[chain]) > select_element(de_params.acceptances, it, gen, chain)
         return (xₚ', ld_xₚ)
@@ -195,6 +288,52 @@ function update_chains!(X, X_ld, de_params::deMCMC_params_base_parallel, ld, γ,
         X .= output[1];
         X_ld .= output[2];
     end
+end
+
+function update_chain!(X, X_ld, de_params::deMCMC_params_memory, ld, γ, γₛ, it, chain)
+    r1 = select_element(de_params.chain_draws_1, it, chain);
+    i1 = select_element(de_params.memory_draws_1, it, chain);
+    r2 = select_element(de_params.chain_draws_2, it, chain);
+    i2 = select_element(de_params.memory_draws_2, it, chain);
+    snooker_r = select_element(de_params.snooker_draw, it, chain);
+    if snooker_r > 0
+        xₚ, ld_xₚ = snooker_update(
+            X[it, chain, :], X[i1, r1, :], X[i2, r2, :], X[select_element(de_params.snooker_draw_memory, it, chain), snooker_r, :], ld, γₛ
+        );
+    else
+        xₚ, ld_xₚ = de_update(
+            X[it, chain, :], X[i1, r1, :], X[i2, r2, :], ld, γ, select_element(de_params.βs, it, chain, :)
+        );
+    end
+    if (ld_xₚ - X_ld[it, chain]) > select_element(de_params.acceptances, it, chain)
+        X[it + 1, chain, :] .= xₚ;
+        X_ld[it + 1, chain] = ld_xₚ;
+    else 
+        X[it + 1, chain, :] .= X[it, chain, :];
+        X_ld[it + 1, chain] = X_ld[it, chain];
+    end
+end
+
+function update_chain!(X, X_ld, de_params::deMCMC_params_memory_rγ, ld, γ, γₛ, it, chain)
+    update_chain!(X, X_ld, de_params.base_params, ld, 
+        select_element(de_params.γs, it, chain), select_element(de_params.γs, it, chain), 
+    it, chain);
+end
+
+function update_chains_threaded!(X, X_ld, de_params::deMCMC_params_base_memory, ld, γ, γₛ, it, chains)
+    #slightly different algorithm where we update all chains in parallel based on the previous generation
+    OhMyThreads.tmap(
+        x -> update_chain!(X, X_ld, de_params, ld, γ, γₛ, it, x),
+        chains
+    );
+end
+
+function update_chains!(X, X_ld, de_params::deMCMC_params_base_memory, ld, γ, γₛ, it, chains)
+    #slightly different algorithm where we update all chains in parallel based on the previous generation
+    map(
+        x -> update_chain!(X, X_ld, de_params, ld, γ, γₛ, it, x),
+        chains
+    );
 end
 
 function partition_integer(I::Int, n::Int)
@@ -249,41 +388,78 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rn
         γₛ = fitting_parameters.γₛ
     end
 
-    # pre deMCMC setup
     chains = 1:n_chains;
-    params = 1:dim;
+    params = 1:dim; 
 
-    X = copy(initial_state);
-    X_ld = map(x -> ld(x), eachrow(X));
+    if fitting_parameters.memory
+        n_total_iterations = n_its * n_thin + n_burn;
+        # setup initial conditions
+        X = Array{Float64}(undef, n_total_iterations + 1, n_chains, dim);
+        X_ld = Array{Float64}(undef, n_total_iterations + 1, n_chains);
+        X[1, :, :] .= initial_state;
+        X_ld[1, :] .= map(x -> ld(x), eachrow(initial_state));
 
-    epoch_limit = max(1e6, n_chains * dim * 1000); #define this better
+        # setup parameters/
+        total_iterations = 1:n_total_iterations;
+        de_params = deMCMC_params(total_iterations, chains, params, rng, fitting_parameters);
 
-    #burn in run
-    if n_burn > 0
-        burn_p = ProgressMeter.Progress(n_burn; dt = 1.0, desc = "Burn in")
-        if save_burnt
-            burn_samples, burn_sample_ld = setup_samples(1:n_burn, chains, params);
-        end
-        epochs, its_per_epoch = generate_epochs(n_burn, 1, n_chains, epoch_limit);
-        for epoch in epochs
-            if save_burnt
-                evolution_epoch_sample!(X, X_ld, burn_samples, burn_sample_ld, epoch, its_per_epoch, ld, 1:1, chains, params, rng, burn_p, fitting_parameters, γ, γₛ);
-            else
-                evolution_epoch!(X, X_ld, epoch, its_per_epoch, ld, 1:1, chains, params, rng, burn_p, fitting_parameters, γ, γₛ);
+        p = ProgressMeter.Progress(n_total_iterations; dt = 1.0, desc = "Sampling (adaptive memory):")
+        #iterate
+        if fitting_parameters.parallel
+            for it in total_iterations
+                update_chains_threaded!(X, X_ld, de_params, ld, γ, γₛ, it, chains);
+                ProgressMeter.next!(p)
+            end
+        else
+            for it in total_iterations
+                update_chains!(X, X_ld, de_params, ld, γ, γₛ, it, chains);
+                ProgressMeter.next!(p)
             end
         end
-        ProgressMeter.finish!(burn_p)
-    end
+        ProgressMeter.finish!(p)
+        #sort out samples
+        if save_burnt
+            burn_indices = (1:n_burn) .+ 1;
+            burn_samples = X[burn_indices, :, :];
+            burn_sample_ld = X_ld[burn_indices, :];
+        end
+        indices = ((n_burn + 1):n_thin:(n_total_iterations)) .+ 1;
+        samples = X[indices, :, :];
+        sample_ld = X_ld[indices, :];
+    else
+        # pre deMCMC setup
+        X = copy(initial_state);
+        X_ld = map(x -> ld(x), eachrow(X));
 
-    #sampling run
-    iteration_generation = 1:n_thin;
-    epochs, its_per_epoch = generate_epochs(n_its, n_thin, n_chains, epoch_limit);
-    samples, sample_ld = setup_samples(1:n_its, chains, params);
-    sampling_p = ProgressMeter.Progress(n_its; dt = 1.0, desc = "Sampling")
-    for epoch in epochs
-        evolution_epoch_sample!(X, X_ld, samples, sample_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, rng, sampling_p, fitting_parameters, γ, γₛ);
+        epoch_limit = max(1e6, n_chains * dim * 1000); #define this better
+
+        #burn in run
+        if n_burn > 0
+            burn_p = ProgressMeter.Progress(n_burn; dt = 1.0, desc = "Burn in")
+            if save_burnt
+                burn_samples, burn_sample_ld = setup_samples(1:n_burn, chains, params);
+            end
+            epochs, its_per_epoch = generate_epochs(n_burn, 1, n_chains, epoch_limit);
+            for epoch in epochs
+                if save_burnt
+                    evolution_epoch_sample!(X, X_ld, burn_samples, burn_sample_ld, epoch, its_per_epoch, ld, 1:1, chains, params, rng, burn_p, fitting_parameters, γ, γₛ);
+                else
+                    evolution_epoch!(X, X_ld, epoch, its_per_epoch, ld, 1:1, chains, params, rng, burn_p, fitting_parameters, γ, γₛ);
+                end
+            end
+            ProgressMeter.finish!(burn_p)
+        end
+
+        #sampling run
+        iteration_generation = 1:n_thin;
+        epochs, its_per_epoch = generate_epochs(n_its, n_thin, n_chains, epoch_limit);
+        samples, sample_ld = setup_samples(1:n_its, chains, params);
+        sampling_p = ProgressMeter.Progress(n_its; dt = 1.0, desc = "Sampling")
+        for epoch in epochs
+            evolution_epoch_sample!(X, X_ld, samples, sample_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, rng, sampling_p, fitting_parameters, γ, γₛ);
+        end
+        ProgressMeter.finish!(sampling_p)
     end
-    ProgressMeter.finish!(sampling_p)
 
     #format output
     output = (
@@ -297,13 +473,12 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rn
             burnt_ld = burn_sample_ld
         )
     end
-
     return output
 end
 
 
-function run_deMCMC_defaults(; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = nothing, γ = nothing, γₛ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false, save_burnt = false, deterministic_γ = true, snooker_p = 0.1, kwargs...)
-    fitting_parameters = (; γ, γₛ, β, parallel, deterministic_γ, snooker_p);
+function run_deMCMC_defaults(; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = nothing, γ = nothing, γₛ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false, save_burnt = false, deterministic_γ = true, snooker_p = 0.1, memory = false, kwargs...)
+    fitting_parameters = (; γ, γₛ, β, parallel, deterministic_γ, snooker_p, memory);
     (; n_its, n_burn, n_thin, n_chains, rng, save_burnt, fitting_parameters, kwargs...)
 end
 
@@ -368,21 +543,15 @@ function run_deMCMC(ld::TransformedLogDensities.TransformedLogDensity; kwargs...
     run_deMCMC(_ld_func, LogDensityProblems.dimension(ld);  kwargs...)
 end
 
-function ld(x)
-    # normal distribution
-    return sum(-0.5 .* ((x .- [1.0, -1.0]) .^ 2))
-end
+#function ld(x)
+#    # normal distribution
+#    return sum(-0.5 .* ((x .- [1.0, -1.0]) .^ 2))
+#end
 #dim = 2
 #
-#n_its = 1000
-#n_burn = 5000
-#n_thin = 1
-#n_chains = 100
-#γ = 0.5
-#β = 1e-4
-#rng = Random.GLOBAL_RNG
-#parallel = false
-#save_burnt = true
+#(; n_its, n_burn, n_thin, n_chains, rng, save_burnt, fitting_parameters) = run_deMCMC_defaults();
+#n_chains = 50;
+#initial_state = randn(rng, n_chains, dim);
 
 end
 
@@ -393,7 +562,7 @@ end
 #end
 #dim = 2
 #
-#output = deMCMC.run_deMCMC(ld, dim; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = 100, deterministic_γ = false);
+#output = deMCMC.run_deMCMC(ld, dim; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = 100, deterministic_γ = false, memory = true, parallel = true);
 #println(ess_rhat(output.samples))
 #plot(
 #    output.ld
