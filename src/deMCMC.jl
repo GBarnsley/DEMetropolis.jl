@@ -128,12 +128,12 @@ function de_update(X, chain, r1, r2, ld, γ, β)
 end
 
 #alternative idea, split chains into 3 and then do each grouping at a time where group 1 samples group 2 and 3
-function update_chain!(X, X_ld, de_params::deMCMC_params, ld, γ, it, gen, chain)
+function update_chain!(X, X_ld, de_params::deMCMC_params, ld, γ, γₛ, it, gen, chain)
     r1 = select_element(de_params.chain_draws_1, it, gen, chain);
     r2 = select_element(de_params.chain_draws_2, it, gen, chain);
     snooker_r = select_element(de_params.snooker_draw, it, gen, chain);
     if snooker_r > 0
-        xₚ, ld_xₚ = snooker_update(X, chain, r1, r2, snooker_r, ld, 1.7);
+        xₚ, ld_xₚ = snooker_update(X, chain, r1, r2, snooker_r, ld, γₛ);
     else
         xₚ, ld_xₚ = de_update(X, chain, r1, r2, ld, γ, select_element(de_params.βs, it, gen, chain, :));
     end
@@ -143,16 +143,18 @@ function update_chain!(X, X_ld, de_params::deMCMC_params, ld, γ, it, gen, chain
     end
 end
 
-function update_chain!(X, X_ld, de_params::deMCMC_params_rγ, ld, γ, it, gen, chain)
-    update_chain!(X, X_ld, de_params.base_params, ld, select_element(de_params.γs, it, gen, chain), it, gen, chain);
+function update_chain!(X, X_ld, de_params::deMCMC_params_rγ, ld, γ, γₛ, it, gen, chain)
+    update_chain!(X, X_ld, de_params.base_params, ld, 
+        select_element(de_params.γs, it, gen, chain), select_element(de_params.γs, it, gen, chain), 
+    it, gen, chain);
 end
 
-function update_chain(X, X_ld, de_params::deMCMC_params_parallel, ld, γ, it, gen, chain)
+function update_chain(X, X_ld, de_params::deMCMC_params_parallel, ld, γ, γₛ, it, gen, chain)
     r1 = select_element(de_params.chain_draws_1, it, gen, chain);
     r2 = select_element(de_params.chain_draws_2, it, gen, chain);
     snooker_r = select_element(de_params.snooker_draw, it, gen, chain);
     if snooker_r > 0
-        xₚ, ld_xₚ = snooker_update(X, chain, r1, r2, snooker_r, ld, 1.7);
+        xₚ, ld_xₚ = snooker_update(X, chain, r1, r2, snooker_r, ld, γₛ);
     else
         xₚ, ld_xₚ = de_update(X, chain, r1, r2, ld, γ, select_element(de_params.βs, it, gen, chain, :));
     end
@@ -163,13 +165,15 @@ function update_chain(X, X_ld, de_params::deMCMC_params_parallel, ld, γ, it, ge
     end
 end
 
-function update_chain(X, X_ld, de_params::deMCMC_params_parallel_rγ, ld, γ, it, gen, chain)
-    update_chain(X, X_ld, de_params.base_params, ld, select_element(de_params.γs, it, gen, chain), it, gen, chain)
+function update_chain(X, X_ld, de_params::deMCMC_params_parallel_rγ, ld, γ, γₛ, it, gen, chain)
+    update_chain(X, X_ld, de_params.base_params, ld, 
+        select_element(de_params.γs, it, gen, chain), select_element(de_params.γs, it, gen, chain),
+    it, gen, chain)
 end
 
-function update_chains!(X, X_ld, de_params::deMCMC_params_base, ld, γ, it, iteration_generation, chains)
+function update_chains!(X, X_ld, de_params::deMCMC_params_base, ld, γ, γₛ, it, iteration_generation, chains)
     for gen in iteration_generation, chain in chains
-        update_chain!(X, X_ld, de_params, ld, γ, it, gen, chain)
+        update_chain!(X, X_ld, de_params, ld, γ, γₛ, it, gen, chain)
     end
 end
 
@@ -180,11 +184,11 @@ function combine_chains(x1, x2)
     )
 end
 
-function update_chains!(X, X_ld, de_params::deMCMC_params_base_parallel, ld, γ, it, iteration_generation, chains)
+function update_chains!(X, X_ld, de_params::deMCMC_params_base_parallel, ld, γ, γₛ, it, iteration_generation, chains)
     for gen in iteration_generation
         #slightly different algorithm where we update all chains in parallel based on the previous generation
         output = OhMyThreads.tmapreduce(
-            x -> update_chain(X, X_ld, de_params, ld, γ, it, gen, x),
+            x -> update_chain(X, X_ld, de_params, ld, γ, γₛ, it, gen, x),
             combine_chains,
             chains
         );
@@ -209,21 +213,21 @@ function generate_epochs(n_its, n_thin, n_chains, epoch_limit)
     return epochs, its_per_epoch
 end
 
-function evolution_epoch!(X, X_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, rng, p, fitting_parameters, γ)
+function evolution_epoch!(X, X_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, rng, p, fitting_parameters, γ, γₛ)
     iterations = 1:(its_per_epoch[epoch]);
     de_params = deMCMC_params(iterations, iteration_generation, chains, params, rng, fitting_parameters);
     for it in iterations
-        update_chains!(X, X_ld, de_params, ld, γ, it, iteration_generation, chains);
+        update_chains!(X, X_ld, de_params, ld, γ, γₛ, it, iteration_generation, chains);
         ProgressMeter.next!(p)
     end
 end
 
-function evolution_epoch_sample!(X, X_ld, samples, sample_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, rng, p, fitting_parameters, γ)
+function evolution_epoch_sample!(X, X_ld, samples, sample_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, rng, p, fitting_parameters, γ, γₛ)
     iterations = 1:(its_per_epoch[epoch]);
     it_offset = sum(its_per_epoch[1:(epoch - 1)]);
     de_params = deMCMC_params(iterations, iteration_generation, chains, params, rng, fitting_parameters);
     for it in iterations
-        update_chains!(X, X_ld, de_params, ld, γ, it, iteration_generation, chains);
+        update_chains!(X, X_ld, de_params, ld, γ, γₛ, it, iteration_generation, chains);
         update_sample!(samples, sample_ld, X, X_ld, it + it_offset);
         ProgressMeter.next!(p)
     end
@@ -237,6 +241,12 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rn
         γ = 2.38/sqrt(2*dim);
     else 
         γ = fitting_parameters.γ
+    end
+
+    if isnothing(fitting_parameters.γₛ) && fitting_parameters.deterministic_γ
+        γₛ = 2.38/sqrt(2);
+    else 
+        γₛ = fitting_parameters.γₛ
     end
 
     # pre deMCMC setup
@@ -257,9 +267,9 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rn
         epochs, its_per_epoch = generate_epochs(n_burn, 1, n_chains, epoch_limit);
         for epoch in epochs
             if save_burnt
-                evolution_epoch_sample!(X, X_ld, burn_samples, burn_sample_ld, epoch, its_per_epoch, ld, 1:1, chains, params, rng, burn_p, fitting_parameters, γ);
+                evolution_epoch_sample!(X, X_ld, burn_samples, burn_sample_ld, epoch, its_per_epoch, ld, 1:1, chains, params, rng, burn_p, fitting_parameters, γ, γₛ);
             else
-                evolution_epoch!(X, X_ld, epoch, its_per_epoch, ld, 1:1, chains, params, rng, burn_p, fitting_parameters, γ);
+                evolution_epoch!(X, X_ld, epoch, its_per_epoch, ld, 1:1, chains, params, rng, burn_p, fitting_parameters, γ, γₛ);
             end
         end
         ProgressMeter.finish!(burn_p)
@@ -271,7 +281,7 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rn
     samples, sample_ld = setup_samples(1:n_its, chains, params);
     sampling_p = ProgressMeter.Progress(n_its; dt = 1.0, desc = "Sampling")
     for epoch in epochs
-        evolution_epoch_sample!(X, X_ld, samples, sample_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, rng, sampling_p, fitting_parameters, γ);
+        evolution_epoch_sample!(X, X_ld, samples, sample_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, rng, sampling_p, fitting_parameters, γ, γₛ);
     end
     ProgressMeter.finish!(sampling_p)
 
@@ -292,8 +302,8 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rn
 end
 
 
-function run_deMCMC_defaults(; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = nothing, γ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false, save_burnt = false, deterministic_γ = true, snooker_p = 0.1, kwargs...)
-    fitting_parameters = (; γ, β, parallel, deterministic_γ, snooker_p);
+function run_deMCMC_defaults(; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = nothing, γ = nothing, γₛ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false, save_burnt = false, deterministic_γ = true, snooker_p = 0.1, kwargs...)
+    fitting_parameters = (; γ, γₛ, β, parallel, deterministic_γ, snooker_p);
     (; n_its, n_burn, n_thin, n_chains, rng, save_burnt, fitting_parameters, kwargs...)
 end
 
