@@ -718,7 +718,7 @@ function run_deMCMC_live_inner(ld, initial_state; n_its, n_chains, rng, save_bur
     not_converged = true;
 
     while not_converged && epoch <= epoch_limit
-        p = ProgressMeter.Progress(n_its; dt = 1.0, desc = "Epoch " * string(epoch) * ":")
+        p = ProgressMeter.Progress(length(current_it:max_it); dt = 1.0, desc = "Epoch " * string(epoch) * ":")
         for it in current_it:max_it
             update_func(X, X_ld, it, chains, ld, n_chains, dim, γ, γₛ, β, deterministic_γ, snooker_p, rng);
             ProgressMeter.next!(p)
