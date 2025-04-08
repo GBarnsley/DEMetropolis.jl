@@ -113,19 +113,31 @@ function orthogonal_projection(x₁, l, x₂, l_dot_product)
     return x₂ .+ (l .* LinearAlgebra.dot(x₁ .- x₂, l) ./ l_dot_product)
 end
 
+function snooker_update(X, chain, r1, r2, snooker_r, ld, γₛ)
+    line = X[chain, :] .- X[snooker_r, :];
+    line_dot_product = LinearAlgebra.dot(line, line);
+    (
+        X[chain, :] .+ 1.7 .* (orthogonal_projection(X[r1, :], line, X[snooker_r, :], line_dot_product) .- orthogonal_projection(X[r2, :], line, X[snooker_r, :], line_dot_product)),
+        ld(xₚ) + (size(X, 2) - 1) * (LinearAlgebra.norm(xₚ .- X[snooker_r, :]) - LinearAlgebra.norm(line))
+    )
+end
+
+function de_update(X, chain, r1, r2, ld, γ, β)
+    (
+        X[chain, :] .+ γ .* (X[r1, :] .- X[r2, :]) .+ β,
+        ld(xₚ)
+    )
+end
+
 #alternative idea, split chains into 3 and then do each grouping at a time where group 1 samples group 2 and 3
 function update_chain!(X, X_ld, de_params::deMCMC_params, ld, γ, it, gen, chain)
     r1 = select_element(de_params.chain_draws_1, it, gen, chain);
     r2 = select_element(de_params.chain_draws_2, it, gen, chain);
     snooker_r = select_element(de_params.snooker_draw, it, gen, chain);
     if snooker_r > 0
-        line = X[chain, :] .- X[snooker_r, :];
-        line_dot_product = LinearAlgebra.dot(line, line);
-        xₚ = X[chain, :] .+ 1.7 .* (orthogonal_projection(X[r1, :], line, X[snooker_r, :], line_dot_product) .- orthogonal_projection(X[r2, :], line, X[snooker_r, :], line_dot_product));
-        ld_xₚ = ld(xₚ) + (size(X, 2) - 1) * (LinearAlgebra.norm(xₚ .- X[snooker_r, :]) - LinearAlgebra.norm(line));
+        xₚ, ld_xₚ = snooker_update(X, chain, r1, r2, snooker_r, ld, 1.7);
     else
-        xₚ = X[chain, :] .+ γ .* (X[r1, :] .- X[r2, :]) .+ select_element(de_params.βs, it, gen, chain, :);
-        ld_xₚ = ld(xₚ);
+        xₚ, ld_xₚ = de_update(X, chain, r1, r2, ld, γ, select_element(de_params.βs, it, gen, chain, :));
     end
     if (ld_xₚ - X_ld[chain]) > select_element(de_params.acceptances, it, gen, chain)
         X[chain, :] .= xₚ;
@@ -142,13 +154,9 @@ function update_chain(X, X_ld, de_params::deMCMC_params_parallel, ld, γ, it, ge
     r2 = select_element(de_params.chain_draws_2, it, gen, chain);
     snooker_r = select_element(de_params.snooker_draw, it, gen, chain);
     if snooker_r > 0
-        line = X[chain, :] .- X[snooker_r, :];
-        line_dot_product = LinearAlgebra.dot(line, line);
-        xₚ = X[chain, :] .+ 1.7 .* (orthogonal_projection(X[r1, :], line, X[snooker_r, :], line_dot_product) .- orthogonal_projection(X[r2, :], line, X[snooker_r, :], line_dot_product));
-        ld_xₚ = ld(xₚ) + (size(X, 2) - 1) * (LinearAlgebra.norm(xₚ .- X[snooker_r, :]) - LinearAlgebra.norm(line));
+        xₚ, ld_xₚ = snooker_update(X, chain, r1, r2, snooker_r, ld, 1.7);
     else
-        xₚ = X[chain, :] .+ γ .* (X[r1, :] .- X[r2, :]) .+ select_element(de_params.βs, it, gen, chain, :);
-        ld_xₚ = ld(xₚ);
+        xₚ, ld_xₚ = de_update(X, chain, r1, r2, ld, γ, select_element(de_params.βs, it, gen, chain, :));
     end
     if (ld_xₚ - X_ld[chain]) > select_element(de_params.acceptances, it, gen, chain)
         return (xₚ', ld_xₚ)
@@ -203,21 +211,21 @@ function generate_epochs(n_its, n_thin, n_chains, epoch_limit)
     return epochs, its_per_epoch
 end
 
-function evolution_epoch!(X, X_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, rng, p, fitting_parameters)
+function evolution_epoch!(X, X_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, rng, p, fitting_parameters, γ)
     iterations = 1:(its_per_epoch[epoch]);
     de_params = deMCMC_params(iterations, iteration_generation, chains, params, rng, fitting_parameters);
     for it in iterations
-        update_chains!(X, X_ld, de_params, ld, fitting_parameters.γ, it, iteration_generation, chains);
+        update_chains!(X, X_ld, de_params, ld, γ, it, iteration_generation, chains);
         ProgressMeter.next!(p)
     end
 end
 
-function evolution_epoch_sample!(X, X_ld, samples, sample_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, rng, p, fitting_parameters)
+function evolution_epoch_sample!(X, X_ld, samples, sample_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, rng, p, fitting_parameters, γ)
     iterations = 1:(its_per_epoch[epoch]);
     it_offset = sum(its_per_epoch[1:(epoch - 1)]);
     de_params = deMCMC_params(iterations, iteration_generation, chains, params, rng, fitting_parameters);
     for it in iterations
-        update_chains!(X, X_ld, de_params, ld, fitting_parameters.γ, it, iteration_generation, chains);
+        update_chains!(X, X_ld, de_params, ld, γ, it, iteration_generation, chains);
         update_sample!(samples, sample_ld, X, X_ld, it + it_offset);
         ProgressMeter.next!(p)
     end
@@ -227,10 +235,10 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rn
 
     dim = size(initial_state, 2);
 
-    if isnothing(fitting_parameters.γ)
-        if fitting_parameters.deterministic_γ
-            fitting_parameters.γ = 2.38/sqrt(2*dim);
-        end
+    if isnothing(fitting_parameters.γ) && fitting_parameters.deterministic_γ
+        γ = 2.38/sqrt(2*dim);
+    else 
+        γ = fitting_parameters.γ
     end
 
     # pre deMCMC setup
@@ -251,9 +259,9 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rn
         epochs, its_per_epoch = generate_epochs(n_burn, 1, n_chains, epoch_limit);
         for epoch in epochs
             if save_burnt
-                evolution_epoch_sample!(X, X_ld, burn_samples, burn_sample_ld, epoch, its_per_epoch, ld, 1:1, chains, params, rng, burn_p, fitting_parameters);
+                evolution_epoch_sample!(X, X_ld, burn_samples, burn_sample_ld, epoch, its_per_epoch, ld, 1:1, chains, params, rng, burn_p, fitting_parameters, γ);
             else
-                evolution_epoch!(X, X_ld, epoch, its_per_epoch, ld, 1:1, chains, params, rng, burn_p, fitting_parameters);
+                evolution_epoch!(X, X_ld, epoch, its_per_epoch, ld, 1:1, chains, params, rng, burn_p, fitting_parameters, γ);
             end
         end
         ProgressMeter.finish!(burn_p)
@@ -265,7 +273,7 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rn
     samples, sample_ld = setup_samples(1:n_its, chains, params);
     sampling_p = ProgressMeter.Progress(n_its; dt = 1.0, desc = "Sampling")
     for epoch in epochs
-        evolution_epoch_sample!(X, X_ld, samples, sample_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, rng, sampling_p, fitting_parameters);
+        evolution_epoch_sample!(X, X_ld, samples, sample_ld, epoch, its_per_epoch, ld, iteration_generation, chains, params, rng, sampling_p, fitting_parameters, γ);
     end
     ProgressMeter.finish!(sampling_p)
 
