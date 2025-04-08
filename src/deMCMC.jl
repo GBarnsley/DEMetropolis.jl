@@ -116,15 +116,17 @@ end
 function snooker_update(X, chain, r1, r2, snooker_r, ld, γₛ)
     line = X[chain, :] .- X[snooker_r, :];
     line_dot_product = LinearAlgebra.dot(line, line);
+    xₚ = X[chain, :] .+ γₛ .* (orthogonal_projection(X[r1, :], line, X[snooker_r, :], line_dot_product) .- orthogonal_projection(X[r2, :], line, X[snooker_r, :], line_dot_product))
     (
-        X[chain, :] .+ 1.7 .* (orthogonal_projection(X[r1, :], line, X[snooker_r, :], line_dot_product) .- orthogonal_projection(X[r2, :], line, X[snooker_r, :], line_dot_product)),
+        xₚ,
         ld(xₚ) + (size(X, 2) - 1) * (LinearAlgebra.norm(xₚ .- X[snooker_r, :]) - LinearAlgebra.norm(line))
     )
 end
 
 function de_update(X, chain, r1, r2, ld, γ, β)
+    xₚ = X[chain, :] .+ γ .* (X[r1, :] .- X[r2, :]) .+ β
     (
-        X[chain, :] .+ γ .* (X[r1, :] .- X[r2, :]) .+ β,
+        xₚ,
         ld(xₚ)
     )
 end
@@ -378,44 +380,21 @@ end
 
 end
 
+#using MCMCDiagnosticTools, Plots
 #function ld(x)
 #    # normal distribution
 #    return sum(-0.5 .* ((x .- [1.0, -1.0]) .^ 2))
 #end
 #dim = 2
 #
-#output = deMCMC.run_deMCMC(ld, dim; n_its = 1000, n_burn = 5000, n_thin = 10, n_chains = 100, deterministic_γ = false);
-#output = deMCMC.run_deMCMC(ld, dim; n_its = 1000, n_burn = 5000, n_thin = 10, n_chains = 100, parallel = true, deterministic_γ = false);
-#
-#@time output = deMCMC.run_deMCMC(ld, dim; n_its = 1000, n_burn = 5000, n_thin = 10, n_chains = 100);
-#@time output = deMCMC.run_deMCMC(ld, dim; n_its = 1000, n_burn = 5000, n_thin = 10, n_chains = 100, parallel = true);
-#
-#
-#
-#@time output = deMCMC.run_deMCMC(ld, dim; n_its = 100, n_burn = 5000, n_thin = 10, n_chains = 1000, save_burnt = true);
-#@time output = deMCMC.run_deMCMC(ld, dim; n_its = 100, n_burn = 5000, n_thin = 10, n_chains = 1000, parallel = true, save_burnt = true);
-#
-#size(output.samples)
-#size(output.burnt_samples)
-#
-#
-#
-#plot(cat(
-#    #output.burnt_samples[:, 1:20:1000, 1],
-#    output.samples[:, 1:20:1000, 1],
-#    dims = 1
-#))
-#
-#sum(output.samples, dims = (1, 2))./prod(size(output.samples)[1:2])
-#
-#plot(output.samples[:, :, 1])
-#
-#plot(output.samples[:, 1:3, 2])
-#
+#output = deMCMC.run_deMCMC(ld, dim; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = 100, deterministic_γ = false);
+#println(ess_rhat(output.samples))
 #plot(
-#    output.samples[:, :, 1][:],
-#    output.samples[:, :, 2][:]
+#    output.ld
 #)
-#
-#
-#(((10000*20) + (1000*20)) * 0.002)/60/60
+#plot(
+#    output.samples[:, :, 1]
+#)
+#plot(
+#    output.samples[:, :, 2]
+#)
