@@ -1,6 +1,6 @@
 module deMCMC
 export run_deMCMC
-import Random, TransformedLogDensities, LogDensityProblems, Logging, ProgressMeter, OhMyThreads, LinearAlgebra
+import Random, TransformedLogDensities, LogDensityProblems, Logging, ProgressMeter, OhMyThreads, LinearAlgebra, StatsBase, Logging
 
 abstract type deMCMC_params_base end
 
@@ -344,6 +344,11 @@ function partition_integer(I::Int, n::Int)
     return vcat(fill(base + 1, remainder), fill(base, n - remainder))
 end
 
+function partition_integer_indices(I::Int, n::Int)
+    values = cumsum(partition_integer(I, n))
+    map(v -> (v - values[1] + 1):v, values)
+end
+
 function generate_epochs(n_its, n_thin, n_chains, epoch_limit)
     total_its = n_its * n_chains * n_thin;
     n_epoch = Int(ceil(total_its / epoch_limit));
@@ -370,6 +375,25 @@ function evolution_epoch_sample!(X, X_ld, samples, sample_ld, epoch, its_per_epo
         update_sample!(samples, sample_ld, X, X_ld, it + it_offset);
         ProgressMeter.next!(p)
     end
+end
+
+function evolution_epoch!(X, X_ld, de_params, ld, γ, γₛ, its, chains, update_func, desc)
+    p = ProgressMeter.Progress(length(its); dt = 1.0, desc = desc)
+    for it in its
+        update_func(X, X_ld, de_params, ld, γ, γₛ, it, chains);
+        ProgressMeter.next!(p)
+    end
+    ProgressMeter.finish!(p)
+end
+
+function outlier_chains(X_ld, current_its)
+    #check chain via IQR
+    ld_means = StatsBase.mean(X_ld[Int(ceil(current_its * 0.5)):current_its, :], dims = 1)[1, :];
+    q₁ = StatsBase.quantile(ld_means, 0.25);
+    (
+        findall(ld_means .< q₁ - 2 * (StatsBase.quantile(ld_means, 0.75) - q₁)),
+        argmax(ld_means)
+    )
 end
 
 function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rng, save_burnt, fitting_parameters)
@@ -403,21 +427,35 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rn
         total_iterations = 1:n_total_iterations;
         de_params = deMCMC_params(total_iterations, chains, params, rng, fitting_parameters);
 
-        p = ProgressMeter.Progress(n_total_iterations; dt = 1.0, desc = "Sampling (adaptive memory):")
-        #iterate
         if fitting_parameters.parallel
-            for it in total_iterations
-                update_chains_threaded!(X, X_ld, de_params, ld, γ, γₛ, it, chains);
-                ProgressMeter.next!(p)
-            end
+            update_func = update_chains_threaded!
         else
-            for it in total_iterations
-                update_chains!(X, X_ld, de_params, ld, γ, γₛ, it, chains);
-                ProgressMeter.next!(p)
+            update_func = update_chains!
+        end
+
+        #iterate burnin
+        burn_epochs = fitting_parameters.check_chain_epochs;
+        its_per_epoch = partition_integer_indices(n_burn, burn_epochs)
+        check_epochs = its_per_epoch[1:(burn_epochs - 1)]
+        final_epoch = its_per_epoch[burn_epochs]
+        for (epoch, its) in enumerate(check_epochs)
+            evolution_epoch!(X, X_ld, de_params, ld, γ, γₛ, its, chains, update_func, "Burn Epoch " * string(epoch) * ":");
+
+            outliers, best_chain = outlier_chains(X_ld, its[end] + 1);
+            if length(outliers) > 0
+                @warn string(length(outliers)) * " outlier chains detected, setting to current best chain"
+                #remove outliers
+                X_ld[its .+ 1, outliers] .= X_ld[its .+ 1, best_chain];
+                X[its .+ 1, outliers, :] .= X[its .+ 1, best_chain:best_chain, :];
             end
         end
-        ProgressMeter.finish!(p)
-        #sort out samples
+
+        evolution_epoch!(X, X_ld, de_params, ld, γ, γₛ, final_epoch, chains, update_func, "Burn Epoch Final:");
+
+        sampling_epoch = (final_epoch[end] + 1):n_total_iterations;
+        evolution_epoch!(X, X_ld, de_params, ld, γ, γₛ, sampling_epoch, chains, update_func, "Sampling:");
+
+        #format samples
         if save_burnt
             burn_indices = (1:n_burn) .+ 1;
             burn_samples = X[burn_indices, :, :];
@@ -477,8 +515,8 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rn
 end
 
 
-function run_deMCMC_defaults(; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = nothing, γ = nothing, γₛ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false, save_burnt = false, deterministic_γ = true, snooker_p = 0.1, memory = false, kwargs...)
-    fitting_parameters = (; γ, γₛ, β, parallel, deterministic_γ, snooker_p, memory);
+function run_deMCMC_defaults(; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = nothing, γ = nothing, γₛ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false, save_burnt = false, deterministic_γ = true, snooker_p = 0.1, memory = false, check_chain_epochs = 1, check_chain_add = false, kwargs...)
+    fitting_parameters = (; γ, γₛ, β, parallel, deterministic_γ, snooker_p, memory, check_chain_epochs, check_chain_add);
     (; n_its, n_burn, n_thin, n_chains, rng, save_burnt, fitting_parameters, kwargs...)
 end
 
@@ -548,7 +586,6 @@ end
 #    return sum(-0.5 .* ((x .- [1.0, -1.0]) .^ 2))
 #end
 #dim = 2
-#
 #(; n_its, n_burn, n_thin, n_chains, rng, save_burnt, fitting_parameters) = run_deMCMC_defaults();
 #n_chains = 50;
 #initial_state = randn(rng, n_chains, dim);
