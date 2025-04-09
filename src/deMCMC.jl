@@ -81,8 +81,8 @@ function select_update_funcs(fitting_parameters)
     return (update_chains_func, update_chain_func)
 end
 
-function setup_rng(rng, n_chains)
-    [Random.MersenneTwister(randn(rng)) for _ in 1:n_chains]
+function setup_rngs(rng, n_chains)
+    [Random.MersenneTwister(rand(rng, UInt)) for _ in 1:n_chains]
 end
 
 function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rng, save_burnt, fitting_parameters)
@@ -146,7 +146,7 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rn
 
     #sampling run
     if memory
-        sampling_epoch = (final_epoch[end] + 1):n_total_iterations;
+        sampling_epoch = (final_epoch[end] + 1):total_iterations;
     else
         sampling_epoch = 1:sampling_iterations;
     end

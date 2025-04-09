@@ -1,16 +1,12 @@
 module deMCMC
 export run_deMCMC
-import Random, TransformedLogDensities, LogDensityProblems, Logging, ProgressMeter, OhMyThreads, LinearAlgebra, StatsBase, Logging, MCMCDiagnosticTools
+import Random, TransformedLogDensities, LogDensityProblems, Logging, ProgressMeter, LinearAlgebra, StatsBase, MCMCDiagnosticTools
 
-
-#function ld(x)
-#    # normal distribution
-#    return sum(-0.5 .* ((x .- [1.0, -1.0]) .^ 2))
-#end
-#dim = 2
-#(; n_its, n_chains, rng, save_burnt, fitting_parameters) = run_deMCMC_live_defaults();
-#n_chains = 50;
-#initial_state = randn(rng, n_chains, dim);
+include("deMCMC_live.jl")
+include("deMCMC.jl")
+include("diagnostics.jl")
+include("epoch.jl")
+include("update_chain.jl")
 
 end
 
