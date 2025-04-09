@@ -1,10 +1,10 @@
-function run_deMCMC_live_defaults(; n_its = 1000, check_every = 5000, n_chains = nothing, γ = nothing, γₛ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false, save_burnt = false, deterministic_γ = true, snooker_p = 0.1, epoch_limit = 100, check_ld = true, check_acceptance = true, N₀ = 1, kwargs...)
+function run_deMCMC_live_defaults(; n_its = 1000, check_every = 5000, n_chains = nothing, γ = nothing, γₛ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false, save_burnt = false, deterministic_γ = true, snooker_p = 0.1, epoch_limit = 100, check_ld = true, check_acceptance = false, N₀ = 1, kwargs...)
     fitting_parameters = (; check_every, γ, γₛ, β, deterministic_γ, snooker_p, parallel, check_ld, check_acceptance, memory = true, epoch_limit, N₀);
     (; n_its, n_chains, rng, save_burnt, fitting_parameters, kwargs...)
 end
 
 function run_deMCMC_live_inner(ld, initial_state; n_its, n_chains, rng, save_burnt, fitting_parameters)
-    (; check_every, epoch_limit) = fitting_parameters;
+    (; check_every, epoch_limit, check_ld, check_acceptance) = fitting_parameters;
     
     dim = size(initial_state, 3);
 
@@ -34,13 +34,17 @@ function run_deMCMC_live_inner(ld, initial_state; n_its, n_chains, rng, save_bur
             not_converged = false;
         else
             #check for outliers
-            if replace_outlier_chains!(X, X_ld, 1:max_it, rngs)
-                #since we've replace outliers, before the current iteration we have identical chains
-                #so we can only sample from this point onwards
-                min_viable = max_it;
+            if check_ld
+                if replace_outlier_chains!(X, X_ld, current_it:max_it, rngs)
+                    #since we've replace outliers, before the current iteration we have identical chains
+                    #so we can only sample from this point onwards
+                    min_viable = max_it;
+                end
             end
-            if replace_poorly_mixing_chains!(X, X_ld, 1:max_it, rngs)
-                min_viable = max_it;
+            if check_acceptance
+                if  replace_poorly_mixing_chains!(X, X_ld, current_it:max_it, rngs)
+                    min_viable = max_it;
+                end
             end
             #make space
             current_it = max_it + 1;
