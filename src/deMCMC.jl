@@ -1,5 +1,5 @@
-function run_deMCMC_defaults(; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = nothing, γ = nothing, γₛ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false, save_burnt = false, deterministic_γ = true, snooker_p = 0.1, memory = false, check_chain_epochs = 1, check_ld = true, check_acceptance = true, kwargs...)
-    fitting_parameters = (; γ, γₛ, β, parallel, deterministic_γ, snooker_p, memory, check_chain_epochs, check_ld, check_acceptance);
+function run_deMCMC_defaults(; n_its = 1000, n_burn = 5000, n_thin = 1, n_chains = nothing, γ = nothing, γₛ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false, save_burnt = false, deterministic_γ = true, snooker_p = 0.1, memory = false, check_chain_epochs = 1, check_ld = true, check_acceptance = true, N₀ = 1, kwargs...)
+    fitting_parameters = (; γ, γₛ, β, parallel, deterministic_γ, snooker_p, memory, check_chain_epochs, check_ld, check_acceptance, N₀ = N₀);
     (; n_its, n_burn, n_thin, n_chains, rng, save_burnt, fitting_parameters, kwargs...)
 end
 
@@ -35,6 +35,16 @@ function setup_X_X_ld(n_its, n_chains, dim, initial_state, ld; initial_ld = noth
     return X, X_ld
 end
 
+function setup_X_X_ld(n_its, n_chains, dim, initial_state, ld, N₀)
+    X = Array{eltype(initial_state)}(undef, n_its + N₀, n_chains, dim);
+    X_ld = Array{eltype(initial_state)}(undef, n_its + N₀, n_chains);
+    X[1:N₀, :, :] .= initial_state;
+    for i in 1:N₀, j in 1:n_chains
+        X_ld[i, j] = ld(X[i, j, :]);
+    end
+    return X, X_ld
+end
+
 function restart_X_X_ld!(X, X_ld, its, memory)
     if !memory
         #return to start
@@ -43,11 +53,11 @@ function restart_X_X_ld!(X, X_ld, its, memory)
     end
 end
 
-function record_samples!(samples, sample_ld, X, X_ld, its, memory, previous_its)
+function record_samples!(samples, sample_ld, X, X_ld, its, memory, previous_its, N₀)
     if memory
         #record samples
-        samples[its, :, :] .= X[its .+ 1, :, :];
-        sample_ld[its, :] .= X_ld[its .+ 1, :];
+        samples[its .- N₀ .+ 1, :, :] .= X[its .+ 1, :, :];
+        sample_ld[its .- N₀ .+ 1, :] .= X_ld[its .+ 1, :];
     else
         offset = sum(map(i -> i[end], previous_its));
         #record samples
@@ -87,17 +97,24 @@ end
 
 function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rng, save_burnt, fitting_parameters)
 
-    dim = size(initial_state, 2);
+    memory = fitting_parameters.memory;
+
+    if memory
+        dim = size(initial_state, 3);
+    else
+        dim = size(initial_state, 2);
+    end
 
     tuning_pars = define_tuning_pars(fitting_parameters, dim);
-    memory = fitting_parameters.memory;
 
     chains = 1:n_chains;
 
     if memory
+        N₀ = fitting_parameters.N₀
         total_iterations = calculate_total_iterations(n_its, n_thin, n_burn);
-        X, X_ld = setup_X_X_ld(total_iterations, n_chains, dim, initial_state, ld)
+        X, X_ld = setup_X_X_ld(total_iterations, n_chains, dim, initial_state, ld, N₀)
     else
+        N₀ = 1;
         sampling_iterations = n_its * n_thin;
     end
 
@@ -114,7 +131,7 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rn
         end
 
         burn_epochs = fitting_parameters.check_chain_epochs;
-        its_per_epoch = partition_its_over_epochs(n_burn, burn_epochs, 1, memory)
+        its_per_epoch = partition_its_over_epochs(n_burn, burn_epochs, N₀, memory);
 
         if !memory
             X, X_ld = setup_X_X_ld(its_per_epoch[1][end], n_chains, dim, initial_state, ld)
@@ -125,7 +142,7 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rn
         for (epoch, its) in enumerate(check_epochs)
             evolution_epoch!(X, X_ld, its, update_chains_func, chains, update_chain_func, tuning_pars, rngs, ld, "Burn Epoch " * string(epoch) * ":");
             if save_burnt
-                record_samples!(burn_samples, burn_sample_ld, X, X_ld, its, memory, its_per_epoch[1:(epoch - 1)]);
+                record_samples!(burn_samples, burn_sample_ld, X, X_ld, its, memory, its_per_epoch[1:(epoch - 1)], N₀);
             end
             if fitting_parameters.check_ld
                 replace_outlier_chains!(X, X_ld, its, rngs);
@@ -137,7 +154,7 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rn
         end
         evolution_epoch!(X, X_ld, final_epoch, update_chains_func, chains, update_chain_func, tuning_pars, rngs, ld, "Burn Epoch Final:");
         if save_burnt
-            record_samples!(burn_samples, burn_sample_ld, X, X_ld, final_epoch, memory, check_epochs);
+            record_samples!(burn_samples, burn_sample_ld, X, X_ld, final_epoch, memory, check_epochs, N₀);
         end
         if !memory
             setup_X_X_ld(sampling_iterations, n_chains, dim, X[final_epoch[end] + 1, :, :], ld; initial_ld = X_ld[final_epoch[end] + 1, :]);
@@ -198,6 +215,14 @@ function run_deMCMC(ld::Function, initial_state::Array{Float64, 2}; kwargs...)
         true_initial_state = initial_state[Random.randperm(rng, n_initial_state_chains)[1:n_chains], :];
     end
 
+    if memory
+        true_initial_state = reshape(true_initial_state, 1, n_chains, dim);
+        if fitting_parameters.N₀ > 1
+            #add random memory chains
+            true_initial_state = cat(randn(rng, fitting_parameters.N₀ - 1, n_chains, dim), true_initial_state, dims = 1);
+        end
+    end
+
     run_deMCMC_inner(ld, true_initial_state; n_its = n_its, n_burn = n_burn, n_thin = n_thin, n_chains = n_chains, rng = rng, save_burnt = save_burnt, fitting_parameters = fitting_parameters)
 end
 
@@ -210,8 +235,12 @@ function run_deMCMC(ld::Function, dim::Int; kwargs...)
     end
 
     #setup population with random initial values
-    initial_state = randn(rng, n_chains, dim);
-
+    if fitting_parameters.memory
+        initial_state = randn(rng, fitting_parameters.N₀, n_chains, dim);
+    else
+        initial_state = randn(rng, n_chains, dim);
+    end
+    
     run_deMCMC_inner(ld, initial_state; n_its = n_its, n_burn = n_burn, n_thin = n_thin, n_chains = n_chains, rng = rng, save_burnt = save_burnt, fitting_parameters = fitting_parameters)
 end 
 

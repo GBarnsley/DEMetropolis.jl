@@ -10,7 +10,8 @@ end
 function partition_its_over_epochs(I::Int, n::Int, current_it, memory)
     values = partition_integer(I, n)
     if memory
-        map(v -> (v - values[1] + current_it):v, cumsum(values))
+        its = cumsum(vcat(current_it, values))
+        [its[i]:(its[i + 1] - 1) for i in 1:length(its) - 1]
     else
         map(v -> 1:v, values)
     end

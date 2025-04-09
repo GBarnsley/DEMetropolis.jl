@@ -1,25 +1,26 @@
-function run_deMCMC_live_defaults(; n_its = 1000, check_every = 5000, n_chains = nothing, γ = nothing, γₛ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false, save_burnt = false, deterministic_γ = true, snooker_p = 0.1, epoch_limit = 100, check_ld = true, check_acceptance = true, kwargs...)
-    fitting_parameters = (; check_every, γ, γₛ, β, deterministic_γ, snooker_p, parallel, check_ld, check_acceptance, memory = true, epoch_limit);
+function run_deMCMC_live_defaults(; n_its = 1000, check_every = 5000, n_chains = nothing, γ = nothing, γₛ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false, save_burnt = false, deterministic_γ = true, snooker_p = 0.1, epoch_limit = 100, check_ld = true, check_acceptance = true, N₀ = 1, kwargs...)
+    fitting_parameters = (; check_every, γ, γₛ, β, deterministic_γ, snooker_p, parallel, check_ld, check_acceptance, memory = true, epoch_limit, N₀);
     (; n_its, n_chains, rng, save_burnt, fitting_parameters, kwargs...)
 end
 
 function run_deMCMC_live_inner(ld, initial_state; n_its, n_chains, rng, save_burnt, fitting_parameters)
     (; check_every, epoch_limit) = fitting_parameters;
     
-    dim = size(initial_state, 2);
+    dim = size(initial_state, 3);
 
     tuning_pars = define_tuning_pars(fitting_parameters, dim);
 
     chains = 1:n_chains;
-
-    X, X_ld = setup_X_X_ld(check_every, n_chains, dim, initial_state, ld);
+    N₀ = fitting_parameters.N₀;
+    
+    X, X_ld = setup_X_X_ld(check_every, n_chains, dim, initial_state, ld, N₀);
 
     rngs = setup_rngs(rng, n_chains);
 
     #select update function
     update_chains_func, update_chain_func = select_update_funcs(fitting_parameters);
     
-    current_it = 1;
+    current_it = N₀;
     epoch = 1;
     max_it = current_it + check_every - 2;
     min_viable = halve(max_it+1);
@@ -94,6 +95,12 @@ function run_deMCMC_live(ld::Function, initial_state::Array{Float64, 2}; kwargs.
         true_initial_state = initial_state[Random.randperm(rng, n_initial_state_chains)[1:n_chains], :];
     end
 
+    true_initial_state = reshape(true_initial_state, 1, n_chains, dim);
+    if fitting_parameters.N₀ > 1
+        #add random memory chains
+        true_initial_state = cat(randn(rng, fitting_parameters.N₀ - 1, n_chains, dim), true_initial_state, dims = 1);
+    end
+
     run_deMCMC_live_inner(ld, true_initial_state; n_its = n_its, n_chains = n_chains, rng = rng, save_burnt = save_burnt, fitting_parameters = fitting_parameters)
 end
 
@@ -106,7 +113,7 @@ function run_deMCMC_live(ld::Function, dim::Int; kwargs...)
     end
 
     #setup population with random initial values
-    initial_state = randn(rng, n_chains, dim);
+    initial_state = randn(rng, fitting_parameters.N₀, n_chains, dim);
 
     run_deMCMC_live_inner(ld, initial_state; n_its = n_its, n_chains = n_chains, rng = rng, save_burnt = save_burnt, fitting_parameters = fitting_parameters)
 end 
