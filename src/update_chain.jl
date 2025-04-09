@@ -1,4 +1,8 @@
 function snooker_update(x, x₁, x₂, xₐ, ld, γₛ)
+    if xₐ == x || x₁ == x₂
+        #will be NaN
+        return x, -Inf
+    end
     diff = x₁ .- x₂;
     e = LinearAlgebra.normalize(xₐ .- x);
     xₚ = x .+ γₛ .* LinearAlgebra.dot(diff, e) .* e;
@@ -9,6 +13,10 @@ function snooker_update(x, x₁, x₂, xₐ, ld, γₛ)
 end
 
 function de_update(x, x₁, x₂, ld, γ, β)
+    if x₁ == x₂
+        #just don't update (save the ld eval)
+        return x, -Inf
+    end
     xₚ = x .+ γ .* (x₁ .- x₂) .+ β
     (
         xₚ,
