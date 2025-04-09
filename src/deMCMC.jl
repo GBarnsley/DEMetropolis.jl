@@ -415,15 +415,9 @@ end
 
 function poorly_mixing_chains(X, current_its)
     #calculate average acceptance
-    acceptances = Array{Int64}(undef, size(X, 2));
-    h_its = halve(current_its);
-    for i in h_its:current_its
-        for j in axes(acceptances, 1)        
-            acceptances[j] += X[i-1, j, :] != X[i, j, :];
-        end
-    end
 
-    p_acceptance = acceptances ./ (current_its - h_its);
+    p_acceptance = sum(sum((X[(h_its + 1):current_its, :, :] .- X[h_its:(current_its - 1), :, :]) .!= 0, dims = (3))[:, :, 1] .> 0, dims = 1)[1, :] ./ 
+    (current_its - h_its - 1)
 
     (
         findall(p_acceptance .< 0.05),
@@ -900,15 +894,15 @@ end
 
 end
 
-#using MCMCDiagnosticTools, Plots
+#using MCMCDiagnosticTools, Plots, Distributions, BenchmarkTools
 #function ld(x)
-#    # bendy banana 
-#    return (x[1]^2/2) + ((x[2] - x[1]^2)^2 * 2)
+#    # normal mixture
+#    sum(logpdf(MixtureModel(Normal[Normal(-5.0, 1), Normal(5.0, 1)], [1/3, 2/3]), x))
 #end
-#dim = 2;
+#pars = 5;
 #
-#output = deMCMC.run_deMCMC(ld, dim; n_its = 1000, n_burn = 10000, n_thin = 1, n_chains = 20, deterministic_γ = true, memory = true, parallel = true);
-#output = deMCMC.run_deMCMC_live(ld, dim; n_its = 1000, check_every = 10000, n_chains = 20, deterministic_γ = true, parallel = true, save_burnt = true);
+#output = deMCMC.run_deMCMC(ld, pars; n_its = 1000, n_burn = 10000, n_thin = 1, n_chains = 100, deterministic_γ = true, memory = false, parallel = false, check_chain_epochs = 5);
+#output = deMCMC.run_deMCMC_live(ld, pars; n_its = 1000, check_every = 500000, n_chains = 20, deterministic_γ = true, parallel = true, save_burnt = true);
 #
 #println(ess_rhat(output.samples))
 #plot(
