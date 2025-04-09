@@ -42,7 +42,7 @@ function update_chain!(X, X_ld, it, chain, chains, tuning_pars, rng, ld)
 end
 
 function update_chain_rγ!(X, X_ld, it, chain, chains, tuning_pars, rng, ld)
-    γₛ = sample_γ(tuning_pars.γₛ, rng);
+    γₛ = sample_γₛ(rng);
     γ = sample_γ(tuning_pars.γ, rng);
     update_chain_inner!(X, X_ld, it, chain, it, it, it, γₛ, γ, chains, tuning_pars, rng, ld)
 end
@@ -55,19 +55,24 @@ function update_chain_memory!(X, X_ld, it, chain, chains, tuning_pars, rng, ld)
 end
 
 function sample_γ(γ, rng)
-    #want it so we suggest around gamma but also 25% chance big γ
-    if rand(rng) < 0.75
-        return (rand(rng) * 0.6) + 0.5
+    #want it so we suggest around gamma but also 10% chance big γ
+    if rand(rng) < 0.1
+        return (rand(rng) * 0.4) + 0.8
     else
         return (rand(rng) * 0.2 + 0.9) * γ
     end
+end
+
+function sample_γₛ(rng)
+    #want it so we suggest around gamma but also 25% chance big γ
+    rand(rng) + 1.2
 end
 
 function update_chain_memory_rγ!(X, X_ld, it, chain, chains, tuning_pars, rng, ld)
     i1 = rand(rng, 1:it);
     i2 = rand(rng, 1:it);
     is = rand(rng, 1:it);
-    γₛ = sample_γ(tuning_pars.γₛ, rng);
+    γₛ = sample_γₛ(rng);
     γ = sample_γ(tuning_pars.γ, rng);
     update_chain_inner!(X, X_ld, it, chain, i1, i2, is, γₛ, γ, chains, tuning_pars, rng, ld)
 end

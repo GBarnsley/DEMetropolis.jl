@@ -13,13 +13,14 @@ function outlier_chains(X_ld, current_its)
     )
 end
 
-function replace_outlier_chains!(X, X_ld, its)
+function replace_outlier_chains!(X, X_ld, its, rngs)
     outliers, best_chain = outlier_chains(X_ld, its[end] + 1);
     if length(outliers) > 0
-        @warn string(length(outliers)) * " outlier chains detected, setting to current best chain"
+        @warn string(length(outliers)) * " outlier chains detected, resampling from remaining chains"
         #remove outliers
-        X_ld[its .+ 1, outliers] .= X_ld[its .+ 1, best_chain];
-        X[its .+ 1, outliers, :] .= X[its .+ 1, best_chain:best_chain, :];
+        replacement_chains = map(rng -> rand(rng, setdiff(axes(X, 2), outliers)), rngs[outliers]);
+        X_ld[its .+ 1, outliers] .= X_ld[its .+ 1, replacement_chains];
+        X[its .+ 1, outliers, :] .= X[its .+ 1, replacement_chains, :];
         return true
     else
         return false
@@ -38,16 +39,17 @@ function poorly_mixing_chains(X, current_its)
     )
 end
 
-function replace_poorly_mixing_chains!(X, X_ld, its)
+function replace_poorly_mixing_chains!(X, X_ld, its, rngs)
     poorly_mixing, best_chain = poorly_mixing_chains(X_ld, its[end] + 1);
-    if length(poorly_mixing) > size(X, 2) * 0.75
+    if length(poorly_mixing) > size(X, 2) * 0.80
         @warn "Majority of chains poorly mixing, making no change for diversity"
         return false
     elseif length(poorly_mixing) > 0
-        @warn string(length(poorly_mixing)) * " poorly mixed chains detected, setting to current best chain"
+        @warn string(length(poorly_mixing)) * " poorly mixed chains detected, resampling from remaining chains"
+        replacement_chains = map(rng -> rand(rng, setdiff(axes(X, 2), poorly_mixing)), rngs[poorly_mixing]);
         #remove outliers
-        X_ld[its .+ 1, poorly_mixing] .= X_ld[its .+ 1, best_chain];
-        X[its .+ 1, poorly_mixing, :] .= X[its .+ 1, best_chain:best_chain, :];
+        X_ld[its .+ 1, poorly_mixing] .= X_ld[its .+ 1, replacement_chains];
+        X[its .+ 1, poorly_mixing, :] .= X[its .+ 1, replacement_chains, :];
         return true
     else
         return false
