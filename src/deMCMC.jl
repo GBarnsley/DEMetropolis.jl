@@ -51,8 +51,8 @@ function record_samples!(samples, sample_ld, X, X_ld, its, memory, previous_its)
     else
         offset = sum(map(i -> i[end], previous_its));
         #record samples
-        samples[its, :, :] .= X[its .+ 1 .+ offset, :, :];
-        sample_ld[its, :] .= X_ld[its .+ 1 .+ offset, :];
+        samples[its .+ offset, :, :] .= X[its .+ 1, :, :];
+        sample_ld[its .+ offset, :] .= X_ld[its .+ 1, :];
     end
 
 end
@@ -137,7 +137,7 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rn
         end
         evolution_epoch!(X, X_ld, final_epoch, update_chains_func, chains, update_chain_func, tuning_pars, rngs, ld, "Burn Epoch Final:");
         if save_burnt
-            record_samples!(burn_samples, burn_sample_ld, X, X_ld, final_epoch, memory, its_per_epoch);
+            record_samples!(burn_samples, burn_sample_ld, X, X_ld, final_epoch, memory, check_epochs);
         end
         if !memory
             setup_X_X_ld(sampling_iterations, n_chains, dim, X[final_epoch[end] + 1, :, :], ld; initial_ld = X_ld[final_epoch[end] + 1, :]);

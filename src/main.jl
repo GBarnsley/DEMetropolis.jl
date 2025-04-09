@@ -19,7 +19,7 @@ end
 #pars = 10;
 #
 #output = deMCMC.run_deMCMC(ld, pars; 
-#    n_its = 1000, n_burn = 10000, n_thin = 1, n_chains = 200, deterministic_γ = false, memory = false, parallel = true, check_chain_epochs = 3
+#    n_its = 1000, n_burn = 10000, n_thin = 1, n_chains = 200, deterministic_γ = false, memory = false, parallel = true, check_chain_epochs = 3, save_burnt = true
 #);
 #output = deMCMC.run_deMCMC_live(ld, pars; n_its = 1000, check_every = 10000, n_chains = 100, deterministic_γ = false, parallel = true, save_burnt = true);
 #
@@ -34,3 +34,6 @@ end
 #plot(
 #    output.samples[:, :, 1]
 #)
+
+
+#MCMCDiagnosticTools.rhat(randn(10000, 50, 25))
