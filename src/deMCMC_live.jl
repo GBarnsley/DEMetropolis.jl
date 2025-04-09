@@ -1,39 +1,24 @@
+function run_deMCMC_live_defaults(; n_its = 1000, check_every = 5000, n_chains = nothing, γ = nothing, γₛ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false, save_burnt = false, deterministic_γ = true, snooker_p = 0.1, epoch_limit = 100, kwargs...)
+    fitting_parameters = (; check_every, γ, γₛ, β, deterministic_γ, snooker_p, parallel, check_ld, check_acceptance, memory = true, epoch_limit);
+    (; n_its, n_chains, rng, save_burnt, fitting_parameters, kwargs...)
+end
 
 function run_deMCMC_live_inner(ld, initial_state; n_its, n_chains, rng, save_burnt, fitting_parameters)
-    (; check_every, γ, γₛ, β, deterministic_γ, snooker_p, parallel, epoch_limit) = fitting_parameters
-
+    (; check_every, epoch_limit) = fitting_parameters;
+    
     dim = size(initial_state, 2);
 
-    if isnothing(fitting_parameters.γ) && fitting_parameters.deterministic_γ
-        γ = 2.38/sqrt(2*dim);
-    else 
-        γ = fitting_parameters.γ
-    end
-
-    if isnothing(fitting_parameters.γₛ) && fitting_parameters.deterministic_γ
-        γₛ = 2.38/sqrt(2);
-    else 
-        γₛ = fitting_parameters.γₛ
-    end
-
-    if n_its > check_every
-        @error "n_its > check_every, sampler cannot perform"
-    end
+    tuning_pars = define_tuning_pars(fitting_parameters, dim);
 
     chains = 1:n_chains;
-    params = 1:dim; 
 
-    X = Array{Float64}(undef, check_every, n_chains, dim);
-    X_ld = Array{Float64}(undef, check_every, n_chains);
-    X[1, :, :] .= initial_state;
-    X_ld[1, :] .= map(x -> ld(x), eachrow(initial_state));
+    X, X_ld = setup_X_X_ld(check_every, n_chains, dim, initial_state, ld);
 
-    if parallel
-        update_func = update_chains_live_parallel!
-    else
-        update_func = update_chains_live!
-    end
+    rngs = setup_rngs(rng, n_chains);
 
+    #select update function
+    update_chains_func, update_chain_func = select_update_funcs(fitting_parameters);
+    
     current_it = 1;
     epoch = 1;
     max_it = current_it + check_every - 2;
@@ -41,12 +26,7 @@ function run_deMCMC_live_inner(ld, initial_state; n_its, n_chains, rng, save_bur
     not_converged = true;
 
     while not_converged && epoch <= epoch_limit
-        p = ProgressMeter.Progress(length(current_it:max_it); dt = 1.0, desc = "Epoch " * string(epoch) * ":")
-        for it in current_it:max_it
-            update_func(X, X_ld, it, chains, ld, n_chains, dim, γ, γₛ, β, deterministic_γ, snooker_p, rng);
-            ProgressMeter.next!(p)
-        end
-        ProgressMeter.finish!(p)
+        evolution_epoch!(X, X_ld, current_it:max_it, update_chains_func, chains, update_chain_func, tuning_pars, rngs, ld, "Epoch " * string(epoch) * ":");
         #check if converaged
         if chains_converged(X, max_it; min_viable = min_viable)
             println("Chains converged, stopping sampling")
@@ -64,43 +44,30 @@ function run_deMCMC_live_inner(ld, initial_state; n_its, n_chains, rng, save_bur
             #make space
             current_it = max_it + 1;
             max_it = current_it + check_every - 1;
-            X = cat(X, Array{Float64}(undef, check_every, n_chains, dim), dims = 1);
-            X_ld = cat(X_ld, Array{Float64}(undef, check_every, n_chains), dims = 1);
+            X = cat(X, Array{eltype(X)}(undef, check_every, n_chains, dim), dims = 1);
+            X_ld = cat(X_ld, Array{eltype(X)}(undef, check_every, n_chains), dims = 1);
             epoch = epoch + 1;
             min_viable = max(min_viable, halve(max_it+1));
         end
     end
 
     #format samples
-    if save_burnt
-        burn_samples = X;
-        burn_sample_ld = X_ld;
-    end
     #thin the last half to the desired amount
     indices = min_viable .+ cumsum(partition_integer(max_it + 1 - min_viable, n_its));
-    samples = X[indices, :, :];
-    sample_ld = X_ld[indices, :];
 
     output = (
-        samples = samples,
-        ld = sample_ld
+        samples = X[indices, :, :],
+        ld = X_ld[indices, :]
     )
     if save_burnt
         output = (
             output...,
-            burnt_samples = burn_samples,
-            burnt_ld = burn_sample_ld
+            burnt_samples = X,
+            burnt_ld = X_ld
         )
     end
     return output
 end
-
-
-function run_deMCMC_live_defaults(; n_its = 1000, check_every = 5000, n_chains = nothing, γ = nothing, γₛ = nothing, β = 1e-4, rng = Random.GLOBAL_RNG, parallel = false, save_burnt = false, deterministic_γ = true, snooker_p = 0.1, epoch_limit = 100, kwargs...)
-    fitting_parameters = (; check_every, γ, γₛ, β, deterministic_γ, snooker_p, parallel, epoch_limit);
-    (; n_its, n_chains, rng, save_burnt, fitting_parameters, kwargs...)
-end
-
 
 function run_deMCMC_live(ld::Function, initial_state::Array{Float64, 2}; kwargs...)
     (; n_its, n_chains, rng, save_burnt, fitting_parameters) = run_deMCMC_live_defaults(;kwargs...)

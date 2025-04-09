@@ -64,7 +64,7 @@ function select_update_funcs(fitting_parameters)
         update_chains_func = update_chains!
     end
 
-    if fitting_parameters.memory > 0
+    if fitting_parameters.memory
         if fitting_parameters.deterministic_γ
             update_chain_func = update_chain_memory!
         else
@@ -96,7 +96,7 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rn
 
     if memory
         total_iterations = calculate_total_iterations(n_its, n_thin, n_burn);
-        setup_X_X_ld(total_iterations, n_chains, dim, initial_state, ld)
+        X, X_ld = setup_X_X_ld(total_iterations, n_chains, dim, initial_state, ld)
     else
         sampling_iterations = n_its * n_thin;
     end
@@ -104,7 +104,8 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rn
     rngs = setup_rngs(rng, n_chains);
 
     #select update function
-    update_chains_func, update_chain_func = select_update_funcs(fitting_parameters)
+    update_chains_func, update_chain_func = select_update_funcs(fitting_parameters);
+
     #burn in run
     if n_burn > 0
         if save_burnt
