@@ -127,7 +127,7 @@ function deMCMC_params(iterations, iteration_generation, chains, params, rng, fi
         end
     else
         #random γ values
-        γs = (generate_random_numbers(rng, iterations, iteration_generation, chains) .* 0.5) .+ 0.5;
+        γs = (generate_random_numbers(rng, iterations, iteration_generation, chains) .* 0.6) .+ 0.5;
         if parallel
             return deMCMC_params_parallel_rγ(γs, deMCMC_params_parallel(βs, acceptances, chain_draws_1, chain_draws_2, snooker_draw))
         else
@@ -415,13 +415,13 @@ end
 
 function poorly_mixing_chains(X, current_its)
     #calculate average acceptance
-
+    h_its = halve(current_its);
     p_acceptance = sum(sum((X[(h_its + 1):current_its, :, :] .- X[h_its:(current_its - 1), :, :]) .!= 0, dims = (3))[:, :, 1] .> 0, dims = 1)[1, :] ./ 
     (current_its - h_its - 1)
 
     (
         findall(p_acceptance .< 0.05),
-        argmax(abs.(p_acceptance .- 0.24))
+        argmin(abs.(p_acceptance .- 0.24))
     )
 end
 
