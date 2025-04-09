@@ -35,16 +35,10 @@ function run_deMCMC_live_inner(ld, initial_state; n_its, n_chains, rng, save_bur
         else
             #check for outliers
             if check_ld
-                if replace_outlier_chains!(X, X_ld, current_it:max_it, rngs)
-                    #since we've replace outliers, before the current iteration we have identical chains
-                    #so we can only sample from this point onwards
-                    min_viable = max_it;
-                end
+                replace_outlier_chains!(X, X_ld, current_it:max_it, rngs);
             end
             if check_acceptance
-                if  replace_poorly_mixing_chains!(X, X_ld, current_it:max_it, rngs)
-                    min_viable = max_it;
-                end
+                replace_poorly_mixing_chains!(X, X_ld, current_it:max_it, rngs);
             end
             #make space
             current_it = max_it + 1;
