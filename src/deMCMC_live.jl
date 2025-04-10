@@ -26,11 +26,14 @@ function run_deMCMC_live_inner(ld, initial_state; n_its, n_chains, rng, save_bur
     min_viable = halve(max_it+1);
     not_converged = true;
 
-    while not_converged && epoch <= epoch_limit
+    while not_converged
         evolution_epoch!(X, X_ld, current_it:max_it, update_chains_func, chains, update_chain_func, tuning_pars, rngs, ld, "Epoch " * string(epoch) * ":");
         #check if converaged
         if chains_converged(X, max_it; min_viable = min_viable)
             println("Chains converged, stopping sampling")
+            not_converged = false;
+        elseif epoch > epoch_limit
+            println("Epoch limit reached, stopping sampling")
             not_converged = false;
         else
             #check for outliers
