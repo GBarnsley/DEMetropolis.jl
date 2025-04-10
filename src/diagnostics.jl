@@ -33,9 +33,12 @@ function poorly_mixing_chains(X, its)
     p_acceptance = sum(sum((X[(h_its + 1):(its[end] + 1), :, :] .- X[h_its:(its[end]), :, :]) .!= 0, dims = (3))[:, :, 1] .> 0, dims = 1)[1, :] ./ 
     (its[end] - h_its)
 
-    q₁ = StatsBase.quantile(p_acceptance, 0.25);
+    #IQR on a log level to be more sensitive
+    lp_acceptance = log.(p_acceptance);
+
+    q₁ = StatsBase.quantile(lp_acceptance, 0.25);
     (
-        findall(p_acceptance .< q₁ - 2 * (StatsBase.quantile(p_acceptance, 0.75) - q₁)),
+        findall(lp_acceptance .< q₁ - 2 * (StatsBase.quantile(lp_acceptance, 0.75) - q₁)),
         argmin(abs.(p_acceptance .- 0.24))
     )
 end
