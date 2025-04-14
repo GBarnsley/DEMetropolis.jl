@@ -145,10 +145,10 @@ function run_deMCMC_inner(ld, initial_state; n_its, n_burn, n_thin, n_chains, rn
                 record_samples!(burn_samples, burn_sample_ld, X, X_ld, its, memory, its_per_epoch[1:(epoch - 1)], N₀);
             end
             if fitting_parameters.check_ld
-                replace_outlier_chains!(X, X_ld, its, rngs);
+                temp = replace_outlier_chains!(X, X_ld, its, rngs);
             end
             if fitting_parameters.check_acceptance            
-                replace_poorly_mixing_chains!(X, X_ld, its, rngs);
+                temp = replace_poorly_mixing_chains!(X, X_ld, its, rngs);
             end
             restart_X_X_ld!(X, X_ld, its, memory);
         end

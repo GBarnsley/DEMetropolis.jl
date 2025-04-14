@@ -3,6 +3,38 @@ function run_deMCMC_live_defaults(; n_its = 1000, check_every = 5000, n_chains =
     (; n_its, n_chains, rng, save_burnt, fitting_parameters, kwargs...)
 end
 
+function partition_integer_for_thin(I, n)
+    base = I ÷ n  # Base size of each group
+    remainder = I - base * n # Remaining units to distribute
+
+    # Create an array with base size for all groups
+    partition = fill(base, n)
+    # Evenly distribute the remainder across the groups
+    if remainder > 0
+        partition[cumsum(partition_integer(n, remainder))] .+= 1
+    end
+
+    return partition
+end
+
+function thin_X(X, min_viable, max_it, n_its)
+    thinned_X = Array{eltype(X)}(undef, n_its, size(X, 2), size(X, 3));
+    for i in axes(X, 2)
+        thinned_X[:, i, :] .= X[min_viable[i] .+ cumsum(partition_integer(max_it + 1 - min_viable[i], n_its)), i, :]
+    end
+
+    return thinned_X
+end
+
+function thin_X_ld(X_ld, min_viable, max_it, n_its)
+    thinned_X_ld = Array{eltype(X_ld)}(undef, n_its, size(X_ld, 2));
+    for i in axes(X_ld, 2)
+        thinned_X_ld[:, i] .= X_ld[min_viable[i] .+ cumsum(partition_integer(max_it + 1 - min_viable[i], n_its)), i]
+    end
+
+    return thinned_X_ld
+end
+
 function run_deMCMC_live_inner(ld, initial_state; n_its, n_chains, rng, save_burnt, fitting_parameters)
     (; check_every, epoch_limit, check_ld, check_acceptance) = fitting_parameters;
     
@@ -23,7 +55,7 @@ function run_deMCMC_live_inner(ld, initial_state; n_its, n_chains, rng, save_bur
     current_it = N₀;
     epoch = 1;
     max_it = current_it + check_every - 2;
-    min_viable = halve(max_it+1);
+    min_viable = map(c -> halve(max_it+1), 1:n_chains);
     not_converged = true;
 
     while not_converged
@@ -38,10 +70,17 @@ function run_deMCMC_live_inner(ld, initial_state; n_its, n_chains, rng, save_bur
         else
             #check for outliers
             if check_ld
-                replace_outlier_chains!(X, X_ld, current_it:max_it, rngs);
+                resampled_chains = replace_outlier_chains!(X, X_ld, current_it:max_it, rngs; check_every = check_every);
+                if length(resampled_chains) > 0
+                    #set the min viable for these chains to the current iteration
+                    min_viable[resampled_chains] .= max_it;
+                end
             end
             if check_acceptance
-                replace_poorly_mixing_chains!(X, X_ld, current_it:max_it, rngs);
+                resampled_chains = replace_poorly_mixing_chains!(X, X_ld, current_it:max_it, rngs; check_every = check_every);
+                if length(resampled_chains) > 0
+                    min_viable[resampled_chains] .= max_it;
+                end
             end
             #make space
             current_it = max_it + 1;
@@ -49,17 +88,14 @@ function run_deMCMC_live_inner(ld, initial_state; n_its, n_chains, rng, save_bur
             X = cat(X, Array{eltype(X)}(undef, check_every, n_chains, dim), dims = 1);
             X_ld = cat(X_ld, Array{eltype(X)}(undef, check_every, n_chains), dims = 1);
             epoch = epoch + 1;
-            min_viable = max(min_viable, halve(max_it+1));
+            min_viable = max.(min_viable, halve(max_it+1));
         end
     end
 
     #format samples
-    #thin the last half to the desired amount
-    indices = min_viable .+ cumsum(partition_integer(max_it + 1 - min_viable, n_its));
-
     output = (
-        samples = X[indices, :, :],
-        ld = X_ld[indices, :]
+        samples = thin_X(X, min_viable, max_it, n_its),
+        ld = thin_X_ld(X_ld, min_viable, max_it, n_its)
     )
     if save_burnt
         output = (
