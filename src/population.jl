@@ -64,7 +64,7 @@ end
 
 function update_position!(chains::chains_struct)
     # Update the current position of the chains
-    chains.current_position .+= n_chains
+    chains.current_position .+= chains.n_chains
 end
 
 function sample_chains(chains::chains_memoryless, rng, chain, n_samples)

@@ -24,7 +24,8 @@ function get_update(sampler_scheme::sampler_scheme_multi, rng)
 end
 
 function composite_sampler(
-    rng, ld, n_its, n_chains, n_burnin, memory, parallel, initial_state, sampler_scheme::sampler_scheme_struct; save_burnt = false
+    ld, n_its, n_chains, memory, initial_state, sampler_scheme::sampler_scheme_struct;
+    save_burnt = false, rng = Random.default_rng(), n_burnin = n_its * 5, parallel = false
 )
 
     N₀, n_pars = size(initial_state);
@@ -41,6 +42,10 @@ function composite_sampler(
 
     if n_pars != LogDensityProblems.dimension(ld)
         error("Number of parameters in initial state must be equal to the number of parameters in the log density")
+    end
+
+    if n_chains < 4
+        error("Number of chains must be greater than or equal to 4")
     end
 
     #setup the chains
