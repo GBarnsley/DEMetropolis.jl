@@ -1,8 +1,3 @@
-function halve(i::Int)
-    Int(ceil(i * 0.5))
-end
-
-#update these to replace with random chains
 function outlier_chains(X_ld, its, check_every)
     #check chain via IQR
     h_its = max(its[1] + 1, halve(check_every)); #on the first check we ignore the first half of the iterations

@@ -1,22 +1,36 @@
 module deMCMC
-export run_deMCMC
-import Random, TransformedLogDensities, LogDensityProblems, Logging, ProgressMeter, LinearAlgebra, StatsBase, MCMCDiagnosticTools
+export composite_sampler
+import StatsBase, Random, TransformedLogDensities, LogDensityProblems, Distributions, Logging, ProgressMeter, LinearAlgebra, StatsBase, MCMCDiagnosticTools
 
-include("deMCMC_live.jl")
-include("deMCMC.jl")
-include("DREAM.jl")
-include("diagnostics.jl")
-include("epoch.jl")
+include("population.jl")
+include("updates.jl")
+include("sampler.jl")
 include("update_chain.jl")
+include("diagnostics.jl")
+include("utilities.jl")
 
-#using Distributions
-#(; n_its, n_chains, rng, save_burnt, fitting_parameters) = run_DREAM_defaults()
-#n_chains = 20;
-#function ld(x)
-#    # normal mixture
-#    sum(logpdf(MixtureModel(Normal[Normal(-5.0, 1), Normal(5.0, 1)], [1/3, 2/3]), x))
-#end
-#dim = 10;
+using TransformVariables
+function ld_raw(x)
+    # normal mixture
+    sum(Distributions.logpdf(Distributions.MixtureModel(Distributions.Normal[Distributions.Normal(-5.0, 1), Distributions.Normal(5.0, 1)], [1/3, 2/3]), x))
+end
+ld = TransformedLogDensities.TransformedLogDensity(as(Array, 8), ld_raw)
+rng = Random.MersenneTwister(1234);
+n_its = 1000;
+n_chains = 50;
+n_burnin = 1000;
+memory = false;
+parallel = true;
+initial_state = randn(n_chains, 8);
+sampler_scheme = sampler_scheme_multi(
+    [1.0, 1.0, 0.1, 0.1],
+    [
+        setup_de_update(ld, deterministic_γ = false),
+        setup_de_update(ld, deterministic_γ = true),
+        setup_snooker_update(deterministic_γ = false),
+        setup_snooker_update(deterministic_γ = true)
+    ]
+)
 
 end
 
