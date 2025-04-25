@@ -81,5 +81,6 @@ end
 
 function sample_chains(chains::chains_memory, rng, chain, n_samples)
     # Sample from the previous chains
-    StatsBase.sample(rng, setdiff(1:(chains.current_position[end]), chains.current_position[chain]), n_samples, replace = false)
+    current_pos = chains.current_position[chain];
+    StatsBase.sample(rng, vcat(1:(current_pos - 1), (current_pos + 1):(chains.current_position[end])), n_samples, replace = false)
 end
