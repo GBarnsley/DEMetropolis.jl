@@ -58,29 +58,18 @@ function composite_sampler(
     #mulithreading
     update_chains_func! = get_update_chains_func(parallel);
 
-    #preallocate proposals
-    xₚs = preallocate_proposals(n_chains, initial_state)
-
     #burnin
-    epoch!(1:n_burnin, rngs, chains, ld, sampler_scheme, update_chains_func!, xₚs, "Burnin: ")
+    epoch!(1:n_burnin, rngs, chains, ld, sampler_scheme, update_chains_func!, "Burnin: ")
 
     #samples
-    epoch!(1:n_its, rngs, chains, ld, sampler_scheme, update_chains_func!, xₚs, "Sampling: ")
+    epoch!(1:n_its, rngs, chains, ld, sampler_scheme, update_chains_func!, "Sampling: ")
 
     #format outputs
     sample_indices = n_burnin .+ (1:n_its);
     if save_burnt
         burnt_indices = 1:n_burnin;
-        return (
-            samples = population_to_samples(chains, sample_indices, n_chains, N₀),
-            ld = ld_to_samples(chains, sample_indices, n_chains, N₀),
-            burnt_samples = population_to_samples(chains, burnt_indices, n_chains, N₀),
-            burnt_ld = ld_to_samples(chains, burnt_indices, n_chains, N₀)
-        )
+        return format_output(chains, n_chains, N₀, sample_indices, burnt_indices)
     else
-        return (
-            samples = population_to_samples(chains, sample_indices, n_chains, N₀),
-            ld = ld_to_samples(chains, sample_indices, n_chains, N₀)
-        )
+        return format_output(chains, n_chains, N₀, sample_indices)
     end
 end

@@ -40,7 +40,7 @@ function get_γ(rng, update::de_update_random)
     return rand(rng, update.γ)
 end
 
-function update!(update::de_update, chains::chains_struct, ld, rng, chain, xₚ)
+function update!(update::de_update, chains::chains_struct, ld, rng, chain)
     x = get_value(chains, chain);
     sampled_chains = sample_chains(chains, rng, chain, 2);
     x₁ = chains.X[sampled_chains[1], :];
@@ -49,7 +49,7 @@ function update!(update::de_update, chains::chains_struct, ld, rng, chain, xₚ)
         #just don't update (save the ld eval)
         update_value!(chains, rng, chain, x, -Inf)
     else
-        xₚ .= x .+ get_γ(rng, update) .* (x₁ .- x₂) .+ rand(rng, update.β, length(x));
+        xₚ = x .+ get_γ(rng, update) .* (x₁ .- x₂) .+ rand(rng, update.β, length(x));
         update_value!(chains, rng, chain, xₚ, LogDensityProblems.logdensity(ld, xₚ));
     end
 end
@@ -90,7 +90,7 @@ function setup_snooker_update(;
     end
 end
 
-function update!(update::snooker_update, chains::chains_struct, ld, rng, chain, xₚ)
+function update!(update::snooker_update, chains::chains_struct, ld, rng, chain)
     x = get_value(chains, chain);
     sampled_chains = sample_chains(chains, rng, chain, 3);
     x₁ = chains.X[sampled_chains[1], :];
@@ -100,9 +100,8 @@ function update!(update::snooker_update, chains::chains_struct, ld, rng, chain, 
         #just don't update (save the ld eval)
         update_value!(chains, rng, chain, x, -Inf)
     else
-        diff = x₁ .- x₂;
         e = LinearAlgebra.normalize(xₐ .- x);
-        xₚ .= x .+ get_γ(rng, update) .* LinearAlgebra.dot(diff, e) .* e; #really this could be assigned to the next value and just replace if rejected
+        xₚ = x .+ get_γ(rng, update) .* LinearAlgebra.dot(x₁ .- x₂, e) .* e; #really this could be assigned to the next value and just replace if rejected
         update_value!(
             chains, rng, chain, xₚ, LogDensityProblems.logdensity(ld, xₚ),
             (length(x) - 1) * (log(LinearAlgebra.norm(xₐ .- xₚ)) - log(LinearAlgebra.norm(xₐ .- x)))
