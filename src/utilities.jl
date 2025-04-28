@@ -42,3 +42,11 @@ function get_sampling_indices(min_it, max_it)
     n_its = halve(max_it - min_it);
     (max_it - n_its + 1):max_it;
 end
+
+function partition_integer(I::Int, n::Int)
+    base = I ÷ n  # Base size of each group
+    remainder = I % n  # Remaining units to distribute
+
+    # Create n groups: first 'remainder' groups get (base + 1), the rest get 'base'
+    return vcat(fill(base + 1, remainder), fill(base, n - remainder))
+end

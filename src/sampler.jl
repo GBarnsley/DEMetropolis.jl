@@ -49,7 +49,8 @@ end
 
 function composite_sampler(
     ld, n_its, n_chains, memory, initial_state, sampler_scheme::sampler_scheme_struct;
-    save_burnt = false, rng = Random.default_rng(), n_burnin = n_its * 5, parallel = false
+    save_burnt = false, rng = Random.default_rng(), n_burnin = n_its * 5, parallel = false,
+    diagnostic_checks::Union{Nothing, Vector{diagnostic_check_struct}} = nothing, check_epochs = 1
 )
 
     N₀, n_pars = size(initial_state);
@@ -67,7 +68,18 @@ function composite_sampler(
     update_chains_func! = get_update_chains_func(parallel);
 
     #burnin
-    epoch!(1:n_burnin, rngs, chains, ld, sampler_scheme, update_chains_func!, "Burnin: ")
+    if isnothing(diagnostic_checks) || check_epochs == 0
+        epoch!(1:n_burnin, rngs, chains, ld, sampler_scheme, update_chains_func!, "Burnin: ")
+    else
+        burnin_epochs_iterations = partition_integer(n_burnin, check_epochs + 1);
+        for epoch in check_epochs
+            epoch!(1:burnin_epochs_iterations[epoch], rngs, chains, ld, sampler_scheme, update_chains_func!, "Burnin $epoch: ")
+            for diagnostic_check in diagnostic_checks
+                run_diagnostic_check!(chains, diagnostic_check, rngs, sum(burnin_epochs_iterations[1:epoch])) 
+            end
+        end
+        epoch!(1:burnin_epochs_iterations[end], rngs, chains, ld, sampler_scheme, update_chains_func!, "Burnin final: ")
+    end
 
     #samples
     epoch!(1:n_its, rngs, chains, ld, sampler_scheme, update_chains_func!, "Sampling: ")
@@ -85,7 +97,7 @@ end
 
 function composite_sampler(
     ld, epoch_size, n_chains, memory, initial_state, sampler_scheme::sampler_scheme_struct, stopping_criteria::stopping_criteria_struct;
-    save_burnt = false, rng = Random.default_rng(), warmup_epochs = 5, parallel = false, epoch_limit = 20
+    save_burnt = false, rng = Random.default_rng(), warmup_epochs = 5, parallel = false, epoch_limit = 20, diagnostic_checks::Union{Nothing, Vector{diagnostic_check_struct}} = nothing
 )
 
     N₀, n_pars = size(initial_state);
@@ -105,6 +117,11 @@ function composite_sampler(
 
     for epoch in 1:warmup_epochs
         epoch!(1:epoch_size, rngs, chains, ld, sampler_scheme, update_chains_func!, "Warm-up Epoch $epoch: ")
+        if !isnothing(diagnostic_checks) || epoch < warmup_epochs
+            for diagnostic_check in diagnostic_checks
+                run_diagnostic_check!(chains, diagnostic_check, rngs, epoch * epoch_size) 
+            end
+        end
     end
 
     not_done = true

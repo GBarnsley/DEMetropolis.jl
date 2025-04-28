@@ -21,12 +21,18 @@ sampler_scheme = sampler_scheme_multi(
     ]
 );
 
+diagnostic_checks = [
+    ld_check(),
+    acceptance_check()
+];
+
 @testset "composite sampler" begin
     n_its = 10;
     n_burnin = 10;
     output_mem = composite_sampler(
         ld, n_its, n_chains, true, initial_state, sampler_scheme;
-        save_burnt = true, rng = rng, n_burnin = n_burnin, parallel = false
+        save_burnt = true, rng = rng, n_burnin = n_burnin, parallel = false,
+        diagnostic_checks = diagnostic_checks
     )
     output = composite_sampler(
         ld, n_its, n_chains, false, initial_state, sampler_scheme;
@@ -55,7 +61,8 @@ end
     warmup_epochs = 2;
     output = composite_sampler(
         ld, epoch_size, n_chains, true, initial_state, sampler_scheme, deMCMC.R̂_stopping_criteria(1.5);
-        save_burnt = true, rng = rng, warmup_epochs = warmup_epochs, parallel = false
+        save_burnt = true, rng = rng, warmup_epochs = warmup_epochs, parallel = false,
+        diagnostic_checks = diagnostic_checks
     )
     output_its = size(output.samples, 1)
     output_its_burnt = size(output.burnt_samples, 1)

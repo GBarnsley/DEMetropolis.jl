@@ -1,13 +1,13 @@
 module deMCMC
-export composite_sampler, setup_de_update, setup_snooker_update, sampler_scheme_multi, R̂_stopping_criteria
+export composite_sampler, setup_de_update, setup_snooker_update, sampler_scheme_multi, R̂_stopping_criteria, ld_check, acceptance_check
 import StatsBase, Random, TransformedLogDensities, LogDensityProblems, Distributions, Logging, ProgressMeter, LinearAlgebra, StatsBase, MCMCDiagnosticTools
 
 include("population.jl")
 include("updates.jl")
 include("stopping.jl")
+include("diagnostics.jl")
 include("sampler.jl")
 include("update_chain.jl")
-include("diagnostics.jl")
 include("utilities.jl")
 
 end
@@ -34,11 +34,15 @@ end
 #        setup_snooker_update(deterministic_γ = true)
 #    ]
 #)
+#diagnostics = [
+#    ld_check(),
+#    acceptance_check()
+#]
 #output = composite_sampler(
 #    ld, n_its, n_chains, memory, initial_state, sampler_scheme, deMCMC.R̂_stopping_criteria(1.1);
-#    save_burnt = true, rng = rng, parallel = true
+#    save_burnt = true, rng = rng, parallel = true, diagnostic_checks = diagnostics
 #)
 #
-#plot(cat(output.burnt_samples[:, :, 1], output.samples[:, :, 1], dims = 1))
 #mean(output.samples[:, :, :], dims = (1, 2))
 #mean(output.samples[:, :, :])
+#plot(cat(output.burnt_samples[:, :, 1], output.samples[:, :, 1], dims = 1))
