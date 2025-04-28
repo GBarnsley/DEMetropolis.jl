@@ -4,6 +4,7 @@ function update_chains!(ld, rngs, chains, sampler_scheme)
         update!(get_update(sampler_scheme, rngs[chain]), chains, ld, rngs[chain], chain);
     end
     update_position!(chains);
+    adapt_samplers!(sampler_scheme, chains)
 end
 
 function update_chains_parallel!(ld, rngs, chains, sampler_scheme)
@@ -12,6 +13,7 @@ function update_chains_parallel!(ld, rngs, chains, sampler_scheme)
         update!(get_update(sampler_scheme, rngs[chain]), chains, ld, rngs[chain], chain);
     end
     update_position!(chains);
+    adapt_samplers!(sampler_scheme, chains)
 end
 
 function get_update_chains_func(parallel)

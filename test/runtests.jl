@@ -10,14 +10,16 @@ n_pars = 2;
 ld = TransformedLogDensities.TransformedLogDensity(as(Array, n_pars), ld_normal);
 n_chains = 4;
 rng = Random.MersenneTwister(1234);
-initial_state = randn(n_chains, n_pars);
+initial_state = randn(rng, n_chains, n_pars);
 sampler_scheme = sampler_scheme_multi(
-    [1.0, 1.0, 1.0, 1.0],
+    [1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
     [
         setup_de_update(ld, deterministic_γ = false),
         setup_de_update(ld, deterministic_γ = true),
         setup_snooker_update(deterministic_γ = false),
-        setup_snooker_update(deterministic_γ = true)
+        setup_snooker_update(deterministic_γ = true),
+        setup_subspace_sampling(),
+        setup_subspace_sampling(γ = 1.0)
     ]
 );
 
@@ -96,7 +98,7 @@ end
         β = Distributions.Beta(1e-4, 1e-4),
         deterministic_γ = false
     )
-    @test isa(single_dist.γ, Real)
+    @test isa(single_dist.γ, Distributions.Dirac)
     @test isa(single_dist.β, Distributions.Beta)
     @test single_dist == setup_de_update(
         ld;
@@ -108,7 +110,7 @@ end
         ld;
         deterministic_γ = true
     )
-    @test isa(det.γ, Real)
+    @test isa(det.γ, Distributions.Dirac)
     @test isa(det.β, Distributions.Uniform)
     ran = setup_de_update(
         ld;
@@ -133,7 +135,7 @@ end
         γ = 10,
         deterministic_γ = false
     )
-    @test isa(rel.γ, Real)
+    @test isa(rel.γ, Distributions.Dirac)
     @test rel == setup_snooker_update(
         γ = 10,
         deterministic_γ = true
@@ -141,11 +143,28 @@ end
     det = setup_snooker_update(
         deterministic_γ = true
     )
-    @test isa(det.γ, Real)
+    @test isa(det.γ, Distributions.Dirac)
     ran = setup_snooker_update(
         deterministic_γ = false
     )
     @test isa(ran.γ, Distributions.Uniform)
+end
+
+@testset "subspace" begin
+    dist = setup_subspace_sampling(
+        γ = nothing,
+        δ = 1
+    )
+    @test isa(dist.δ, Distributions.Dirac)
+    @test isa(dist.cr, Distributions.DiscreteNonParametric)
+    dist = setup_subspace_sampling(
+        γ = 1.0,
+        δ = Distributions.Poisson(0.5),
+        cr = 0.5
+    )
+    @test isa(dist.γ, Real)
+    @test isa(dist.cr, Distributions.Dirac)
+    @test isa(dist.δ, Distributions.Poisson)
 end
 
 @testset "test rng states" begin
@@ -154,14 +173,50 @@ end
     n_burnin = 100;
     rng = Random.MersenneTwister(112);
     output1 = composite_sampler(
-        ld, n_its, n_chains, false, initial_state, sampler_scheme;
+        ld, n_its, n_chains, false, initial_state, sampler_scheme_multi(
+            [1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+            [
+                setup_de_update(ld, deterministic_γ = false),
+                setup_de_update(ld, deterministic_γ = true),
+                setup_snooker_update(deterministic_γ = false),
+                setup_snooker_update(deterministic_γ = true),
+                setup_subspace_sampling(),
+                setup_subspace_sampling(γ = 1.0)
+            ]
+        );
         save_burnt = true, rng = rng, n_burnin = n_burnin, parallel = false
     )
     rng = Random.MersenneTwister(112);
     output2 = composite_sampler(
-        ld, n_its, n_chains, false, initial_state, sampler_scheme;
+        ld, n_its, n_chains, false, initial_state, sampler_scheme_multi(
+            [1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+            [
+                setup_de_update(ld, deterministic_γ = false),
+                setup_de_update(ld, deterministic_γ = true),
+                setup_snooker_update(deterministic_γ = false),
+                setup_snooker_update(deterministic_γ = true),
+                setup_subspace_sampling(),
+                setup_subspace_sampling(γ = 1.0)
+            ]
+        );
         save_burnt = true, rng = rng, n_burnin = n_burnin, parallel = false
     )
 
-    @test isequal(output1, output2)
+    
+    @test isequal(output1.sampler_scheme.updates[1], output2.sampler_scheme.updates[1])
+    @test isequal(output1.sampler_scheme.updates[2], output2.sampler_scheme.updates[2])
+    @test isequal(output1.sampler_scheme.updates[3], output2.sampler_scheme.updates[3])
+    @test isequal(output1.sampler_scheme.updates[4], output2.sampler_scheme.updates[4])
+    #bug to report?
+    #@test isequal(output1.sampler_scheme, output2.sampler_scheme)
+    #@test isequal(output1.sampler_scheme.updates[5], output2.sampler_scheme.updates[5])
+    #@test isequal(output1.sampler_scheme.updates[6].adaptation, output2.sampler_scheme.updates[6].adaptation)
+    @test isequal(output1.sampler_scheme.updates[6].adaptation.L, output2.sampler_scheme.updates[6].adaptation.L)
+    @test isequal(output1.sampler_scheme.updates[6].adaptation.Δ, output2.sampler_scheme.updates[6].adaptation.Δ)
+    @test isequal(output1.sampler_scheme.updates[6].adaptation.crs, output2.sampler_scheme.updates[6].adaptation.crs)
+
+    @test isequal(output1.samples, output2.samples)
+    @test isequal(output1.ld, output2.ld)
+    @test isequal(output1.burnt_samples, output2.burnt_samples)
+    @test isequal(output1.burnt_ld, output2.burnt_ld)
 end

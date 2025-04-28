@@ -22,15 +22,17 @@ function ld_to_samples(chains::chains_struct, its)
     return lds
 end
 
-function format_output(chains::chains_struct, sample_indices)
+function format_output(chains::chains_struct, sampler_scheme, sample_indices)
     return (
+        sampler_scheme = sampler_scheme,
         samples = population_to_samples(chains, sample_indices),
         ld = ld_to_samples(chains, sample_indices)
     )
 end
 
-function format_output(chains::chains_struct, sample_indices, burnt_indices)
+function format_output(chains::chains_struct, sampler_scheme, sample_indices, burnt_indices)
     return (
+        sampler_scheme = sampler_scheme,
         samples = population_to_samples(chains, sample_indices),
         ld = ld_to_samples(chains, sample_indices),
         burnt_samples = population_to_samples(chains, burnt_indices),
