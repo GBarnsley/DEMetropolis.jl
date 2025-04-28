@@ -16,23 +16,24 @@ function setup_population(ld, initial_state, total_iterations, N₀, n_pars, n_c
     current_position = collect((N₀ - n_chains + 1):(N₀));
     if memory
         return chains_memory(
-            X, X_ld, current_position, n_chains, N₀
+            X, X_ld, current_position, n_chains, N₀, true
         )
     else
         other_chains = map(c -> setdiff(1:n_chains, c), 1:n_chains);
         return chains_memoryless(
-            X, X_ld, other_chains, current_position, n_chains, N₀
+            X, X_ld, other_chains, current_position, n_chains, N₀, true
         )
     end
 end
 
-struct chains_memoryless{X_type <: Real} <: chains_struct
+mutable struct chains_memoryless{X_type <: Real} <: chains_struct
     X::Array{X_type, 2}
     ld::Array{X_type, 1}
     other_chains::Vector{Vector{Int}}
     current_position::Array{Int, 1}
     n_chains::Int
     N₀::Int
+    warmup::Bool
 end
 
 function get_value(chains::chains_struct, chain)
@@ -45,9 +46,11 @@ function update_value!(chains::chains_struct, rng, chain, xₚ, ldₚ)
     if log(rand(rng)) < ldₚ - chains.ld[old_position]
         chains.X[new_position, :] .= xₚ
         chains.ld[new_position] = ldₚ
+        return true
     else
         chains.X[new_position, :] .= chains.X[old_position, :]
         chains.ld[new_position] = chains.ld[old_position]
+        return false
     end
 end
 
@@ -57,9 +60,11 @@ function update_value!(chains::chains_struct, rng, chain, xₚ, ldₚ, offset)
     if log(rand(rng)) < ldₚ - chains.ld[old_position] + offset
         chains.X[new_position, :] .= xₚ
         chains.ld[new_position] = ldₚ
+        return true
     else
         chains.X[new_position, :] .= chains.X[old_position, :]
         chains.ld[new_position] = chains.ld[old_position]
+        return false
     end
 end
 
@@ -73,12 +78,13 @@ function sample_chains(chains::chains_memoryless, rng, chain, n_samples)
     chains.current_position[StatsBase.sample(rng, chains.other_chains[chain], n_samples, replace = false)]
 end
 
-struct chains_memory{X_type <: Real} <: chains_struct
+mutable struct chains_memory{X_type <: Real} <: chains_struct
     X::Array{X_type, 2}
     ld::Array{X_type, 1}
     current_position::Array{Int, 1}
     n_chains::Int
     N₀::Int
+    warmup::Bool
 end
 
 function sample_chains(chains::chains_memory, rng, chain, n_samples)
@@ -87,38 +93,13 @@ function sample_chains(chains::chains_memory, rng, chain, n_samples)
     indices
 end
 
-function resize_X_ld(chains::chains_struct, new_size)
+function resize_chains!(chains::chains_struct, new_size)
     #not great have to re allocate the whole array
     new_X = Array{eltype(chains.X)}(undef, new_size, size(chains.X, 2));
     new_X[axes(chains.X, 1), :] .= chains.X;
     new_ld = Array{eltype(chains.ld)}(undef, new_size);
     new_ld[axes(chains.ld, 1)] .= chains.ld;
 
-    return (new_X, new_ld)
-end
-
-
-function resize_chains(chains::chains_memoryless, new_size)
-    new_X, new_ld = resize_X_ld(chains, new_size);
-
-    chains_memoryless(
-        new_X,
-        new_ld,
-        chains.other_chains,
-        chains.current_position,
-        chains.n_chains,
-        chains.N₀
-    )
-end
-
-function resize_chains(chains::chains_memory, new_size)
-    new_X, new_ld = resize_X_ld(chains, new_size);
-
-    chains_memory(
-        new_X,
-        new_ld,
-        chains.current_position,
-        chains.n_chains,
-        chains.N₀
-    )
+    chains.X = new_X;
+    chains.ld = new_ld;
 end

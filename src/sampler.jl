@@ -23,6 +23,16 @@ function get_update(sampler_scheme::sampler_scheme_multi, rng)
     StatsBase.wsample(rng, sampler_scheme.updates, sampler_scheme.update_weights)
 end
 
+function adapt_samplers!(sampler_scheme::sampler_scheme_single, chains)
+    adapt_update!(sampler_scheme.update, chains)
+end
+
+function adapt_samplers!(sampler_scheme::sampler_scheme_multi, chains)
+    for update in sampler_scheme.updates
+        adapt_update!(update, chains)
+    end
+end
+
 function check_initial_state(n_chains, N₀, n_pars, ld, memory)
     if !memory
         if N₀ != n_chains
@@ -82,6 +92,7 @@ function composite_sampler(
     end
 
     #samples
+    chains.warmup = false;
     epoch!(1:n_its, rngs, chains, ld, sampler_scheme, update_chains_func!, "Sampling: ")
 
     #format outputs
@@ -124,9 +135,10 @@ function composite_sampler(
         end
     end
 
-    not_done = true
+    not_done = true;
     epoch = 1;
     sample_from = warmup_epochs * epoch_size; #don't sample warmup
+    chains.warmup = false; #disable adaptation
     while not_done
         epoch!(1:epoch_size, rngs, chains, ld, sampler_scheme, update_chains_func!, "Epoch $epoch: ")
         if epoch > epoch_limit
@@ -138,7 +150,7 @@ function composite_sampler(
         else
             epoch += 1
             #add more space to the chains
-            chains = resize_chains(chains, length(chains.ld) + (epoch_size * n_chains))
+            resize_chains!(chains, length(chains.ld) + (epoch_size * n_chains))
         end
     end
 
@@ -148,8 +160,8 @@ function composite_sampler(
     sample_indices = get_sampling_indices(sample_from, max_its)
     if save_burnt
         burnt_indices = 1:(max_its - sample_indices[1]);
-        return format_output(chains, sample_indices, burnt_indices)
+        return format_output(chains, sampler_scheme, sample_indices, burnt_indices)
     else
-        return format_output(chains, sample_indices)
+        return format_output(chains, sampler_scheme, sample_indices)
     end
 end

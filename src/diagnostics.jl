@@ -42,9 +42,9 @@ function run_diagnostic_check!(chains, diagnostic_check::acceptance_check, rngs,
     outliers = findall((lp_acceptance .< (q₁ - 2 * (StatsBase.quantile(lp_acceptance, 0.75) - q₁))) .& (p_acceptance .< diagnostic_check.min_acceptance));
 
     if length(outliers) > 0
-        @warn string(length(outliers)) * " outlier chains detected, setting to best chain"
+        @warn string(length(outliers)) * " poorly mixing chain chains detected, setting to best chain"
         #remove outliers
-        best_chain = argmin(abs.(p_acceptance .- diagnostic_check.target_acceptance));
+        best_chain = [argmin(abs.(p_acceptance .- diagnostic_check.target_acceptance))];
         chains.ld[chains.current_position[outliers], :] .= chains.ld[chains.current_position[best_chain], :];
         chains.X[chains.current_position[outliers], :] .= chains.X[chains.current_position[best_chain], :];
     end
