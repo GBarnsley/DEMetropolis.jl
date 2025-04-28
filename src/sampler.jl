@@ -99,9 +99,9 @@ function composite_sampler(
     sample_indices = n_burnin .+ (1:n_its);
     if save_burnt
         burnt_indices = 1:n_burnin;
-        return format_output(chains, sample_indices, burnt_indices)
+        return format_output(chains, sampler_scheme, sample_indices, burnt_indices)
     else
-        return format_output(chains, sample_indices)
+        return format_output(chains, sampler_scheme, sample_indices)
     end
 end
 
