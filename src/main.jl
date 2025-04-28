@@ -1,6 +1,6 @@
 module deMCMC
 export composite_sampler, setup_de_update, setup_snooker_update, sampler_scheme_multi, R̂_stopping_criteria, ld_check, acceptance_check
-import StatsBase, Random, TransformedLogDensities, LogDensityProblems, Distributions, Logging, ProgressMeter, LinearAlgebra, StatsBase, MCMCDiagnosticTools
+import StatsBase, Random, TransformedLogDensities, LogDensityProblems, Distributions, Logging, ProgressMeter, LinearAlgebra, MCMCDiagnosticTools
 
 include("population.jl")
 include("updates.jl")
