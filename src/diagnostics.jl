@@ -52,15 +52,3 @@ function replace_poorly_mixing_chains!(X, X_ld, its, rngs; check_every = 0)
         return poorly_mixing
     end
 end
-
-function chains_converged(X, max_it; min_viable = halve(max_it))
-    rhat = MCMCDiagnosticTools.rhat(
-        thin_X(X, min_viable, max_it, max_it - maximum(min_viable))
-    )
-    println("Rhat: ", round.(rhat, sigdigits = 3))
-    if all(rhat .< 1.2)
-        return true
-    else
-        return false
-    end
-end

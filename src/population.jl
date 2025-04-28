@@ -16,12 +16,12 @@ function setup_population(ld, initial_state, total_iterations, N₀, n_pars, n_c
     current_position = collect((N₀ - n_chains + 1):(N₀));
     if memory
         return chains_memory(
-            X, X_ld, current_position, n_chains
+            X, X_ld, current_position, n_chains, N₀
         )
     else
         other_chains = map(c -> setdiff(1:n_chains, c), 1:n_chains);
         return chains_memoryless(
-            X, X_ld, other_chains, current_position, n_chains
+            X, X_ld, other_chains, current_position, n_chains, N₀
         )
     end
 end
@@ -32,6 +32,7 @@ struct chains_memoryless{X_type <: Real} <: chains_struct
     other_chains::Vector{Vector{Int}}
     current_position::Array{Int, 1}
     n_chains::Int
+    N₀::Int
 end
 
 function get_value(chains::chains_struct, chain)
@@ -77,10 +78,47 @@ struct chains_memory{X_type <: Real} <: chains_struct
     ld::Array{X_type, 1}
     current_position::Array{Int, 1}
     n_chains::Int
+    N₀::Int
 end
 
 function sample_chains(chains::chains_memory, rng, chain, n_samples)
-    # Sample from the previous chains
-    current_pos = chains.current_position[chain];
-    StatsBase.sample(rng, vcat(1:(current_pos - 1), (current_pos + 1):(chains.current_position[end])), n_samples, replace = false)
+    indices = StatsBase.sample(rng, 1:(chains.current_position[end] - 1), n_samples, replace = false)
+    indices[indices .>= chains.current_position[chain]] .+= 1 #so we don't sample the current chain
+    indices
+end
+
+function resize_X_ld(chains::chains_struct, new_size)
+    #not great have to re allocate the whole array
+    new_X = Array{eltype(chains.X)}(undef, new_size, size(chains.X, 2));
+    new_X[axes(chains.X, 1), :] .= chains.X;
+    new_ld = Array{eltype(chains.ld)}(undef, new_size);
+    new_ld[axes(chains.ld, 1)] .= chains.ld;
+
+    return (new_X, new_ld)
+end
+
+
+function resize_chains(chains::chains_memoryless, new_size)
+    new_X, new_ld = resize_X_ld(chains, new_size);
+
+    chains_memoryless(
+        new_X,
+        new_ld,
+        chains.other_chains,
+        chains.current_position,
+        chains.n_chains,
+        chains.N₀
+    )
+end
+
+function resize_chains(chains::chains_memory, new_size)
+    new_X, new_ld = resize_X_ld(chains, new_size);
+
+    chains_memory(
+        new_X,
+        new_ld,
+        chains.current_position,
+        chains.n_chains,
+        chains.N₀
+    )
 end

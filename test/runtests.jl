@@ -48,6 +48,39 @@ using TransformVariables, TransformedLogDensities, Random, Distributions
     @test eltype(output.ld) == eltype(initial_state)
 end
 
+@testset "composite sampler until converged" begin
+    #easy problem that uses all the updates
+    function ld_normal(x)
+        sum(-(x .* x)/2)
+    end
+    n_pars = 2
+    ld = TransformedLogDensities.TransformedLogDensity(as(Array, n_pars), ld_normal)
+    rng = Random.MersenneTwister(1234);
+    epoch_size = 1000;
+    n_chains = 4;
+    warm_up_epochs = 10;
+    initial_state = randn(n_chains, n_pars);
+    sampler_scheme = sampler_scheme_multi(
+        [1.0, 1.0, 1.0, 1.0],
+        [
+            setup_de_update(ld, deterministic_γ = false),
+            setup_de_update(ld, deterministic_γ = true),
+            setup_snooker_update(deterministic_γ = false),
+            setup_snooker_update(deterministic_γ = true)
+        ]
+    );
+    output = composite_sampler(
+        ld, n_its, n_chains, true, initial_state, sampler_scheme, deMCMC.R̂_stopping_criteria(1.5);
+        save_burnt = true, rng = rng, n_burnin = n_burnin, parallel = false
+    )
+    @test size(output.samples) == (n_its, n_chains, n_pars)
+    @test size(output.ld) == (n_its, n_chains)
+    @test size(output.burnt_samples) == (n_its, n_chains, n_pars)
+    @test size(output.burnt_ld) == (n_its, n_chains)
+    @test eltype(output.samples) == eltype(initial_state)
+    @test eltype(output.ld) == eltype(initial_state)
+end
+
 @testset "regular deMCMC" begin
     function ld_normal(x)
         sum(-(x .* x)/2)
