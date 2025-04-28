@@ -1,5 +1,5 @@
 module deMCMC
-export composite_sampler, setup_de_update, setup_snooker_update, sampler_scheme_multi, R̂_stopping_criteria, ld_check, acceptance_check
+export composite_sampler, setup_de_update, setup_snooker_update, setup_subspace_sampling, sampler_scheme_multi, R̂_stopping_criteria, ld_check, acceptance_check
 import StatsBase, Random, TransformedLogDensities, LogDensityProblems, Distributions, Logging, ProgressMeter, LinearAlgebra, MCMCDiagnosticTools
 
 include("population.jl")
@@ -26,12 +26,14 @@ end
 #parallel = true;
 #initial_state = randn(n_chains, 8);
 #sampler_scheme = deMCMC.sampler_scheme_multi(
-#    [1.0, 1.0, 0.1, 0.1],
+#    [1.0, 1.0, 0.1, 0.1, 1.0, 1.0],
 #    [
 #        setup_de_update(ld, deterministic_γ = false),
 #        setup_de_update(ld, deterministic_γ = true),
 #        setup_snooker_update(deterministic_γ = false),
-#        setup_snooker_update(deterministic_γ = true)
+#        setup_snooker_update(deterministic_γ = true),
+#        setup_subspace_sampling(),
+#        setup_subspace_sampling(γ = 1.0)
 #    ]
 #)
 #diagnostics = [
