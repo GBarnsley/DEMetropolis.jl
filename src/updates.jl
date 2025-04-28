@@ -99,11 +99,11 @@ end
 function setup_subspace_sampling(;
     γ::Union{Nothing, Real} = nothing,
     crossover_probability = 0.5,
-    δ::Union{Real, Distributions.DiscreteUnivariateDistribution} = Distributions.DiscreteUniform(1, 3),
+    δ::Union{Integer, Distributions.DiscreteUnivariateDistribution} = Distributions.DiscreteUniform(1, 3),
     ϵ = Distributions.Uniform(-1e-4, 1e-4),
-    e = Distributions.Normal(0.0, 1e-2),
+    e = Distributions.Normal(0.0, 1e-2)
 )
-    if isa(δ, Real)
+    if isa(δ, Integer)
         δ = Distributions.Dirac(δ)
     end
 

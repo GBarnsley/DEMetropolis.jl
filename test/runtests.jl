@@ -12,12 +12,14 @@ n_chains = 4;
 rng = Random.MersenneTwister(1234);
 initial_state = randn(n_chains, n_pars);
 sampler_scheme = sampler_scheme_multi(
-    [1.0, 1.0, 1.0, 1.0],
+    [1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
     [
         setup_de_update(ld, deterministic_γ = false),
         setup_de_update(ld, deterministic_γ = true),
         setup_snooker_update(deterministic_γ = false),
-        setup_snooker_update(deterministic_γ = true)
+        setup_snooker_update(deterministic_γ = true),
+        setup_subspace_sampling(),
+        setup_subspace_sampling(γ = 1.0)
     ]
 );
 
@@ -96,7 +98,7 @@ end
         β = Distributions.Beta(1e-4, 1e-4),
         deterministic_γ = false
     )
-    @test isa(single_dist.γ, Real)
+    @test isa(single_dist.γ, Distributions.Dirac)
     @test isa(single_dist.β, Distributions.Beta)
     @test single_dist == setup_de_update(
         ld;
@@ -108,7 +110,7 @@ end
         ld;
         deterministic_γ = true
     )
-    @test isa(det.γ, Real)
+    @test isa(det.γ, Distributions.Dirac)
     @test isa(det.β, Distributions.Uniform)
     ran = setup_de_update(
         ld;
@@ -133,7 +135,7 @@ end
         γ = 10,
         deterministic_γ = false
     )
-    @test isa(rel.γ, Real)
+    @test isa(rel.γ, Distributions.Dirac)
     @test rel == setup_snooker_update(
         γ = 10,
         deterministic_γ = true
@@ -141,11 +143,25 @@ end
     det = setup_snooker_update(
         deterministic_γ = true
     )
-    @test isa(det.γ, Real)
+    @test isa(det.γ, Distributions.Dirac)
     ran = setup_snooker_update(
         deterministic_γ = false
     )
     @test isa(ran.γ, Distributions.Uniform)
+end
+
+@testset "subspace" begin
+    dist = setup_subspace_sampling(
+        γ = nothing,
+        δ = 1
+    )
+    @test isa(dist.δ, Distributions.Dirac)
+    dist = setup_subspace_sampling(
+        γ = 1.0,
+        δ = Distributions.Poisson(0.5),
+    )
+    @test isa(dist.γ, Real)
+    @test isa(dist.δ, Distributions.Poisson)
 end
 
 @testset "test rng states" begin
