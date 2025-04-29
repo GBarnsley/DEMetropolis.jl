@@ -5,13 +5,27 @@ struct sampler_scheme_single <: sampler_scheme_struct
 end
 
 struct sampler_scheme_multi <: sampler_scheme_struct
-    update_weights::Vector{Float64} #should this be a parameteric type?
+    update_weights::Vector{Float64} #should this be a non-parameteric type?
     updates::Vector{<:update_struct}
     sampler_scheme_multi(update_weights::Vector{Float64}, updates::Vector{<:update_struct}) = begin
         if length(update_weights) != length(updates)
             error("Number of update weights must be equal to the number of updates")
         end
         return new(update_weights, updates)
+    end
+end
+
+function setup_sampler_scheme(updates...; w = nothing)
+    if isnothing(w)
+        w = ones(length(updates)) ./ length(updates)
+    end
+    if any(w .< 0)
+        error("Update weights must be non-negative")
+    end
+    if length(w) > 1
+        sampler_scheme_multi(w, collect(updates))
+    else
+        sampler_scheme_single(updates[1])
     end
 end
 

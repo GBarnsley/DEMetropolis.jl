@@ -11,16 +11,14 @@ ld = TransformedLogDensities.TransformedLogDensity(as(Array, n_pars), ld_normal)
 n_chains = 4;
 rng = Random.MersenneTwister(1234);
 initial_state = randn(rng, n_chains, n_pars);
-sampler_scheme = sampler_scheme_multi(
-    [1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-    [
-        setup_de_update(ld, deterministic_γ = false),
-        setup_de_update(ld, deterministic_γ = true),
-        setup_snooker_update(deterministic_γ = false),
-        setup_snooker_update(deterministic_γ = true),
-        setup_subspace_sampling(),
-        setup_subspace_sampling(γ = 1.0)
-    ]
+sampler_scheme = setup_sampler_scheme(
+    setup_de_update(ld, deterministic_γ = false),
+    setup_de_update(ld, deterministic_γ = true),
+    setup_snooker_update(deterministic_γ = false),
+    setup_snooker_update(deterministic_γ = true),
+    setup_subspace_sampling(),
+    setup_subspace_sampling(γ = 1.0),
+    w = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 );
 
 diagnostic_checks = [
@@ -173,31 +171,25 @@ end
     n_burnin = 100;
     rng = Random.MersenneTwister(112);
     output1 = composite_sampler(
-        ld, n_its, n_chains, false, initial_state, sampler_scheme_multi(
-            [1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-            [
-                setup_de_update(ld, deterministic_γ = false),
-                setup_de_update(ld, deterministic_γ = true),
-                setup_snooker_update(deterministic_γ = false),
-                setup_snooker_update(deterministic_γ = true),
-                setup_subspace_sampling(),
-                setup_subspace_sampling(γ = 1.0)
-            ]
+        ld, n_its, n_chains, false, initial_state, setup_sampler_scheme(
+            setup_de_update(ld, deterministic_γ = false),
+            setup_de_update(ld, deterministic_γ = true),
+            setup_snooker_update(deterministic_γ = false),
+            setup_snooker_update(deterministic_γ = true),
+            setup_subspace_sampling(),
+            setup_subspace_sampling(γ = 1.0)
         );
         save_burnt = true, rng = rng, n_burnin = n_burnin, parallel = false
     )
     rng = Random.MersenneTwister(112);
     output2 = composite_sampler(
-        ld, n_its, n_chains, false, initial_state, sampler_scheme_multi(
-            [1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-            [
-                setup_de_update(ld, deterministic_γ = false),
-                setup_de_update(ld, deterministic_γ = true),
-                setup_snooker_update(deterministic_γ = false),
-                setup_snooker_update(deterministic_γ = true),
-                setup_subspace_sampling(),
-                setup_subspace_sampling(γ = 1.0)
-            ]
+        ld, n_its, n_chains, false, initial_state, setup_sampler_scheme(
+           setup_de_update(ld, deterministic_γ = false),
+           setup_de_update(ld, deterministic_γ = true),
+           setup_snooker_update(deterministic_γ = false),
+           setup_snooker_update(deterministic_γ = true),
+           setup_subspace_sampling(),
+           setup_subspace_sampling(γ = 1.0)
         );
         save_burnt = true, rng = rng, n_burnin = n_burnin, parallel = false
     )
@@ -219,4 +211,8 @@ end
     @test isequal(output1.ld, output2.ld)
     @test isequal(output1.burnt_samples, output2.burnt_samples)
     @test isequal(output1.burnt_ld, output2.burnt_ld)
+end
+
+@testset "templates" begin
+    deMC(ld, 100);
 end
