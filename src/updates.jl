@@ -12,6 +12,8 @@ end
 """
 Set up a Differential Evolution (DE) update step.
 
+See doi.org/10.1007/s11222-006-8769-1 for more information.
+
 # Arguments
 - `ld`: The log-density function (used to determine dimension if `γ` is not provided).
 
@@ -20,8 +22,11 @@ Set up a Differential Evolution (DE) update step.
 - `β`: Distribution for the small noise term added to the proposal. Defaults to `Uniform(-1e-4, 1e-4)`.
 - `deterministic_γ`: If `true` and `γ` is `nothing`, sets `γ` to the theoretically optimal `2.38 / sqrt(2 * dim)`. If `false`, sets `γ` to `Uniform(0.8, 1.2)`. Defaults to `true`.
 
-# Returns
-- A `de_update` struct configured with the specified parameters.
+# Example
+```jldoctest
+julia> setup_de_update(ld; β = Normal(0.0, 0.01))
+```
+See also [`setup_snooker_update`](@ref), [`setup_subspace_sampling`](@ref).
 """
 function setup_de_update(
     ld;
@@ -63,12 +68,17 @@ end
 """
 Set up a Snooker update step.
 
+See doi.org/10.1007/s11222-008-9104-9 for more information.
+
 # Keyword Arguments
 - `γ`: The scaling factor for the projection. Can be a `Real`, a `Distributions.UnivariateDistribution`, or `nothing`. If `nothing`, it defaults based on `deterministic_γ`.
 - `deterministic_γ`: If `true` and `γ` is `nothing`, sets `γ` to the theoretically optimal `2.38 / sqrt(2)`. If `false`, sets `γ` to `Uniform(0.8, 1.2)`. Defaults to `true`.
 
-# Returns
-- A `snooker_update` struct configured with the specified parameters.
+# Example
+```jldoctest
+julia> setup_snooker_update(γ = Uniform(0.1, 2.0))
+```
+See also [`setup_de_update`](@ref), [`setup_subspace_sampling`](@ref).
 """
 function setup_snooker_update(;
     γ::Union{Nothing, Distributions.UnivariateDistribution, Real} = nothing,
@@ -140,16 +150,21 @@ end
 """
 Set up a Subspace Sampling (DREAM-like) update step.
 
+See doi.org/10.1515/IJNSNS.2009.10.3.273 for more information.
+
 # Keyword Arguments
 - `γ`: Fixed scaling factor for the difference vector sum. If `nothing` (default), uses `2.38 / sqrt(2 * δ * d)` where `d` is the number of updated dimensions. If a `Real` is provided, uses that fixed value.
 - `cr`: Crossover probability. Can be a `Real` (fixed probability), `nothing` (adaptive probability using `n_cr` values), or a `Distributions.UnivariateDistribution`. Defaults to `nothing`.
 - `n_cr`: Number of crossover probabilities to adapt between if `cr` is `nothing`. Defaults to 3.
 - `δ`: Number of difference vectors to add. Can be an `Integer` or a `Distributions.DiscreteUnivariateDistribution`. Defaults to `DiscreteUniform(1, 3)`.
 - `ϵ`: Distribution for small noise added to the proposal in the selected subspace. Defaults to `Uniform(-1e-4, 1e-4)`.
-- `e`: Distribution for multiplicative noise applied to the difference vector sum. Defaults to `Normal(0.0, 1e-2)`.
+- `e`: Distribution for multiplicative noise (`e + 1`) applied to the difference vector sum. Defaults to `Normal(0.0, 1e-2)`.
 
-# Returns
-- A `subspace_sampling` or `subspace_sampling_fixed_γ` struct configured with the specified parameters.
+# Example
+```jldoctest
+julia> setup_subspace_sampling(cr = Beta(1, 2))
+```
+See also [`setup_de_update`](@ref), [`setup_snooker_update`](@ref).
 """
 function setup_subspace_sampling(;
     γ::Union{Nothing, Real} = nothing,
