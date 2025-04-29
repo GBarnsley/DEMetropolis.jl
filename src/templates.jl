@@ -69,3 +69,51 @@ function deMC(
     )
 
 end
+
+#DOI 10.1007/s11222-008-9104-9
+function deMCzs(
+    ld, epoch_size;
+    warmup_epochs = 5,
+    epoch_limit = 20,
+    n_chains = LogDensityProblems.dimension(ld) * 2,
+    N₀ = n_chains * 2,
+    initial_state = nothing,
+    memory = true,
+    save_burnt = true,
+    parallel = false,
+    rng = Random.default_rng(),
+    diagnostic_checks = nothing,
+    stopping_criteria = R̂_stopping_criteria(),
+    γ = nothing,
+    γₛ = nothing,
+    p_snooker = 0.1,
+    β = Distributions.Uniform(-1e-4, 1e-4)
+)
+
+    if n_chains < LogDensityProblems.dimension(ld)
+        warning("Number of chains should be greater than or equal to the number of parameters")
+    end
+
+    #setup initial state
+    initial_state = build_initial_state(rng, ld, initial_state, N₀);
+
+    #build sampler scheme
+    if p_snooker == 0
+        sampler_scheme = setup_sampler_scheme(
+            setup_de_update(ld, γ = γ, β = β)
+        )
+    else 
+        sampler_scheme = setup_sampler_scheme(
+            setup_de_update(ld, γ = γ, β = β),
+            setup_snooker_update(γ = γₛ),
+            w = [1 - p_snooker, p_snooker],
+        )
+    end
+
+    composite_sampler(
+        ld, epoch_size, n_chains, memory, initial_state, sampler_scheme, stopping_criteria;
+        save_burnt = save_burnt, rng = rng, warmup_epochs = warmup_epochs,
+        parallel = parallel, epoch_limit = epoch_limit, diagnostic_checks = diagnostic_checks
+    )
+
+end

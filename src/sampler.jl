@@ -142,7 +142,7 @@ function composite_sampler(
 
     for epoch in 1:warmup_epochs
         epoch!(1:epoch_size, rngs, chains, ld, sampler_scheme, update_chains_func!, "Warm-up Epoch $epoch: ")
-        if !isnothing(diagnostic_checks) || epoch < warmup_epochs
+        if !isnothing(diagnostic_checks) && epoch < warmup_epochs
             for diagnostic_check in diagnostic_checks
                 run_diagnostic_check!(chains, diagnostic_check, rngs, epoch * epoch_size) 
             end
