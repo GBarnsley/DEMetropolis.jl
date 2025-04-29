@@ -1,5 +1,14 @@
 abstract type stopping_criteria_struct end
 
+
+"""
+Create a stopping criterion based on the rank Gelman-Rubin diagnostic (R̂). Sampling stops when the R̂ value for all parameters is below `maximum_R̂`.
+
+# Arguments
+- `maximum_R̂`: The maximum acceptable R̂ value. Defaults to 1.2.
+
+See also [`MCMCDiagnosticTools.rhat`](@ref).
+"""
 struct R̂_stopping_criteria <: stopping_criteria_struct
     maximum_R̂::Float64
 end

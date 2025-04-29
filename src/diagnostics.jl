@@ -1,5 +1,14 @@
 abstract type diagnostic_check_struct end
 
+
+"""
+Create a diagnostic check that identifies outlier chains based on their mean log-density (of the last 50% of the chain) during burn-in/warm-up.
+Outlier chains (those with mean log-density below Q1 - 2*IQR) are reset to the state of the chain with the highest mean log-density.
+
+See: Vrugt 2009 doi.org/10.1515/IJNSNS.2009.10.3.273
+
+See also [`acceptance_check`](@ref).
+"""
 struct ld_check <: diagnostic_check_struct
 end
 
@@ -21,6 +30,16 @@ function run_diagnostic_check!(chains, diagnostic_check::ld_check, rngs, current
     end
 end
 
+"""
+Create a diagnostic check that identifies poorly mixing chains based on their acceptance rate (of the last 50% of the chain) during burn-in/warm-up.
+Chains with acceptance rates below `min_acceptance` and significantly lower than others (based on log-acceptance rate IQR) are reset to the state of the chain closest to the `target_acceptance` rate.
+
+# Arguments
+- `min_acceptance`: The minimum acceptable acceptance rate. Defaults to 0.1.
+- `target_acceptance`: The target acceptance rate used to select the best chain for resetting outliers. Defaults to 0.24.
+
+See also [`ld_check`](@ref).
+"""
 struct acceptance_check <: diagnostic_check_struct
     min_acceptance::Float64
     target_acceptance::Float64

@@ -9,6 +9,20 @@ struct de_update{T <: Real} <: update_struct
     β::Distributions.ContinuousUnivariateDistribution
 end
 
+"""
+Set up a Differential Evolution (DE) update step.
+
+# Arguments
+- `ld`: The log-density function (used to determine dimension if `γ` is not provided).
+
+# Keyword Arguments
+- `γ`: The scaling factor for the difference vector. Can be a `Real`, a `Distributions.UnivariateDistribution`, or `nothing`. If `nothing`, it defaults based on `deterministic_γ` and the problem dimension.
+- `β`: Distribution for the small noise term added to the proposal. Defaults to `Uniform(-1e-4, 1e-4)`.
+- `deterministic_γ`: If `true` and `γ` is `nothing`, sets `γ` to the theoretically optimal `2.38 / sqrt(2 * dim)`. If `false`, sets `γ` to `Uniform(0.8, 1.2)`. Defaults to `true`.
+
+# Returns
+- A `de_update` struct configured with the specified parameters.
+"""
 function setup_de_update(
     ld;
     γ::Union{Nothing, Distributions.UnivariateDistribution, Real} = nothing,
@@ -46,6 +60,16 @@ struct snooker_update{T <: Real} <: update_struct
     γ::Distributions.UnivariateDistribution #really we want this to be distribution with type T
 end
 
+"""
+Set up a Snooker update step.
+
+# Keyword Arguments
+- `γ`: The scaling factor for the projection. Can be a `Real`, a `Distributions.UnivariateDistribution`, or `nothing`. If `nothing`, it defaults based on `deterministic_γ`.
+- `deterministic_γ`: If `true` and `γ` is `nothing`, sets `γ` to the theoretically optimal `2.38 / sqrt(2)`. If `false`, sets `γ` to `Uniform(0.8, 1.2)`. Defaults to `true`.
+
+# Returns
+- A `snooker_update` struct configured with the specified parameters.
+"""
 function setup_snooker_update(;
     γ::Union{Nothing, Distributions.UnivariateDistribution, Real} = nothing,
     deterministic_γ = true
@@ -112,6 +136,21 @@ struct subspace_sampling_fixed_γ{T <: Real} <: subspace_sampling_struct
     adaptation::subspace_sampling_adaptation_struct
 end
 
+
+"""
+Set up a Subspace Sampling (DREAM-like) update step.
+
+# Keyword Arguments
+- `γ`: Fixed scaling factor for the difference vector sum. If `nothing` (default), uses `2.38 / sqrt(2 * δ * d)` where `d` is the number of updated dimensions. If a `Real` is provided, uses that fixed value.
+- `cr`: Crossover probability. Can be a `Real` (fixed probability), `nothing` (adaptive probability using `n_cr` values), or a `Distributions.UnivariateDistribution`. Defaults to `nothing`.
+- `n_cr`: Number of crossover probabilities to adapt between if `cr` is `nothing`. Defaults to 3.
+- `δ`: Number of difference vectors to add. Can be an `Integer` or a `Distributions.DiscreteUnivariateDistribution`. Defaults to `DiscreteUniform(1, 3)`.
+- `ϵ`: Distribution for small noise added to the proposal in the selected subspace. Defaults to `Uniform(-1e-4, 1e-4)`.
+- `e`: Distribution for multiplicative noise applied to the difference vector sum. Defaults to `Normal(0.0, 1e-2)`.
+
+# Returns
+- A `subspace_sampling` or `subspace_sampling_fixed_γ` struct configured with the specified parameters.
+"""
 function setup_subspace_sampling(;
     γ::Union{Nothing, Real} = nothing,
     cr::Union{Real, Distributions.UnivariateDistribution, Nothing} = nothing,

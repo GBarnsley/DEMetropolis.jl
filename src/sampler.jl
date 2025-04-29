@@ -15,6 +15,29 @@ struct sampler_scheme_multi <: sampler_scheme_struct
     end
 end
 
+"""
+Create a sampler scheme defining the update steps to be used in `composite_sampler`.
+
+The update used in each iteration for each chain is randomly selected from the `updates` given here.
+
+# Arguments
+- `updates...`: One or more `update_struct` objects (e.g., created by `setup_de_update`, `setup_snooker_update`, `setup_subspace_sampling` or your own custom sampler).
+
+# Keyword Arguments
+- `w`: A vector of weights corresponding to each update step. If `nothing`, updates are chosen with equal probability. Weights must be non-negative.
+
+# Examples
+```jldoctest
+# only snooker updates
+julia> setup_sampler_scheme(setup_snooker_update())
+
+# DE and Snooker
+julia> setup_sampler_scheme(setup_snooker_update(), setup_de_update())
+
+# With weights, snookers 10% of the time
+julia> setup_sampler_scheme(setup_snooker_update(), setup_de_update(), w = [0.9, 0.1])
+```
+"""
 function setup_sampler_scheme(updates...; w = nothing)
     if isnothing(w)
         w = ones(length(updates)) ./ length(updates)
@@ -68,6 +91,41 @@ function check_initial_state(n_chains, N₀, n_pars, ld, memory)
     nothing
 end
 
+"""
+Run a composite MCMC sampler for a fixed number of iterations.
+
+For sampling with your own sampling scheme from `setup_sampling_scheme`
+
+# Arguments
+- `ld`: The log-density function to sample from, intended to be a LogDensityProblem.
+- `n_its`: The desired number of samples per chain.
+- `n_chains`: The number of chains to run.
+- `memory`: Boolean indicating whether to *sample from historic values* instead sampling from current chains.
+- `initial_state`: An array containing the initial states for the chains and the initial population if `memory=true`.
+- `sampler_scheme`: A `sampler_scheme_struct` defining the update steps to use.
+
+# Keyword Arguments
+- `thin`: Thinning interval for storing samples. Defaults to 1. If using `memory` this also effects which samples are added to the memory.
+- `save_burnt`: Boolean indicating whether to save burn-in samples. Defaults to `false`. Does not save thinned samples
+- `rng`: Random number generator. Defaults to `default_rng()`.
+- `n_burnin`: Number of burn-in iterations. Defaults to `n_its * 5`. Any adaptions occur over this period.
+- `parallel`: Boolean indicating whether to run chains in parallel using multithreading. Defaults to `false`.
+- `diagnostic_checks`: A vector of `diagnostic_check_struct` to run during burn-in. Defaults to `nothing`.
+- `check_epochs`: Splits `n_burnin` into `check_epochs + 1` epochs and applies the diagnostic checks at the end of each epoch, other than the final epoch. Defaults to 1. 
+
+# Returns
+- A named tuple containing the samples, sampler scheme, and potentially burn-in samples.
+
+# Example
+```jldoctest
+# DE and Snooker sample scheme with memory
+julia> composite_sampler(
+    ld, 1000, 10, true, initial_state, setup_sampler_scheme(setup_snooker_update(), setup_de_update())
+)
+```
+
+See also [`deMC`](@ref), [`deMCzs`](@ref), [`DREAM`](@ref).
+"""
 function composite_sampler(
     ld, n_its, n_chains, memory, initial_state, sampler_scheme::sampler_scheme_struct;
     thin = 1, save_burnt = false, rng = default_rng(), n_burnin = n_its * 5, parallel = false,
@@ -116,7 +174,42 @@ function composite_sampler(
     end
 end
 
+"""
+Run a composite MCMC sampler until a stopping criterion is met.
 
+For sampling with your own sampling scheme from `setup_sampling_scheme`.
+
+# Arguments
+- `ld`: The log-density function to sample from, intended to be a LogDensityProblem.
+- `epoch_size`: The number of saved iterations per chain per epoch.
+- `n_chains`: The number of chains to run.
+- `memory`: Boolean indicating whether to *sample from historic values* instead sampling from current chains.
+- `initial_state`: An array containing the initial states for the chains and the initial population if `memory==true`.
+- `sampler_scheme`: A `sampler_scheme_struct` defining the update steps to use.
+- `stopping_criteria`: A `stopping_criteria_struct` defining when to stop sampling.
+
+# Keyword Arguments
+- `thin`: Thinning interval for storing samples. Defaults to 1. If using `memory` this also effects which samples are added to the memory.
+- `save_burnt`: Boolean indicating whether to save burn-in samples. Defaults to `false`. Does not save thinned samples.
+- `rng`: Random number generator. Defaults to `default_rng()`.
+- `warmup_epochs`: Number of warm-up epochs before we begin checking the stopping criteria. Defaults to 5. Samples from these epochs won't be included in the final sample. Sampler adaptation only occurs in this period.
+- `parallel`: Boolean indicating whether to run chains in parallel using multithreading. Defaults to `false`.
+- `epoch_limit`: Maximum number of sampling epochs to run. Defaults to 20.
+- `diagnostic_checks`: A vector of `diagnostic_check_struct` to run during warm-up. Defaults to `nothing`.
+
+# Returns
+- A named tuple containing the samples, sampler scheme, and potentially burn-in samples.
+
+# Example
+```jldoctest
+# DE and Snooker sample scheme with memory until Rhat ≤ 1.05
+julia> composite_sampler(
+    ld, 1000, 10, true, initial_state, setup_sampler_scheme(setup_snooker_update(), setup_de_update()), R̂_stopping_criteria(1.05)
+)
+```
+
+See also [`deMC`](@ref), [`deMCzs`](@ref), [`DREAM`](@ref).
+"""
 function composite_sampler(
     ld, epoch_size, n_chains, memory, initial_state, sampler_scheme::sampler_scheme_struct, stopping_criteria::stopping_criteria_struct;
     thin = 1, save_burnt = false, rng = default_rng(), warmup_epochs = 5, parallel = false, epoch_limit = 20,

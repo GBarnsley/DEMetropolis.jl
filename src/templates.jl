@@ -24,14 +24,54 @@ function build_initial_state(rng, ld, initial_state, N₀)
     end
 end
 
-#DOI 10.1007/s11222-006-8769-1
+"""
+Run the Differential Evolution Markov Chain (DE-MC) sampler proposed by ter Braak (2006)
+
+This sampler uses the `de_update` step. It can optionally switch between two `γ` values (`γ₁` and `γ₂`) with probability `p_γ₂`.
+This is so that the sampler can occasionally move between modes, by having `γ₂ = 1` while γ₁ remains the optimal value based on the dimension of the problem.
+
+This algorithm varies slightly from the original. Updates within a population occur on the previous position of that population.
+i.e. if chain 1 has been updated (a₁ → a₂) and chain 2 picks chain 1 to update from, then the value of chain 1 used by chain 2 is the pre-update version of chain 1 (a₁).
+This change allows the algorithm to be easily parallelised.
+
+See doi.org/10.1007/s11222-006-8769-1 for more information on sampler.
+
+# Arguments
+- `ld`: The log-density function to sample from, intended to be a LogDensityProblem.
+- `n_its`: The number of sampling iterations per chain.
+
+# Keyword Arguments
+- `n_burnin`: Number of burn-in iterations. Defaults to `n_its * 5`.
+- `n_chains`: Number of chains. Defaults to `dimension(ld) * 2`.
+- `initial_state`: Initial states for the chains. Defaults to `randn(rng, n_chains, dimension(ld))`.
+- `memory`: Use memory-based sampling (`true`) or memoryless (`false`). Defaults to `false`.
+- `save_burnt`: Save burn-in samples. Defaults to `false`.
+- `parallel`: Run chains in parallel. Defaults to `false`.
+- `rng`: Random number generator. Defaults to `default_rng()`.
+- `diagnostic_checks`: Diagnostic checks to run during burn-in. Defaults to `nothing`.
+- `check_epochs`: Splits `n_burnin` into `check_epochs + 1` epochs and applies the diagnostic checks at the end of each epoch, other than the final epoch. Defaults to 1. 
+- `thin`: Thinning interval. Defaults to 1.
+- `γ₁`: Primary scaling factor for DE update. Defaults to `2.38 / sqrt(2 * dim)`.
+- `γ₂`: Secondary scaling factor for DE update. Defaults to 1.0.
+- `p_γ₂`: Probability of using `γ₂`. Defaults to 0.1.
+- `β`: Noise distribution for DE update. Defaults to `Uniform(-1e-4, 1e-4)`.
+
+# Returns
+- A named tuple containing the samples, sampler scheme, and potentially burn-in samples.
+
+# Example
+```jldoctest
+julia> deMC(ld, 1000; n_chains = 10)
+```
+See also [`composite_sampler`](@ref), [`deMCzs`](@ref), [`DREAM`](@ref).
+"""
 function deMC(
     ld, n_its;
     n_burnin = n_its * 5,
     n_chains = dimension(ld) * 2,
     initial_state = nothing,
     memory = false,
-    save_burnt = true,
+    save_burnt = false,
     parallel = false,
     rng = default_rng(),
     diagnostic_checks = nothing,
@@ -72,6 +112,46 @@ function deMC(
 end
 
 #DOI 10.1007/s11222-008-9104-9
+"""
+Run the Differential Evolution Markov Chain with snooker update and historic sampling (DE-MCzs) sampler proposed by ter Braak and Vrugt (2008).
+
+This sampler runs until a `stopping_criteria` (default: Rhat of the last 50% of the chains is <1.2) is met.
+The sampler can occasionally propose snooker updates which can sample areas away from the current chains.
+Combined with the adaptive memory-based sampling this sampler can efficiently sample from a problem where n_chains < the dimension of the problem.
+
+See: doi.org/10.1007/s11222-008-9104-9 for more information
+
+# Arguments
+- `ld`: The log-density function to sample from, intended to be a LogDensityProblem.
+- `epoch_size`: The number of saved iterations per chain per epoch.
+
+# Keyword Arguments
+- `warmup_epochs`: Number of warm-up epochs. Defaults to 5.
+- `epoch_limit`: Maximum number of sampling epochs. Defaults to 20.
+- `n_chains`: Number of chains. Defaults to `dimension(ld) * 2`.
+- `N₀`: Size of the initial population (must be >= n_chains + 3). Defaults to `n_chains * 2`.
+- `initial_state`: Initial population state. Defaults to `randn(rng, N₀, dimension(ld))`.
+- `memory`: Use memory based sampling? Defaults to `true`.
+- `save_burnt`: Save warm-up samples. Defaults to `true`.
+- `parallel`: Run chains in parallel with multithreading. Defaults to `false`.
+- `rng`: Random number generator. Defaults to `default_rng()`.
+- `diagnostic_checks`: Diagnostic checks during warm-up. Defaults to `nothing`.
+- `stopping_criteria`: Criterion to stop sampling. Defaults to `R̂_stopping_criteria()`.
+- `γ`: Scaling factor for the DE update. Defaults to `2.38 / sqrt(2 * dim)`.
+- `γₛ`: Scaling factor for the Snooker update. Defaults to `2.38 / sqrt(2)`.
+- `p_snooker`: Probability of using the Snooker update. Defaults to 0.1.
+- `β`: Noise distribution for DE update. Defaults to `Uniform(-1e-4, 1e-4)`.
+- `thin`: Thinning interval. Defaults to 10.
+
+# Returns
+- A named tuple containing the samples, sampler scheme, and potentially burn-in samples.
+
+# Example
+```jldoctest
+julia> deMCzs(ld, 1000; n_chains = 3)
+```
+See also [`composite_sampler`](@ref), [`deMC`](@ref), [`DREAM`](@ref).
+"""
 function deMCzs(
     ld, epoch_size;
     warmup_epochs = 5,
@@ -121,7 +201,55 @@ function deMCzs(
 
 end
 
-#http://dx.doi.org/10.1515/IJNSNS.2009.10.3.273
+"""
+Run the Differential Evolution Adaptive Metropolis (DREAM) sampler
+
+This sampler runs until a `stopping_criteria` (default: Rhat of the last 50% of the chains is <1.2) is met.
+The sampler uses `subspace_sampling`, where the cross-over probability is adapted during the burn-in period.
+It can optionally switch between two `γ` values, so that γ₁ can be the optimal value (based on sampled parameters) and γ₂ can be some fixed value (i.e. 1) so that the sampler can switch modes.
+This sampler also checks for outlier chains (where the mean log-density falls outside the IQR) and replaces then with the position of the chain with the highest log-density.
+This step breaks detailed balance its not performed in the last epoch of the warm-up period.
+
+Setting `memory = true` makes this the DREAMz sampler
+
+See doi.org/10.1515/IJNSNS.2009.10.3.273 for more info.
+
+# Arguments
+- `ld`: The log-density function to sample from, intended to be a LogDensityProblem.
+- `epoch_size`: The number of saved iterations per chain per epoch.
+
+# Keyword Arguments
+- `warmup_epochs`: Number of warm-up epochs. Defaults to 5. Crossover probabilities are adapted in this period.
+- `epoch_limit`: Maximum number of sampling epochs. Defaults to 20.
+- `n_chains`: Number of chains. Defaults to `dimension(ld) * 2`.
+- `N₀`: Size of the initial population (must be >= n_chains). Defaults to `n_chains`. Only the first `n_chains` will be used if `memory = false`.
+- `initial_state`: Initial population state. Defaults to `randn(rng, N₀, dimension(ld))`.
+- `memory`: Use memory-based sampling (`true`) or memoryless (`false`). Defaults to `false`.
+- `save_burnt`: Save warm-up samples. Defaults to `true`.
+- `parallel`: Run chains in parallel. Defaults to `false`.
+- `rng`: Random number generator. Defaults to `default_rng()`.
+- `diagnostic_checks`: Diagnostic checks during warm-up. Defaults to `[ld_check()]`.
+- `stopping_criteria`: Criterion to stop sampling. Defaults to `R̂_stopping_criteria()`.
+- `γ₁`: Primary scaling factor for subspace update. Defaults to `nothing` (uses `2.38 / sqrt(2 * δ * d)`). Can also be a `Real` value.
+- `γ₂`: Secondary scaling factor for subspace update. Defaults to 1.0. Can also be a `Real` value
+- `p_γ₂`: Probability of using `γ₂`. Defaults to 0.2.
+- `n_cr`: Number of crossover probabilities to adapt if `cr₁`/`cr₂` are `nothing`. Defaults to 3.
+- `cr₁`: Crossover probability distribution/value for `γ₁`. Defaults to `nothing` (adaptive). Can also be a `Real` value (<1) or a `Distributions.UnivariateDistribution`, in either case it is not adapted.
+- `cr₂`: Crossover probability distribution/value for `γ₂`. See above.
+- `ϵ`: Additive noise distribution. Defaults to `Uniform(-1e-4, 1e-4)`.
+- `e`: Multiplicative noise distribution. Defaults to `Normal(0.0, 1e-2)`.
+- `δ`: Number of difference vectors distribution. Defaults to `DiscreteUniform(1, 3)`.
+- `thin`: Thinning interval. Defaults to 1.
+
+# Returns
+- A named tuple containing the samples, sampler scheme, and potentially burn-in samples.
+
+# Example
+```jldoctest
+julia> DREAM(ld, 1000; n_chains = 10)
+```
+See also [`composite_sampler`](@ref), [`deMC`](@ref), [`deMCzs`](@ref).
+"""
 function DREAM(
     ld, epoch_size;
     warmup_epochs = 5,
@@ -133,7 +261,7 @@ function DREAM(
     save_burnt = true,
     parallel = false,
     rng = default_rng(),
-    diagnostic_checks = [acceptance_check()],
+    diagnostic_checks = [ld_check()],
     stopping_criteria = R̂_stopping_criteria(),
     γ₁ = nothing,
     γ₂ = 1.0,
