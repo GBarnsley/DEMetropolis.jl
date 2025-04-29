@@ -36,6 +36,7 @@ function deMC(
     rng = Random.default_rng(),
     diagnostic_checks = nothing,
     check_epochs = 1,
+    thin = 1,
     γ₁ = nothing,
     γ₂ = 1.0,
     p_γ₂ = 0.1,
@@ -65,7 +66,7 @@ function deMC(
     composite_sampler(
         ld, n_its, n_chains, memory, initial_state, sampler_scheme;
         save_burnt = save_burnt, rng = rng, n_burnin = n_burnin, parallel = parallel,
-        diagnostic_checks = diagnostic_checks, check_epochs = check_epochs
+        diagnostic_checks = diagnostic_checks, check_epochs = check_epochs, thin = thin
     )
 
 end
@@ -87,7 +88,8 @@ function deMCzs(
     γ = nothing,
     γₛ = nothing,
     p_snooker = 0.1,
-    β = Distributions.Uniform(-1e-4, 1e-4)
+    β = Distributions.Uniform(-1e-4, 1e-4),
+    thin = 10
 )
 
     if n_chains < LogDensityProblems.dimension(ld)
@@ -113,7 +115,8 @@ function deMCzs(
     composite_sampler(
         ld, epoch_size, n_chains, memory, initial_state, sampler_scheme, stopping_criteria;
         save_burnt = save_burnt, rng = rng, warmup_epochs = warmup_epochs,
-        parallel = parallel, epoch_limit = epoch_limit, diagnostic_checks = diagnostic_checks
+        parallel = parallel, epoch_limit = epoch_limit, diagnostic_checks = diagnostic_checks,
+        thin = thin
     )
 
 end
@@ -141,6 +144,7 @@ function DREAM(
     ϵ = Distributions.Uniform(-1e-4, 1e-4),
     e = Distributions.Normal(0.0, 1e-2),
     δ = Distributions.DiscreteUniform(1, 3),
+    thin = 1
 )
 
     if n_chains < LogDensityProblems.dimension(ld)
@@ -166,7 +170,8 @@ function DREAM(
     composite_sampler(
         ld, epoch_size, n_chains, memory, initial_state, sampler_scheme, stopping_criteria;
         save_burnt = save_burnt, rng = rng, warmup_epochs = warmup_epochs,
-        parallel = parallel, epoch_limit = epoch_limit, diagnostic_checks = diagnostic_checks
+        parallel = parallel, epoch_limit = epoch_limit, diagnostic_checks = diagnostic_checks,
+        thin = thin
     )
 
 end

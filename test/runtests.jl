@@ -30,7 +30,7 @@ diagnostic_checks = [
     n_its = 10;
     n_burnin = 10;
     output_mem = composite_sampler(
-        ld, n_its, n_chains, true, initial_state, sampler_scheme;
+        ld, n_its, n_chains, true, cat(initial_state, initial_state, initial_state, dims = 1), sampler_scheme;
         save_burnt = true, rng = rng, n_burnin = n_burnin, parallel = false,
         diagnostic_checks = diagnostic_checks
     )
@@ -60,7 +60,7 @@ end
     epoch_size = 1000;
     warmup_epochs = 2;
     output = composite_sampler(
-        ld, epoch_size, n_chains, true, initial_state, sampler_scheme, deMCMC.R̂_stopping_criteria(1.5);
+        ld, epoch_size, n_chains, true, cat(initial_state, initial_state, initial_state, dims = 1), sampler_scheme, deMCMC.R̂_stopping_criteria(1.5);
         save_burnt = true, rng = rng, warmup_epochs = warmup_epochs, parallel = false,
         diagnostic_checks = diagnostic_checks
     )

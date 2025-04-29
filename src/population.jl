@@ -1,6 +1,15 @@
 abstract type chains_struct end
 
-function setup_population(ld, initial_state, total_iterations, N₀, n_pars, n_chains, memory, parallel)
+function always_store(samples::Int) 
+    return true
+end
+
+function is_multiple_of(a::Int)
+    func(x::Int) = x % a == 0
+    return func
+end
+
+function setup_population(ld, initial_state, total_iterations, N₀, n_pars, n_chains, memory, parallel, thin)
     X = Array{eltype(initial_state)}(undef, total_iterations + N₀, n_pars);
     X_ld = Array{eltype(initial_state)}(undef, total_iterations + N₀);
     X[1:N₀, :] .= initial_state;
@@ -14,14 +23,22 @@ function setup_population(ld, initial_state, total_iterations, N₀, n_pars, n_c
         end
     end
     current_position = collect((N₀ - n_chains + 1):(N₀));
+    samples = 1;
+
+    if thin == 1
+        store_sample = always_store;
+    else
+        store_sample = is_multiple_of(thin);
+    end
+
     if memory
         return chains_memory(
-            X, X_ld, current_position, n_chains, N₀, true
+            X, X_ld, current_position, n_chains, N₀, true, samples, store_sample
         )
     else
         other_chains = map(c -> setdiff(1:n_chains, c), 1:n_chains);
         return chains_memoryless(
-            X, X_ld, other_chains, current_position, n_chains, N₀, true
+            X, X_ld, other_chains, current_position, n_chains, N₀, true, samples, store_sample
         )
     end
 end
@@ -34,6 +51,8 @@ mutable struct chains_memoryless{X_type <: Real} <: chains_struct
     n_chains::Int
     N₀::Int
     warmup::Bool
+    samples::Int
+    store_sample::Function
 end
 
 function get_value(chains::chains_struct, chain)
@@ -69,8 +88,15 @@ function update_value!(chains::chains_struct, rng, chain, xₚ, ldₚ, offset)
 end
 
 function update_position!(chains::chains_struct)
-    # Update the current position of the chains
-    chains.current_position .+= chains.n_chains
+    if chains.store_sample(chains.samples)
+        # Update the current position of the chains
+        chains.current_position .+= chains.n_chains
+    else
+        # set the current position to the updated value
+        chains.X[chains.current_position, :] .= chains.X[chains.current_position .+ chains.n_chains, :];
+        chains.ld[chains.current_position] .= chains.ld[chains.current_position .+ chains.n_chains];
+    end
+    chains.samples += 1;  
 end
 
 function sample_chains(chains::chains_memoryless, rng, chain, n_samples)
@@ -85,11 +111,13 @@ mutable struct chains_memory{X_type <: Real} <: chains_struct
     n_chains::Int
     N₀::Int
     warmup::Bool
+    samples::Int
+    store_sample::Function
 end
 
 function sample_chains(chains::chains_memory, rng, chain, n_samples)
-    indices = StatsBase.sample(rng, 1:(chains.current_position[end] - 1), n_samples, replace = false)
-    indices[indices .>= chains.current_position[chain]] .+= 1 #so we don't sample the current chain
+    #sample up to the current position
+    indices = StatsBase.sample(rng, 1:(chains.current_position[1] - 1), n_samples, replace = false)
     indices
 end
 
