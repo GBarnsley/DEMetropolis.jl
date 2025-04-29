@@ -170,31 +170,31 @@ function update!(update::subspace_sampling_struct, chains::chains_struct, ld, rn
     to_update = rand(rng, length(x)) .< cr;
     d = sum(to_update);
 
-    if d > 0;    
-        δ = rand(rng, update.δ);
-
-        #generate candidate
-        z = copy(x);
-        for _ in 1:δ
-            #pick to random chains find the difference and add to the candidate
-            z[to_update] .+= diff(chains.X[sample_chains(chains, rng, chain, 2), to_update], dims = 1)[1, :];
-        end
-
-        #add the other parts of the equation
-        z[to_update] .= x[to_update] .+ (
-                (1 .+ rand(rng, update.e, d)) .* get_γ(rng, update, δ, d) .* z[to_update]
-            ) .+
-            rand(rng, update.ϵ, d);
-
-        accepted = update_value!(
-            chains, rng, chain, z, logdensity(ld, z)
-        );
-    else 
-        z = x;
-        accepted = update_value!(
-            chains, rng, chain, x, -Inf
-        );
+    if d == 0;
+        #just pick one
+        to_update = zeros(Bool, length(x));
+        to_update[rand(rng, axes(to_update, 1))] = true;
+        d = 1;
     end
+   
+    δ = rand(rng, update.δ);
+
+    #generate candidate
+    z = copy(x);
+    for _ in 1:δ
+        #pick to random chains find the difference and add to the candidate
+        z[to_update] .+= diff(chains.X[sample_chains(chains, rng, chain, 2), to_update], dims = 1)[1, :];
+    end
+
+    #add the other parts of the equation
+    z[to_update] .= x[to_update] .+ (
+            (1 .+ rand(rng, update.e, d)) .* get_γ(rng, update, δ, d) .* z[to_update]
+        ) .+
+        rand(rng, update.ϵ, d);
+
+    accepted = update_value!(
+        chains, rng, chain, z, logdensity(ld, z)
+    );
 
     update_jumping_distance!(update.adaptation, x, z, chains, accepted, cr);
 end
