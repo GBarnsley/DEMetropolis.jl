@@ -1,10 +1,10 @@
 function build_initial_state(rng, ld, initial_state, N₀)
     if isnothing(initial_state)
-        return randn(rng, N₀, LogDensityProblems.dimension(ld))
+        return randn(rng, N₀, dimension(ld))
     else
         current_N = size(initial_state, 1)
         current_pars = size(initial_state, 2)
-        if current_pars != LogDensityProblems.dimension(ld)
+        if current_pars != dimension(ld)
             error("Number of parameters in initial state must be equal to the number of parameters in the log density")
         end
         if current_N == N₀
@@ -28,12 +28,12 @@ end
 function deMC(
     ld, n_its;
     n_burnin = n_its * 5,
-    n_chains = LogDensityProblems.dimension(ld) * 2,
+    n_chains = dimension(ld) * 2,
     initial_state = nothing,
     memory = false,
     save_burnt = true,
     parallel = false,
-    rng = Random.default_rng(),
+    rng = default_rng(),
     diagnostic_checks = nothing,
     check_epochs = 1,
     thin = 1,
@@ -43,7 +43,7 @@ function deMC(
     β = Distributions.Uniform(-1e-4, 1e-4)
 )
 
-    if n_chains < LogDensityProblems.dimension(ld)
+    if n_chains < dimension(ld) && !memory
         warning("Number of chains should be greater than or equal to the number of parameters")
     end
 
@@ -76,13 +76,13 @@ function deMCzs(
     ld, epoch_size;
     warmup_epochs = 5,
     epoch_limit = 20,
-    n_chains = LogDensityProblems.dimension(ld) * 2,
+    n_chains = dimension(ld) * 2,
     N₀ = n_chains * 2,
     initial_state = nothing,
     memory = true,
     save_burnt = true,
     parallel = false,
-    rng = Random.default_rng(),
+    rng = default_rng(),
     diagnostic_checks = nothing,
     stopping_criteria = R̂_stopping_criteria(),
     γ = nothing,
@@ -92,7 +92,7 @@ function deMCzs(
     thin = 10
 )
 
-    if n_chains < LogDensityProblems.dimension(ld)
+    if n_chains < dimension(ld)
         warning("Number of chains should be greater than or equal to the number of parameters")
     end
 
@@ -126,13 +126,13 @@ function DREAM(
     ld, epoch_size;
     warmup_epochs = 5,
     epoch_limit = 20,
-    n_chains = LogDensityProblems.dimension(ld) * 2,
+    n_chains = dimension(ld) * 2,
     N₀ = n_chains,
     initial_state = nothing,
     memory = false,
     save_burnt = true,
     parallel = false,
-    rng = Random.default_rng(),
+    rng = default_rng(),
     diagnostic_checks = [acceptance_check()],
     stopping_criteria = R̂_stopping_criteria(),
     γ₁ = nothing,
@@ -147,7 +147,7 @@ function DREAM(
     thin = 1
 )
 
-    if n_chains < LogDensityProblems.dimension(ld)
+    if n_chains < dimension(ld)
         warning("Number of chains should be greater than or equal to the number of parameters")
     end
 

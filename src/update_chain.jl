@@ -25,11 +25,11 @@ function get_update_chains_func(parallel)
 end
 
 function epoch!(iterations, rngs, chains, ld, sampler_scheme, update_chains_func!, desc)
-    p = ProgressMeter.Progress(length(iterations); dt = 1.0, desc = desc)
+    p = Progress(length(iterations); dt = 1.0, desc = desc)
     for i in iterations
         update_chains_func!(ld, rngs, chains, sampler_scheme);
-        ProgressMeter.next!(p)
+        next!(p)
     end
-    ProgressMeter.finish!(p)
+    finish!(p)
     nothing
 end

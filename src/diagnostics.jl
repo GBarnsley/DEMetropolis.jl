@@ -6,10 +6,10 @@ end
 function run_diagnostic_check!(chains, diagnostic_check::ld_check, rngs, current_iteration)
 
     #calculate IQR of log densities of the last 50%
-    ld_means = StatsBase.mean(ld_to_samples(chains, get_sampling_indices(1, current_iteration)), dims = 1)[1, :]
-    q₁ = StatsBase.quantile(ld_means, 0.25);
+    ld_means = mean(ld_to_samples(chains, get_sampling_indices(1, current_iteration)), dims = 1)[1, :]
+    q₁ = quantile(ld_means, 0.25);
     
-    outliers = findall(ld_means .< q₁ - 2 * (StatsBase.quantile(ld_means, 0.75) - q₁));
+    outliers = findall(ld_means .< q₁ - 2 * (quantile(ld_means, 0.75) - q₁));
 
     if length(outliers) > 0
         @warn string(length(outliers)) * " outlier chains detected, setting to best chain"
@@ -38,8 +38,8 @@ function run_diagnostic_check!(chains, diagnostic_check::acceptance_check, rngs,
     #IQR on a log level to be more sensitive
     lp_acceptance = log.(p_acceptance);
 
-    q₁ = StatsBase.quantile(lp_acceptance, 0.25);
-    outliers = findall((lp_acceptance .< (q₁ - 2 * (StatsBase.quantile(lp_acceptance, 0.75) - q₁))) .& (p_acceptance .< diagnostic_check.min_acceptance));
+    q₁ = quantile(lp_acceptance, 0.25);
+    outliers = findall((lp_acceptance .< (q₁ - 2 * (quantile(lp_acceptance, 0.75) - q₁))) .& (p_acceptance .< diagnostic_check.min_acceptance));
 
     if length(outliers) > 0
         @warn string(length(outliers)) * " poorly mixing chain chains detected, setting to best chain"

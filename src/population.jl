@@ -15,11 +15,11 @@ function setup_population(ld, initial_state, total_iterations, N₀, n_pars, n_c
     X[1:N₀, :] .= initial_state;
     if parallel
         Threads.@threads for i in 1:N₀
-            X_ld[i] = LogDensityProblems.logdensity(ld, initial_state[i, :]);
+            X_ld[i] = logdensity(ld, initial_state[i, :]);
         end
     else
         for i in 1:N₀
-            X_ld[i] = LogDensityProblems.logdensity(ld, initial_state[i, :]);
+            X_ld[i] = logdensity(ld, initial_state[i, :]);
         end
     end
     current_position = collect((N₀ - n_chains + 1):(N₀));
@@ -101,7 +101,7 @@ end
 
 function sample_chains(chains::chains_memoryless, rng, chain, n_samples)
     # Sample from the chains
-    chains.current_position[StatsBase.sample(rng, chains.other_chains[chain], n_samples, replace = false)]
+    chains.current_position[sample(rng, chains.other_chains[chain], n_samples, replace = false)]
 end
 
 mutable struct chains_memory{X_type <: Real} <: chains_struct
@@ -117,7 +117,7 @@ end
 
 function sample_chains(chains::chains_memory, rng, chain, n_samples)
     #sample up to the current position
-    indices = StatsBase.sample(rng, 1:(chains.current_position[1] - 1), n_samples, replace = false)
+    indices = sample(rng, 1:(chains.current_position[1] - 1), n_samples, replace = false)
     indices
 end
 

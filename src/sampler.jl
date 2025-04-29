@@ -34,7 +34,7 @@ function get_update(sampler_scheme::sampler_scheme_single, rng)
 end
 
 function get_update(sampler_scheme::sampler_scheme_multi, rng)
-    StatsBase.wsample(rng, sampler_scheme.updates, sampler_scheme.update_weights)
+    wsample(rng, sampler_scheme.updates, sampler_scheme.update_weights)
 end
 
 function adapt_samplers!(sampler_scheme::sampler_scheme_single, chains)
@@ -61,7 +61,7 @@ function check_initial_state(n_chains, N₀, n_pars, ld, memory)
         end
     end
 
-    if n_pars != LogDensityProblems.dimension(ld)
+    if n_pars != dimension(ld)
         error("Number of parameters in initial state must be equal to the number of parameters in the log density")
     end
 
@@ -70,7 +70,7 @@ end
 
 function composite_sampler(
     ld, n_its, n_chains, memory, initial_state, sampler_scheme::sampler_scheme_struct;
-    thin = 1, save_burnt = false, rng = Random.default_rng(), n_burnin = n_its * 5, parallel = false,
+    thin = 1, save_burnt = false, rng = default_rng(), n_burnin = n_its * 5, parallel = false,
     diagnostic_checks::Union{Nothing, Vector{<:diagnostic_check_struct}} = nothing, check_epochs = 1
 )
 
@@ -119,7 +119,7 @@ end
 
 function composite_sampler(
     ld, epoch_size, n_chains, memory, initial_state, sampler_scheme::sampler_scheme_struct, stopping_criteria::stopping_criteria_struct;
-    thin = 1, save_burnt = false, rng = Random.default_rng(), warmup_epochs = 5, parallel = false, epoch_limit = 20,
+    thin = 1, save_burnt = false, rng = default_rng(), warmup_epochs = 5, parallel = false, epoch_limit = 20,
     diagnostic_checks::Union{Nothing, Vector{<:diagnostic_check_struct}} = nothing
 )
 

@@ -10,14 +10,14 @@ struct de_update{T <: Real} <: update_struct
 end
 
 function setup_de_update(
-    ld::TransformedLogDensities.TransformedLogDensity;
+    ld;
     γ::Union{Nothing, Distributions.UnivariateDistribution, Real} = nothing,
     β = Distributions.Uniform(-1e-4, 1e-4),
     deterministic_γ = true
 )
     if isnothing(γ)
         if deterministic_γ
-            γ = Distributions.Dirac(2.38/sqrt(2*LogDensityProblems.dimension(ld)))
+            γ = Distributions.Dirac(2.38/sqrt(2 * dimension(ld)))
         else
             γ = Distributions.Uniform(0.8, 1.2)
         end
@@ -38,7 +38,7 @@ function update!(update::de_update, chains::chains_struct, ld, rng, chain)
         update_value!(chains, rng, chain, x, -Inf)
     else
         xₚ = x .+ rand(rng, update.γ) .* (x₁ .- x₂) .+ rand(rng, update.β, length(x));
-        update_value!(chains, rng, chain, xₚ, LogDensityProblems.logdensity(ld, xₚ));
+        update_value!(chains, rng, chain, xₚ, logdensity(ld, xₚ));
     end
 end
 
@@ -73,11 +73,11 @@ function update!(update::snooker_update, chains::chains_struct, ld, rng, chain)
         #just don't update (save the ld eval)
         update_value!(chains, rng, chain, x, -Inf)
     else
-        e = LinearAlgebra.normalize(xₐ .- x);
-        xₚ = x .+ rand(rng, update.γ) .* LinearAlgebra.dot(x₁ .- x₂, e) .* e; #really this could be assigned to the next value and just replace if rejected
+        e = normalize(xₐ .- x);
+        xₚ = x .+ rand(rng, update.γ) .* dot(x₁ .- x₂, e) .* e; #really this could be assigned to the next value and just replace if rejected
         update_value!(
-            chains, rng, chain, xₚ, LogDensityProblems.logdensity(ld, xₚ),
-            (length(x) - 1) * (log(LinearAlgebra.norm(xₐ .- xₚ)) - log(LinearAlgebra.norm(xₐ .- x)))
+            chains, rng, chain, xₚ, logdensity(ld, xₚ),
+            (length(x) - 1) * (log(norm(xₐ .- xₚ)) - log(norm(xₐ .- x)))
         )
     end
 end
@@ -187,7 +187,7 @@ function update!(update::subspace_sampling_struct, chains::chains_struct, ld, rn
             rand(rng, update.ϵ, d);
 
         accepted = update_value!(
-            chains, rng, chain, z, LogDensityProblems.logdensity(ld, z)
+            chains, rng, chain, z, logdensity(ld, z)
         );
     else 
         z = x;
@@ -203,7 +203,7 @@ function update_jumping_distance!(adaptation::adaptive_subspace_sampling, x, z, 
     m = findfirst(cr .== adaptation.crs);
     adaptation.L[m] += 1; #update because this number of attempts
     if accepted
-        adaptation.Δ[m] += sum((x .- z) .* (x .- z) ./ Statistics.var(chains.X[chains.current_position, :], dims = 1))
+        adaptation.Δ[m] += sum((x .- z) .* (x .- z) ./ var(chains.X[chains.current_position, :], dims = 1))
     end
 end
 
