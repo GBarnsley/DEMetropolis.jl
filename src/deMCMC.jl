@@ -24,28 +24,24 @@ end
 #ld = TransformedLogDensities.TransformedLogDensity(as(Array, 8), ld_raw)
 #rng = Random.MersenneTwister(555);
 #n_its = 10000;
-#n_chains = 8;
+#n_chains = 15;
 #memory = true;
 #parallel = false;
 #initial_state = randn(n_chains * 20, 8);
-#sampler_scheme = deMCMC.sampler_scheme_multi(
-#    [1.0, 1.0, 0.1, 0.1, 1.0, 1.0],
-#    [
-#        setup_de_update(ld, deterministic_γ = false),
-#        setup_de_update(ld, deterministic_γ = true),
-#        setup_snooker_update(deterministic_γ = false),
-#        setup_snooker_update(deterministic_γ = true),
-#        setup_subspace_sampling(),
-#        setup_subspace_sampling(γ = 1.0, cr = Distributions.DiscreteNonParametric([0.4, 1.0], [0.5, 0.5]))
-#    ]
+#sampler_scheme = deMCMC.setup_sampler_scheme(
+#    setup_de_update(ld, deterministic_γ = false),
+#    setup_de_update(ld, deterministic_γ = true),
+#    setup_snooker_update(deterministic_γ = false),
+#    setup_snooker_update(deterministic_γ = true),
+#    setup_subspace_sampling(),
+#    setup_subspace_sampling(γ = 1.0, cr = Distributions.DiscreteNonParametric([0.4, 1.0], [0.5, 0.5])),
+#    w = [1.0, 1.0, 0.1, 0.1, 1.0, 1.0]
 #)
-#sampler_scheme = deMCMC.sampler_scheme_multi(
-#    [0.1, 0.2, 0.7],
-#    [
-#        setup_snooker_update(deterministic_γ = false),
-#        setup_subspace_sampling(γ = 1.0),
-#        setup_subspace_sampling(),
-#    ]
+#sampler_scheme = deMCMC.setup_sampler_scheme(
+#    setup_snooker_update(deterministic_γ = false),
+#    setup_subspace_sampling(γ = 1.0),
+#    setup_subspace_sampling(),
+#    w = [0.1, 0.2, 0.7]
 #)
 #diagnostics = [
 #    ld_check(),
@@ -53,9 +49,8 @@ end
 #]
 #output = composite_sampler(
 #    ld, n_its, n_chains, memory, initial_state, sampler_scheme, deMCMC.R̂_stopping_criteria(1.1);
-#    save_burnt = true, rng = rng, parallel = true, diagnostic_checks = diagnostics
+#    save_burnt = true, rng = rng, parallel = true, diagnostic_checks = diagnostics, thin = 10
 #)
-#
 #
 #output.sampler_scheme.updates[2]
 #output.sampler_scheme.updates[3]
