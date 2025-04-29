@@ -1,5 +1,6 @@
 module deMCMC
-export composite_sampler, setup_de_update, setup_snooker_update, setup_subspace_sampling, sampler_scheme_multi, R̂_stopping_criteria, ld_check, acceptance_check
+export composite_sampler, setup_de_update, setup_snooker_update, setup_subspace_sampling, setup_sampler_scheme, R̂_stopping_criteria, ld_check, acceptance_check
+export deMC, deMCzs, DREAM
 import StatsBase, Statistics, Random, TransformedLogDensities, LogDensityProblems, Distributions, Logging, ProgressMeter, LinearAlgebra, MCMCDiagnosticTools
 
 include("population.jl")
@@ -9,6 +10,7 @@ include("diagnostics.jl")
 include("sampler.jl")
 include("update_chain.jl")
 include("utilities.jl")
+include("templates.jl")
 
 end
 

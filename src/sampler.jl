@@ -5,13 +5,27 @@ struct sampler_scheme_single <: sampler_scheme_struct
 end
 
 struct sampler_scheme_multi <: sampler_scheme_struct
-    update_weights::Vector{Float64} #should this be a parameteric type?
+    update_weights::Vector{Float64} #should this be a non-parameteric type?
     updates::Vector{<:update_struct}
     sampler_scheme_multi(update_weights::Vector{Float64}, updates::Vector{<:update_struct}) = begin
         if length(update_weights) != length(updates)
             error("Number of update weights must be equal to the number of updates")
         end
         return new(update_weights, updates)
+    end
+end
+
+function setup_sampler_scheme(updates...; w = nothing)
+    if isnothing(w)
+        w = ones(length(updates)) ./ length(updates)
+    end
+    if any(w .< 0)
+        error("Update weights must be non-negative")
+    end
+    if length(w) > 1
+        sampler_scheme_multi(w, collect(updates))
+    else
+        sampler_scheme_single(updates[1])
     end
 end
 
@@ -60,7 +74,7 @@ end
 function composite_sampler(
     ld, n_its, n_chains, memory, initial_state, sampler_scheme::sampler_scheme_struct;
     save_burnt = false, rng = Random.default_rng(), n_burnin = n_its * 5, parallel = false,
-    diagnostic_checks::Union{Nothing, Vector{diagnostic_check_struct}} = nothing, check_epochs = 1
+    diagnostic_checks::Union{Nothing, Vector{<:diagnostic_check_struct}} = nothing, check_epochs = 1
 )
 
     N₀, n_pars = size(initial_state);
@@ -108,7 +122,7 @@ end
 
 function composite_sampler(
     ld, epoch_size, n_chains, memory, initial_state, sampler_scheme::sampler_scheme_struct, stopping_criteria::stopping_criteria_struct;
-    save_burnt = false, rng = Random.default_rng(), warmup_epochs = 5, parallel = false, epoch_limit = 20, diagnostic_checks::Union{Nothing, Vector{diagnostic_check_struct}} = nothing
+    save_burnt = false, rng = Random.default_rng(), warmup_epochs = 5, parallel = false, epoch_limit = 20, diagnostic_checks::Union{Nothing, Vector{<:diagnostic_check_struct}} = nothing
 )
 
     N₀, n_pars = size(initial_state);
@@ -128,7 +142,7 @@ function composite_sampler(
 
     for epoch in 1:warmup_epochs
         epoch!(1:epoch_size, rngs, chains, ld, sampler_scheme, update_chains_func!, "Warm-up Epoch $epoch: ")
-        if !isnothing(diagnostic_checks) || epoch < warmup_epochs
+        if !isnothing(diagnostic_checks) && epoch < warmup_epochs
             for diagnostic_check in diagnostic_checks
                 run_diagnostic_check!(chains, diagnostic_check, rngs, epoch * epoch_size) 
             end
