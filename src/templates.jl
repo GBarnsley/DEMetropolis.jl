@@ -117,3 +117,56 @@ function deMCzs(
     )
 
 end
+
+#http://dx.doi.org/10.1515/IJNSNS.2009.10.3.273
+function DREAM(
+    ld, epoch_size;
+    warmup_epochs = 5,
+    epoch_limit = 20,
+    n_chains = LogDensityProblems.dimension(ld) * 2,
+    N₀ = n_chains,
+    initial_state = nothing,
+    memory = false,
+    save_burnt = true,
+    parallel = false,
+    rng = Random.default_rng(),
+    diagnostic_checks = [acceptance_check()],
+    stopping_criteria = R̂_stopping_criteria(),
+    γ₁ = nothing,
+    γ₂ = 1.0,
+    p_γ₂ = 0.2,
+    n_cr = 3,
+    cr₁ = nothing,
+    cr₂ = nothing,
+    ϵ = Distributions.Uniform(-1e-4, 1e-4),
+    e = Distributions.Normal(0.0, 1e-2),
+    δ = Distributions.DiscreteUniform(1, 3),
+)
+
+    if n_chains < LogDensityProblems.dimension(ld)
+        warning("Number of chains should be greater than or equal to the number of parameters")
+    end
+
+    #setup initial state
+    initial_state = build_initial_state(rng, ld, initial_state, N₀);
+
+    #build sampler scheme
+    if p_γ₂ == 0
+        sampler_scheme = setup_sampler_scheme(
+            setup_subspace_sampling(γ = γ₁, n_cr = n_cr, cr = cr₁, δ = δ, ϵ = ϵ, e = e)
+        )
+    else 
+        sampler_scheme = setup_sampler_scheme(
+            setup_subspace_sampling(γ = γ₁, n_cr = n_cr, cr = cr₁, δ = δ, ϵ = ϵ, e = e),
+            setup_subspace_sampling(γ = γ₂, n_cr = n_cr, cr = cr₂, δ = δ, ϵ = ϵ, e = e),
+            w = [1 - p_γ₂, p_γ₂],
+        )
+    end
+
+    composite_sampler(
+        ld, epoch_size, n_chains, memory, initial_state, sampler_scheme, stopping_criteria;
+        save_burnt = save_burnt, rng = rng, warmup_epochs = warmup_epochs,
+        parallel = parallel, epoch_limit = epoch_limit, diagnostic_checks = diagnostic_checks
+    )
+
+end

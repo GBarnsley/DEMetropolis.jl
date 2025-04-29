@@ -74,7 +74,7 @@ end
 function composite_sampler(
     ld, n_its, n_chains, memory, initial_state, sampler_scheme::sampler_scheme_struct;
     save_burnt = false, rng = Random.default_rng(), n_burnin = n_its * 5, parallel = false,
-    diagnostic_checks::Union{Nothing, Vector{diagnostic_check_struct}} = nothing, check_epochs = 1
+    diagnostic_checks::Union{Nothing, Vector{<:diagnostic_check_struct}} = nothing, check_epochs = 1
 )
 
     N₀, n_pars = size(initial_state);
@@ -122,7 +122,7 @@ end
 
 function composite_sampler(
     ld, epoch_size, n_chains, memory, initial_state, sampler_scheme::sampler_scheme_struct, stopping_criteria::stopping_criteria_struct;
-    save_burnt = false, rng = Random.default_rng(), warmup_epochs = 5, parallel = false, epoch_limit = 20, diagnostic_checks::Union{Nothing, Vector{diagnostic_check_struct}} = nothing
+    save_burnt = false, rng = Random.default_rng(), warmup_epochs = 5, parallel = false, epoch_limit = 20, diagnostic_checks::Union{Nothing, Vector{<:diagnostic_check_struct}} = nothing
 )
 
     N₀, n_pars = size(initial_state);
