@@ -1,4 +1,4 @@
-using DifferentialEvolutionMetropolis
+using DEMetropolis
 using Test
 using TransformVariables, TransformedLogDensities, Random, Distributions
 
