@@ -1,4 +1,4 @@
-using deMCMC
+using DifferentialEvolutionMetropolis
 using Test
 using TransformVariables, TransformedLogDensities, Random, Distributions
 
@@ -60,7 +60,7 @@ end
     epoch_size = 1000;
     warmup_epochs = 2;
     output = composite_sampler(
-        ld, epoch_size, n_chains, true, cat(initial_state, initial_state, initial_state, dims = 1), sampler_scheme, deMCMC.R̂_stopping_criteria(1.5);
+        ld, epoch_size, n_chains, true, cat(initial_state, initial_state, initial_state, dims = 1), sampler_scheme, R̂_stopping_criteria(1.5);
         save_burnt = true, rng = rng, warmup_epochs = warmup_epochs, parallel = false,
         diagnostic_checks = diagnostic_checks
     )
@@ -74,7 +74,7 @@ end
     @test eltype(output.ld) == eltype(initial_state)
 end
 
-@testset "regular deMCMC" begin
+@testset "regular deMC" begin
     double_dist = setup_de_update(
         ld;
         γ = Distributions.Normal(0.8, 1.2),
@@ -215,6 +215,6 @@ end
 
 @testset "templates" begin
     deMC(ld, 100);
-    deMCzs(ld, 1000);
-    DREAM(ld, 1000);
+    deMCzs(ld, 1000; thin = 2);
+    DREAM(ld, 1000; thin = 2);
 end

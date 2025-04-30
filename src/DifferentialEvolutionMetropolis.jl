@@ -1,7 +1,16 @@
-module deMCMC
+module DifferentialEvolutionMetropolis
 export composite_sampler, setup_de_update, setup_snooker_update, setup_subspace_sampling, setup_sampler_scheme, R̂_stopping_criteria, ld_check, acceptance_check
 export deMC, deMCzs, DREAM
-import StatsBase, Statistics, Random, TransformedLogDensities, LogDensityProblems, Distributions, Logging, ProgressMeter, LinearAlgebra, MCMCDiagnosticTools
+
+using StatsBase: mean, quantile, sample, wsample
+using Statistics: var
+using Random: default_rng
+import Random
+using LogDensityProblems: logdensity, dimension
+import Distributions
+using ProgressMeter: Progress, next!, finish!
+using LinearAlgebra: norm, dot, normalize
+using MCMCDiagnosticTools: rhat
 
 include("population.jl")
 include("updates.jl")
@@ -14,7 +23,7 @@ include("templates.jl")
 
 end
 
-#using .deMCMC
+#using .DifferentialEvolutionMetropolis
 #using TransformVariables, Distributions, TransformedLogDensities, Plots, Random
 #function ld_raw(x)
 #    # normal mixture
