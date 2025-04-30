@@ -4,4 +4,12 @@ links = InterLinks(
     "MCMCDiagnosticTools" => "https://turinglang.org/MCMCDiagnosticTools.jl/stable/objects.inv"
 );
 
-makedocs(sitename="Differential Evolution Metropolis"; plugins = [links])
+makedocs(
+    sitename="Differential Evolution Metropolis",
+    plugins = [links],
+    pages    = [
+        "index.md",
+        "tutorial.md",
+        "custom.md"
+    ]
+)
