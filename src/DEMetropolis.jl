@@ -1,4 +1,4 @@
-module DifferentialEvolutionMetropolis
+module DEMetropolis
 export composite_sampler, setup_de_update, setup_snooker_update, setup_subspace_sampling, setup_sampler_scheme, R̂_stopping_criteria, ld_check, acceptance_check
 export deMC, deMCzs, DREAM
 
@@ -23,7 +23,7 @@ include("templates.jl")
 
 end
 
-#using .DifferentialEvolutionMetropolis
+#using .DEMetropolis
 #using TransformVariables, Distributions, TransformedLogDensities, Plots, Random
 #function ld_raw(x)
 #    # normal mixture

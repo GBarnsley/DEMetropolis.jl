@@ -7,7 +7,7 @@ Create a stopping criterion based on the rank Gelman-Rubin diagnostic (R̂). Sam
 # Arguments
 - `maximum_R̂`: The maximum acceptable R̂ value. Defaults to 1.2.
 
-See also [`MCMCDiagnosticTools.rhat`](@ref).
+See also [`MCMCDiagnosticTools.rhat`](@extref).
 """
 struct R̂_stopping_criteria <: stopping_criteria_struct
     maximum_R̂::Float64
