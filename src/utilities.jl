@@ -3,7 +3,7 @@ function halve(x::Integer)
 end
 
 function setup_rngs(rng, n_chains)
-    [Xoshiro(rand(rng, UInt)) for _ in 1:n_chains]
+    [Random.Xoshiro(rand(rng, UInt)) for _ in 1:n_chains]
 end
 
 function population_to_samples(chains::chains_struct, its)

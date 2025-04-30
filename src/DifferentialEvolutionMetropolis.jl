@@ -4,7 +4,8 @@ export deMC, deMCzs, DREAM
 
 using StatsBase: mean, quantile, sample, wsample
 using Statistics: var
-using Random: Xoshiro, default_rng
+using Random: default_rng
+import Random
 using LogDensityProblems: logdensity, dimension
 import Distributions
 using ProgressMeter: Progress, next!, finish!
