@@ -3,7 +3,11 @@ function halve(x::Integer)
 end
 
 function setup_rngs(rng, n_chains)
-    [Random.Xoshiro(rand(rng, UInt)) for _ in 1:n_chains]
+    @static if VERSION >= v"1.7"
+        return [Random.Xoshiro(rand(rng, UInt)) for _ in 1:n_chains]
+    else
+        return [Random.MersenneTwister(rand(rng, UInt)) for _ in 1:n_chains]
+    end
 end
 
 function population_to_samples(chains::chains_struct, its)
