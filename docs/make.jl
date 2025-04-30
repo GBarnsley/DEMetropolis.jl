@@ -13,3 +13,7 @@ makedocs(
         "custom.md"
     ]
 )
+
+deploydocs(
+    repo = "github.com/GBarnsley/DEMetropolis.jl.git",
+)

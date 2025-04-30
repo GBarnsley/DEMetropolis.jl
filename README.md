@@ -1,6 +1,9 @@
 # DEMetropolis
 
 [![Build Status](https://github.com/GBarnsley/DEMetropolis.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/GBarnsley/DEMetropolis.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://GBarnsley.github.io/DEMetropolis.jl/stable)
+[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://GBarnsley.github.io/DEMetropolis.jl/dev)
+
 
 ## Overview
 
@@ -8,7 +11,7 @@ This package implements various differential evolution MCMC samplers in the Juli
 
 These samplers excel at sampling from multimodal distributions. The package is designed to be flexible and extensible, allowing users to customize the sampling process by modifying the implemented samplers or defining your own samplers and sampler scheme.
 
-Please start with the [documentation](todo).
+Please start with the [documentation](https://GBarnsley.github.io/DEMetropolis.jl/stable).
 
 ## Example
 
