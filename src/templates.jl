@@ -111,7 +111,6 @@ function deMC(
 
 end
 
-#DOI 10.1007/s11222-008-9104-9
 """
 Run the Differential Evolution Markov Chain with snooker update and historic sampling (DE-MCzs) sampler proposed by ter Braak and Vrugt (2008).
 

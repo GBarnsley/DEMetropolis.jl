@@ -7,7 +7,7 @@
 
 ## Overview
 
-This package implements various differential evolution MCMC samplers in the Julia language based on , with some minor tweaks to simplify parallelism.
+This package implements various differential evolution MCMC samplers in the Julia language, with some minor tweaks to simplify parallelism.
 
 These samplers excel at sampling from multimodal distributions. The package is designed to be flexible and extensible, allowing users to customize the sampling process by modifying the implemented samplers or defining your own samplers and sampler scheme.
 
@@ -28,23 +28,8 @@ DREAM(ld, 1000)
 
 ## Bibliography
 
-Betancourt, M. J., Byrne, S., & Girolami, M. (2014). Optimizing the integrator step size for Hamiltonian Monte Carlo. [arXiv preprint arXiv:1411.6669](https://arxiv.org/pdf/1411.6669).
+Braak, C.J.F.T. A Markov Chain Monte Carlo version of the genetic algorithm Differential Evolution: easy Bayesian computing for real parameter spaces. Stat Comput 16, 239–249 (2006). https://doi.org/10.1007/s11222-006-8769-1
 
-Betancourt, M. (2016). Diagnosing suboptimal cotangent disintegrations in Hamiltonian Monte Carlo. [arXiv preprint arXiv:1604.00695](https://arxiv.org/abs/1604.00695).
+Braak, C.J.F.T., Vrugt, J.A. Differential Evolution Markov Chain with snooker updater and fewer chains. Stat Comput 18, 435–446 (2008). https://doi.org/10.1007/s11222-008-9104-9
 
-Betancourt, M. (2017). A Conceptual Introduction to Hamiltonian Monte Carlo. [arXiv preprint arXiv:1701.02434](https://arxiv.org/abs/1701.02434).
-
-Gelman, A., Carlin, J. B., Stern, H. S., Dunson, D. B., Vehtari, A., & Rubin, D. B. (2013). Bayesian data analysis. : CRC Press.
-
-Gelman, A., & Hill, J. (2007). Data analysis using regression and multilevel/hierarchical models.
-
-Hoffman, M. D., & Gelman, A. (2014). The No-U-turn sampler: adaptively setting path lengths in Hamiltonian Monte Carlo. Journal of Machine Learning Research, 15(1), 1593-1623.
-
-McElreath, R. (2018). Statistical rethinking: A Bayesian course with examples in R and Stan. Chapman and Hall/CRC.
-
-
-LINKS TO PAPERS
-
-SIMPLE EXAMPLE
-
-REFERNCE TO DOCUMENATION (TUTORIAL AND CUSTOMISATION)
+Vrugt, J.A., Braak, C.J.F.T., Diks, C.G.H., Robinson, B.A., Hyman, J.M., Higdon, D. Accelerating Markov Chain Monte Carlo Simulation by Differential Evolution with Self-Adaptive Randomized Subspace Sampling. International Journal of Nonlinear Sciences and Numerical Simulation 10, no. 3, 273-290 (2009). https://doi.org/10.1515/IJNSNS.2009.10.3.273
