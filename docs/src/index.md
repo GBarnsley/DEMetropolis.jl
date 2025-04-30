@@ -1,4 +1,4 @@
-# DifferentialEvolutionMetropolis Documentation
+# DEMetropolis Documentation
 
 Tools for sampling from log-densities using differential evolution algorithms.
 
@@ -14,7 +14,7 @@ I opted to implement my own version as I wanted a more flexible API and the subs
 
 ## Next Steps
 
-A few plans for this package, feel free to suggest features or improvements via [issues](https://github.com/GBarnsley/DifferentialEvolutionMetropolis/issues):
+A few plans for this package, feel free to suggest features or improvements via [issues](https://github.com/GBarnsley/DEMetropolis/issues):
 - Implement multi-try and delayed rejection DREAM, I avoided these so far since I have been using these samplers for costly log-densities with relatively few parameters, such as one that solve an ODE.
 - Integrate with AbstractMCMC and MCMCChains, potentially not worth the cost since parrallelism in a deMCMC is within chains rather than across chains.
 

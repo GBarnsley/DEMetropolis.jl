@@ -1,4 +1,4 @@
-using Documenter, DifferentialEvolutionMetropolis, DocumenterInterLinks
+using Documenter, DEMetropolis, DocumenterInterLinks
 
 links = InterLinks(
     "MCMCDiagnosticTools" => "https://turinglang.org/MCMCDiagnosticTools.jl/stable/objects.inv"

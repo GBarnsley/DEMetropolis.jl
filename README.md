@@ -1,6 +1,6 @@
 # DEMetropolis
 
-[![Build Status](https://github.com/GBarnsley/DifferentialEvolutionMetropolis.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/GBarnsley/DifferentialEvolutionMetropolis.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Build Status](https://github.com/GBarnsley/DEMetropolis.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/GBarnsley/DEMetropolis.jl/actions/workflows/CI.yml?query=branch%3Amain)
 
 ## Overview
 
@@ -13,7 +13,7 @@ Please start with the [documentation](todo).
 ## Example
 
 ```
-using DifferentialEvolutionMetropolis, TransformedLogDensities, TransformVariables
+using DEMetropolis, TransformedLogDensities, TransformVariables
 
 function ld_normal(x)
     sum(-(x .* x)/2)
