@@ -1,7 +1,7 @@
 # Sampling from multimodal distributions
 
 Let say you have a multimodal distribution, for example a mixture of two Gaussians.
-`DEMetropolis` implements differential evolution MCMC samplers (including deMC-zs and DREAM) that are designed to sample from such distributions efficiently.
+`DEMetropolis` implements differential evolution MCMC samplers (including deMC-zs and DREAMz) that are designed to sample from such distributions efficiently.
 Roughly these samplers work by generating new proposals based on many separate chains (or a history of sampled chains).
 In theory this allows the sampler to easily jump between modes of the distribution.
 
@@ -40,21 +40,21 @@ transformed_ld = TransformedLogDensity(transformation, multimodal_ld)
 
 ## Sampling with DEMetropolis
 
-Now let's use `DEMetropolis` to sample from this multimodal distribution. Here we use the DREAM sampler, which is well-suited for exploring complex, multimodal spaces. We increase the number of chains to allow the sampler to explore the distribution more effectively.
+Now let's use `DEMetropolis` to sample from this multimodal distribution. Here we use the DREAMz sampler, which is well-suited for exploring complex, multimodal spaces. We increase the number of chains to allow the sampler to explore the distribution more effectively.
 
 ```julia
 using DEMetropolis
 
-dream = DREAM(transformed_ld, 10000; thin = 2, n_chains = 5);
+dreamz = DREAMz(transformed_ld, 10000; thin = 2, n_chains = 5);
 ```
 
 Other implementations of the differential evolution MCMC algorithm are available in `DEMetropolis.jl`, such as `deMC` and `deMCzs`, which can be used similarly.
 
 ## Custom Scheme
 
-DREAM can be further customized. For example, we could include snooker updates alongside the DREAM-like subspace sampling.
+DREAMz can be further customized. For example, we could include snooker updates alongside the DREAMz-like subspace sampling.
 
-You can alos modify aspects of the implemented sampling, for example tell DREAM to use not memory-based sampling with `DREAM(..., memory = false)`, or you can define your own sampler scheme for more control over the sampling process.
+You can also modify aspects of the implemented sampling, for example tell DREAMz to use not memory-based sampling with `DREAMz(..., memory = false)`, or you can define your own sampler scheme for more control over the sampling process.
 
 ```julia
 using DEMetropolis, LogDensityProblems
@@ -86,13 +86,13 @@ To evaluate how well your sampler is performing, you can compute the effective s
 - **Effective Sample Size (ESS):** This measures the number of independent samples your chains are equivalent to. Higher ESS values indicate more reliable estimates.
 - **R-hat Diagnostic:** Also known as the Gelman-Rubin statistic, R-hat compares the variance within each chain to the variance between chains. Values close to 1 suggest good mixing and convergence; values much greater than 1 indicate potential problems.
 
-Below is an example of how to compute these diagnostics for two DEMetropolis samplers, `dream` and `custom`, using `MCMCChains`:
+Below is an example of how to compute these diagnostics for two DEMetropolis samplers, `dreamz` and `custom`, using `MCMCChains`:
 
 ```julia
 using Statistics, MCMCDiagnosticTools
 
-samplers = [dream, custom]
-sampler_names = ["DREAM", "Custom Sampler"]
+samplers = [dreamz, custom]
+sampler_names = ["DREAMz", "Custom Sampler"]
 
 for (sampler, name) in zip(samplers, sampler_names)
     samples = sampler.samples  # shape: (iterations, chains, parameters)
@@ -109,8 +109,8 @@ end
 Once you have confirmed good mixing and convergence, you can summarize your posterior samples. For each parameter, you may want to compute the median and a credible interval (such as the 90% interval):
 
 ```julia
-# Example: summarize the DREAM sampler's posterior
-samples = dream.samples
+# Example: summarize the DREAMz sampler's posterior
+samples = dreamz.samples
 n_params = size(samples, 3)
 
 # Flatten the samples across all chains and iterations for each parameter

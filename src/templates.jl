@@ -68,7 +68,7 @@ See doi.org/10.1007/s11222-006-8769-1 for more information on sampler.
 ```jldoctest
 julia> deMC(ld, 1000; n_chains = 10)
 ```
-See also [`composite_sampler`](@ref), [`deMCzs`](@ref), [`DREAM`](@ref).
+See also [`composite_sampler`](@ref), [`deMCzs`](@ref), [`DREAMz`](@ref).
 """
 function deMC(
     ld, n_its;
@@ -154,7 +154,7 @@ See: doi.org/10.1007/s11222-008-9104-9 for more information
 ```jldoctest
 julia> deMCzs(ld, 1000; n_chains = 3)
 ```
-See also [`composite_sampler`](@ref), [`deMC`](@ref), [`DREAM`](@ref).
+See also [`composite_sampler`](@ref), [`deMC`](@ref), [`DREAMz`](@ref).
 """
 function deMCzs(
     ld, epoch_size;
@@ -206,7 +206,7 @@ function deMCzs(
 end
 
 """
-Run the Differential Evolution Adaptive Metropolis (DREAM) sampler
+Run the Differential Evolution Adaptive Metropolis (DREAMz) sampler
 
 This sampler runs until a `stopping_criteria` (default: Rhat of the last 50% of the chains is <1.2) is met.
 The sampler uses `subspace_sampling`, where the cross-over probability is adapted during the burn-in period.
@@ -214,7 +214,7 @@ It can optionally switch between two `γ` values, so that γ₁ can be the optim
 This sampler also checks for outlier chains (where the mean log-density falls outside the IQR) and replaces then with the position of the chain with the highest log-density.
 This step breaks detailed balance its not performed in the last epoch of the warm-up period.
 
-Setting `memory = true` makes this the DREAMz sampler
+By default this is a memory-based sampler (DREAMz). Setting `memory = false` makes this the DREAM sampler.
 
 See doi.org/10.1515/IJNSNS.2009.10.3.273 for more info.
 
@@ -228,7 +228,7 @@ See doi.org/10.1515/IJNSNS.2009.10.3.273 for more info.
 - `n_chains`: Number of chains. Defaults to `dimension(ld) * 2`.
 - `N₀`: Size of the initial population (must be >= n_chains). Defaults to `n_chains`. Only the first `n_chains` will be used if `memory = false`.
 - `initial_state`: Initial population state. Defaults to `randn(rng, N₀, dimension(ld))`.
-- `memory`: Use memory-based sampling (`true`) or memoryless (`false`). Defaults to `false`.
+- `memory`: Use memory-based sampling (`true`) or memoryless (`false`). Defaults to `true`.
 - `save_burnt`: Save warm-up samples. Defaults to `true`.
 - `parallel`: Run chains in parallel. Defaults to `false`.
 - `rng`: Random number generator. Defaults to `default_rng()`.
@@ -250,18 +250,18 @@ See doi.org/10.1515/IJNSNS.2009.10.3.273 for more info.
 
 # Example
 ```jldoctest
-julia> DREAM(ld, 1000; n_chains = 10)
+julia> DREAMz(ld, 1000; n_chains = 10)
 ```
 See also [`composite_sampler`](@ref), [`deMC`](@ref), [`deMCzs`](@ref).
 """
-function DREAM(
+function DREAMz(
     ld, epoch_size;
     warmup_epochs = 5,
     epoch_limit = 20,
     n_chains = dimension(ld) * 2,
     N₀ = n_chains,
     initial_state = nothing,
-    memory = false,
+    memory = true,
     save_burnt = true,
     parallel = false,
     rng = default_rng(),

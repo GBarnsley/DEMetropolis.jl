@@ -30,7 +30,7 @@ A few plans for this package, feel free to suggest features or improvements via 
 ```@docs
 deMC
 deMCzs
-DREAM
+DREAMz
 ```
 
 ### Tools for setting up your own sampler

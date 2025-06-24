@@ -216,8 +216,8 @@ end
 @testset "templates" begin
     deMC(ld, 100, memory = false);
     deMCzs(ld, 1000; thin = 2, memory = false);
-    DREAM(ld, 1000; thin = 2, memory = false);
+    DREAMz(ld, 1000; thin = 2, memory = false);
     deMC(ld, 100, memory = true);
     deMCzs(ld, 1000; thin = 2, memory = true);
-    DREAM(ld, 1000; thin = 2, memory = true);
+    DREAMz(ld, 1000; thin = 2, memory = true);
 end
