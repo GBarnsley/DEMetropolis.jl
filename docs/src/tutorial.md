@@ -13,8 +13,16 @@ We can easily implement this using the `Distributions` package, which underpins 
 ```julia
 using Distributions
 
-α_mixed_dist = MixtureModel([Normal(-5.0, 0.5), Normal(0.0, 0.5), Normal(5.0, 0.5)], [1/4, 1/4, 1/2]);
-β_mixed_dist = MixtureModel([LogNormal(-0.5, 0.5), LogNormal(1.75, 0.25)], [1/6, 5/6]);
+α_mixed_dist = MixtureModel([
+    Normal(-5.0, 0.5),
+    Normal(0.0, 0.5),
+    Normal(5.0, 0.5)
+], [1/4, 1/4, 1/2]);
+
+β_mixed_dist = MixtureModel([
+    LogNormal(-0.5, 0.5),
+    LogNormal(1.75, 0.25)
+], [1/6, 5/6]);
 
 function multimodal_ld(θ)
     (; α, β) = θ
@@ -28,20 +36,24 @@ In the first dimension:
 ```julia
 using Plots
 α = -10:0.1:10
+
 y = [exp(multimodal_ld((α = xi, β = 1.0))) for xi in α]
 
 plot(α, y, xlabel="α (First Dimension)", ylabel="Density", legend = false)
 ```
+
 In the second dimension:
 ```julia
 β = 0:0.1:10
+
 y = [exp(multimodal_ld((α = 0.0, β = xi))) for xi in β]
 
 plot(β, y, xlabel="β (Second Dimension)", ylabel="Density", legend = false)
 ```
+
 All together:
 ```julia
-y = [exp(multimodal_ld((α = x1i, β = x2i))) for  x2i in β, x1i in α]
+y = [exp(multimodal_ld((α = x1i, β = x2i))) for x2i in β, x1i in α]
 
 heatmap(α, β, y, xlabel="α", ylabel="β")
 ```
@@ -121,47 +133,79 @@ You can also define your own samplers, see `Customizing your sampler`(@ref) for 
 
 ## Compare distributions
 
-In terms of effective sample size (ESS) and R-hat:
+Now let's compare the performance of the different samplers in terms of effective sample size (ESS) and R-hat diagnostic. We'll use the `MCMCChains` and `DataFrames` packages for this purpose.
+
 ```julia
-adaptive_mh, dynamic_hmc, dream, custom
-using DataFrames
-DataFrame(
-    sampler = ["Adaptive MH", "Dynamic HMC", "DREAM", "Custom Sampler"],
-    ess = [
-        ess(permutedims(cat([chain.X for chain in adaptive_mh]..., dims = 3), (2, 3, 1))),
-        ess(permutedims(cat([chain.posterior_matrix for chain in dynamic_hmc]..., dims = 3), (2, 3, 1))),
-        ess(permutedims(cat([chain.X for chain in adaptive_mh]..., dims = 3), (2, 3, 1))),
-        ess(permutedims(cat([chain.X for chain in adaptive_mh]..., dims = 3), (2, 3, 1)))
-        dynamic_hmc, dream.samples, custom],
-    rhat = [rhat(chain) for chain in [adaptive_mh, dynamic_hmc, dream, custom]]
+using DataFrames, MCMCChains, Statistics
+
+# Collect samples from each sampler (assuming each returns a vector of chains or samples)
+chains = [
+    cat([chain.X for chain in adaptive_mh]..., dims=3),
+    cat([chain.posterior_matrix for chain in dynamic_hmc]..., dims=3),
+    cat([chain.X for chain in dream]..., dims=3),
+    cat([chain.X for chain in custom]..., dims=3)
+]
+
+sampler_names = ["Adaptive MH", "Dynamic HMC", "DREAM", "Custom Sampler"]
+
+# Compute ESS and R-hat for each sampler
+ess_values = [ess(permutedims(chain, (2, 3, 1))) for chain in chains]
+rhat_values = [maximum(rhat(Chains(chain))) for chain in chains]
+
+results_df = DataFrame(
+    sampler = sampler_names,
+    ess = ess_values,
+    rhat = rhat_values
 )
+
+println(results_df)
 ```
 
-Trace plots
+## Trace plots and summary statistics
+
+To visualize the samples and check convergence, you can plot the trace and compute summary statistics:
 
 ```julia
-adaptive_mh, dynamic_hmc, dream, custom
-posterior = [transform.(transformation, eachcol(chain')) for chain in eachslice(results.samples, dims = 2)]
-posterior = cat([hcat([collect(p) for p in chain] ...) for chain in posterior] ..., dims = 3);
-posterior_flat = reshape(posterior, (size(posterior, 1), size(posterior, 2) * size(posterior, 3)));
+using Plots
 
-mapslices(x->"$(median(x)) ($(quantile(x, 0.05)) - $(quantile(x, 0.95)))", posterior_flat, dims = (2))
+# Example: plot trace for α and β from the first sampler
+posterior = chains[1]  # shape: (parameters, iterations, chains)
 
-median(α_mixed_dist)
-quantile(α_mixed_dist, 0.05), quantile(α_mixed_dist, 0.95)
-median(β_mixed_dist)
-quantile(β_mixed_dist, 0.05), quantile(β_mixed_dist, 0.95)
-
-ess_rhat(permutedims(posterior, (2, 3, 1)))
+plot(posterior[1, :, :], xlabel = "iteration", ylabel = "α", title = "Trace plot for α")
+plot(posterior[2, :, :], xlabel = "iteration", ylabel = "β", title = "Trace plot for β")
 ```
 
-Median quantile
-
+To summarize the posterior:
 
 ```julia
-#plot the samples
-plot(scatter(posterior[1, :, :], posterior[2, :, :]), xlabel = "α", ylabel = "β", title = "Adaptive MCMC Samples")
-plot(posterior[1, :, :], xlabel = "iteration", ylabel = "α")
-plot(posterior[2, :, :], xlabel = "iteration", ylabel = "β")
+# Compute median and 90% credible interval for each parameter
+posterior_flat = reshape(posterior, size(posterior, 1), :)
+for i in 1:size(posterior_flat, 1)
+    med = median(posterior_flat[i, :])
+    q05, q95 = quantile(posterior_flat[i, :], [0.05, 0.95])
+    println("Parameter $i: median = $med, 90% CI = ($q05, $q95)")
+end
 ```
-Heatmaps
+
+## Heatmaps of the samples
+
+You can also visualize the joint distribution of the samples:
+
+```julia
+# Scatter plot of α vs β for all samples
+scatter(vec(posterior[1, :, :]), vec(posterior[2, :, :]), xlabel = "α", ylabel = "β", title = "Joint posterior samples")
+```
+
+## Summary and next steps
+
+This tutorial introduced how to use `DEMetropolis` and related packages to sample from challenging multimodal distributions. You learned how to:
+
+- Define and visualize a multimodal target distribution
+- Use adaptive Metropolis-Hastings, Hamiltonian Monte Carlo, and differential evolution MCMC (DREAM) samplers
+- Customize your own sampler scheme for improved performance
+- Compare samplers using effective sample size and R-hat diagnostics
+- Visualize and summarize posterior samples
+
+For more details, see the [DEMetropolis Documentation](@ref) and the [Customizing your sampler](@ref) section. For general Julia documentation and best practices, refer to the [Julia documentation manual](https://docs.julialang.org/en/v1/manual/documentation/).
+
+Happy sampling!
