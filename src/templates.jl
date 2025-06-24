@@ -1,4 +1,9 @@
-function build_initial_state(rng, ld, initial_state, N₀)
+function build_initial_state(rng, ld, initial_state, n_chains, N₀, memory)
+    if memory
+        N₀ = max(N₀, n_chains + 3)
+    else
+        N₀ = n_chains
+    end
     if isnothing(initial_state)
         return randn(rng, N₀, dimension(ld))
     else
@@ -88,7 +93,7 @@ function deMC(
     end
 
     #setup initial state
-    initial_state = build_initial_state(rng, ld, initial_state, n_chains)
+    initial_state = build_initial_state(rng, ld, initial_state, n_chains, N₀, memory)
 
     #build sampler scheme
     if γ₁ != γ₂
@@ -176,7 +181,7 @@ function deMCzs(
     end
 
     #setup initial state
-    initial_state = build_initial_state(rng, ld, initial_state, N₀);
+    initial_state = build_initial_state(rng, ld, initial_state, n_chains, N₀, memory);
 
     #build sampler scheme
     if p_snooker == 0
@@ -279,7 +284,7 @@ function DREAM(
     end
 
     #setup initial state
-    initial_state = build_initial_state(rng, ld, initial_state, N₀);
+    initial_state = build_initial_state(rng, ld, initial_state, n_chains, N₀, memory);
 
     #build sampler scheme
     if p_γ₂ == 0
