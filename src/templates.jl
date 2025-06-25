@@ -49,6 +49,7 @@ See doi.org/10.1007/s11222-006-8769-1 for more information on sampler.
 - `n_burnin`: Number of burn-in iterations. Defaults to `n_its * 5`.
 - `n_chains`: Number of chains. Defaults to `dimension(ld) * 2`.
 - `initial_state`: Initial states for the chains. Defaults to `randn(rng, n_chains, dimension(ld))`.
+- `N₀`: Size of the initial population (must be >= n_chains + 3), only used if using memory-based sampling. Defaults to `n_chains * 2`.
 - `memory`: Use memory-based sampling (`true`) or memoryless (`false`). Defaults to `false`.
 - `save_burnt`: Save burn-in samples. Defaults to `false`.
 - `parallel`: Run chains in parallel. Defaults to `false`.
@@ -74,6 +75,7 @@ function deMC(
     ld, n_its;
     n_burnin = n_its * 5,
     n_chains = dimension(ld) * 2,
+    N₀ = n_chains,
     initial_state = nothing,
     memory = false,
     save_burnt = false,
