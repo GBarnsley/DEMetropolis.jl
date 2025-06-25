@@ -23,7 +23,7 @@ function ld_normal(x)
 end
 ld = TransformedLogDensity(as(Array, 4), ld_normal);
 
-DREAM(ld, 1000)
+DREAMz(ld, 1000)
 ```
 
 ## Bibliography

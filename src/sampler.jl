@@ -124,7 +124,7 @@ julia> composite_sampler(
 )
 ```
 
-See also [`deMC`](@ref), [`deMCzs`](@ref), [`DREAM`](@ref).
+See also [`deMC`](@ref), [`deMCzs`](@ref), [`DREAMz`](@ref).
 """
 function composite_sampler(
     ld, n_its, n_chains, memory, initial_state, sampler_scheme::sampler_scheme_struct;
@@ -208,7 +208,7 @@ julia> composite_sampler(
 )
 ```
 
-See also [`deMC`](@ref), [`deMCzs`](@ref), [`DREAM`](@ref).
+See also [`deMC`](@ref), [`deMCzs`](@ref), [`DREAMz`](@ref).
 """
 function composite_sampler(
     ld, epoch_size, n_chains, memory, initial_state, sampler_scheme::sampler_scheme_struct, stopping_criteria::stopping_criteria_struct;
