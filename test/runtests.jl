@@ -1,6 +1,18 @@
 using DEMetropolis
 using Test
 using TransformVariables, TransformedLogDensities, Random, Distributions
+using Aqua, JET
+
+
+@testset "Aqua" begin
+    Aqua.test_all(DEMetropolis)
+end
+
+if VERSION ≥ v"1.11"
+    @testset "JET" begin
+        JET.test_package(DEMetropolis)
+    end
+end
 
 #easy problem that uses all the updates
 function ld_normal(x)
@@ -194,7 +206,7 @@ end
         save_burnt = true, rng = rng, n_burnin = n_burnin, parallel = false
     )
 
-    
+
     @test isequal(output1.sampler_scheme.updates[1], output2.sampler_scheme.updates[1])
     @test isequal(output1.sampler_scheme.updates[2], output2.sampler_scheme.updates[2])
     @test isequal(output1.sampler_scheme.updates[3], output2.sampler_scheme.updates[3])
