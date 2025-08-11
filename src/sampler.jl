@@ -7,7 +7,8 @@ end
 struct sampler_scheme_multi <: sampler_scheme_struct
     update_weights::Vector{Float64} #should this be a non-parameteric type?
     updates::Vector{<:update_struct}
-    sampler_scheme_multi(update_weights::Vector{Float64}, updates::Vector{<:update_struct}) = begin
+    function sampler_scheme_multi(
+            update_weights::Vector{Float64}, updates::Vector{<:update_struct})
         if length(update_weights) != length(updates)
             error("Number of update weights must be equal to the number of updates")
         end
@@ -127,47 +128,52 @@ julia> composite_sampler(
 See also [`deMC`](@ref), [`deMCzs`](@ref), [`DREAMz`](@ref).
 """
 function composite_sampler(
-    ld, n_its, n_chains, memory, initial_state, sampler_scheme::sampler_scheme_struct;
-    thin = 1, save_burnt = false, rng = default_rng(), n_burnin = n_its * 5, parallel = false,
-    diagnostic_checks::Union{Nothing, Vector{<:diagnostic_check_struct}} = nothing, check_epochs = 1
+        ld, n_its, n_chains, memory, initial_state, sampler_scheme::sampler_scheme_struct;
+        thin = 1, save_burnt = false, rng = default_rng(), n_burnin = n_its * 5, parallel = false,
+        diagnostic_checks::Union{Nothing, Vector{<:diagnostic_check_struct}} = nothing, check_epochs = 1
 )
+    N₀, n_pars = size(initial_state)
 
-    N₀, n_pars = size(initial_state);
-    
-    check_initial_state(n_chains, N₀, n_pars, ld, memory);
+    check_initial_state(n_chains, N₀, n_pars, ld, memory)
 
     #setup the chains
-    total_iterations = (n_its + n_burnin) * n_chains;
-    chains = setup_population(ld, initial_state, total_iterations, N₀, n_pars, n_chains, memory, parallel, thin);
+    total_iterations = (n_its + n_burnin) * n_chains
+    chains = setup_population(
+        ld, initial_state, total_iterations, N₀, n_pars, n_chains, memory, parallel, thin)
 
     #setup rng streams
-    rngs = setup_rngs(rng, n_chains);
+    rngs = setup_rngs(rng, n_chains)
 
     #mulithreading
-    update_chains_func! = get_update_chains_func(parallel);
+    update_chains_func! = get_update_chains_func(parallel)
 
     #burnin
     if isnothing(diagnostic_checks) || check_epochs == 0
-        epoch!(1:(n_burnin * thin), rngs, chains, ld, sampler_scheme, update_chains_func!, "Burnin: ")
+        epoch!(1:(n_burnin * thin), rngs, chains, ld,
+            sampler_scheme, update_chains_func!, "Burnin: ")
     else
-        burnin_epochs_iterations = partition_integer(n_burnin, check_epochs + 1);
+        burnin_epochs_iterations = partition_integer(n_burnin, check_epochs + 1)
         for epoch in check_epochs
-            epoch!(1:(burnin_epochs_iterations[epoch] * thin), rngs, chains, ld, sampler_scheme, update_chains_func!, "Burnin $epoch: ")
+            epoch!(1:(burnin_epochs_iterations[epoch] * thin), rngs, chains,
+                ld, sampler_scheme, update_chains_func!, "Burnin $epoch: ")
             for diagnostic_check in diagnostic_checks
-                run_diagnostic_check!(chains, diagnostic_check, rngs, sum(burnin_epochs_iterations[1:epoch])) 
+                run_diagnostic_check!(
+                    chains, diagnostic_check, rngs, sum(burnin_epochs_iterations[1:epoch]))
             end
         end
-        epoch!(1:(burnin_epochs_iterations[end] * thin), rngs, chains, ld, sampler_scheme, update_chains_func!, "Burnin final: ")
+        epoch!(1:(burnin_epochs_iterations[end] * thin), rngs, chains,
+            ld, sampler_scheme, update_chains_func!, "Burnin final: ")
     end
 
     #samples
-    chains.warmup = false;
-    epoch!(1:(n_its * thin), rngs, chains, ld, sampler_scheme, update_chains_func!, "Sampling: ")
+    chains.warmup = false
+    epoch!(1:(n_its * thin), rngs, chains, ld,
+        sampler_scheme, update_chains_func!, "Sampling: ")
 
     #format outputs
-    sample_indices = n_burnin .+ (1:n_its);
+    sample_indices = n_burnin .+ (1:n_its)
     if save_burnt
-        burnt_indices = 1:n_burnin;
+        burnt_indices = 1:n_burnin
         return format_output(chains, sampler_scheme, sample_indices, burnt_indices)
     else
         return format_output(chains, sampler_scheme, sample_indices)
@@ -211,45 +217,50 @@ julia> composite_sampler(
 See also [`deMC`](@ref), [`deMCzs`](@ref), [`DREAMz`](@ref).
 """
 function composite_sampler(
-    ld, epoch_size, n_chains, memory, initial_state, sampler_scheme::sampler_scheme_struct, stopping_criteria::stopping_criteria_struct;
-    thin = 1, save_burnt = false, rng = default_rng(), warmup_epochs = 5, parallel = false, epoch_limit = 20,
-    diagnostic_checks::Union{Nothing, Vector{<:diagnostic_check_struct}} = nothing
+        ld, epoch_size, n_chains, memory, initial_state,
+        sampler_scheme::sampler_scheme_struct, stopping_criteria::stopping_criteria_struct;
+        thin = 1, save_burnt = false, rng = default_rng(),
+        warmup_epochs = 5, parallel = false, epoch_limit = 20,
+        diagnostic_checks::Union{Nothing, Vector{<:diagnostic_check_struct}} = nothing
 )
+    N₀, n_pars = size(initial_state)
 
-    N₀, n_pars = size(initial_state);
-    
-    check_initial_state(n_chains, N₀, n_pars, ld, memory);
+    check_initial_state(n_chains, N₀, n_pars, ld, memory)
 
     #setup the chains, initial for the the minimum number of warm-ups and one epoch
 
-    total_iterations = (warmup_epochs + 1) * epoch_size * n_chains;
-    chains = setup_population(ld, initial_state, total_iterations, N₀, n_pars, n_chains, memory, parallel, thin);
+    total_iterations = (warmup_epochs + 1) * epoch_size * n_chains
+    chains = setup_population(
+        ld, initial_state, total_iterations, N₀, n_pars, n_chains, memory, parallel, thin)
 
     #setup rng streams
-    rngs = setup_rngs(rng, n_chains);
+    rngs = setup_rngs(rng, n_chains)
 
     #mulithreading
-    update_chains_func! = get_update_chains_func(parallel);
+    update_chains_func! = get_update_chains_func(parallel)
 
     for epoch in 1:warmup_epochs
-        epoch!(1:(epoch_size * thin), rngs, chains, ld, sampler_scheme, update_chains_func!, "Warm-up Epoch $epoch: ")
+        epoch!(1:(epoch_size * thin), rngs, chains, ld, sampler_scheme,
+            update_chains_func!, "Warm-up Epoch $epoch: ")
         if !isnothing(diagnostic_checks) && epoch < warmup_epochs
             for diagnostic_check in diagnostic_checks
-                run_diagnostic_check!(chains, diagnostic_check, rngs, epoch * epoch_size) 
+                run_diagnostic_check!(chains, diagnostic_check, rngs, epoch * epoch_size)
             end
         end
     end
 
-    not_done = true;
-    epoch = 1;
-    sample_from = warmup_epochs * epoch_size; #don't sample warmup
-    chains.warmup = false; #disable adaptation
+    not_done = true
+    epoch = 1
+    sample_from = warmup_epochs * epoch_size #don't sample warmup
+    chains.warmup = false #disable adaptation
     while not_done
-        epoch!(1:(epoch_size * thin), rngs, chains, ld, sampler_scheme, update_chains_func!, "Epoch $epoch: ")
+        epoch!(1:(epoch_size * thin), rngs, chains, ld,
+            sampler_scheme, update_chains_func!, "Epoch $epoch: ")
         if epoch > epoch_limit
             println("Epoch limit reached")
             not_done = false
-        elseif stop_sampling(stopping_criteria, chains, sample_from, (epoch + warmup_epochs) * epoch_size)
+        elseif stop_sampling(
+            stopping_criteria, chains, sample_from, (epoch + warmup_epochs) * epoch_size)
             println("Stopping criteria met")
             not_done = false
         else
@@ -264,7 +275,7 @@ function composite_sampler(
     max_its = (epoch + warmup_epochs) * epoch_size
     sample_indices = get_sampling_indices(sample_from, max_its)
     if save_burnt
-        burnt_indices = 1:(max_its - sample_indices[1]);
+        burnt_indices = 1:(max_its - sample_indices[1])
         return format_output(chains, sampler_scheme, sample_indices, burnt_indices)
     else
         return format_output(chains, sampler_scheme, sample_indices)
