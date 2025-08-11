@@ -1,6 +1,5 @@
 abstract type stopping_criteria_struct end
 
-
 """
 Create a stopping criterion based on the rank Gelman-Rubin diagnostic (R̂). Sampling stops when the R̂ value for all parameters is below `maximum_R̂`.
 
@@ -17,7 +16,8 @@ function R̂_stopping_criteria()
     return R̂_stopping_criteria(1.2)
 end
 
-function stop_sampling(stopping_criteria::R̂_stopping_criteria, chains::chains_struct, sample_from, last_iteration)
+function stop_sampling(stopping_criteria::R̂_stopping_criteria,
+        chains::chains_struct, sample_from, last_iteration)
     #check the last half of the sampling iterations
     rhat_ = rhat(
         population_to_samples(chains, get_sampling_indices(sample_from, last_iteration))
@@ -29,4 +29,3 @@ function stop_sampling(stopping_criteria::R̂_stopping_criteria, chains::chains_
         return false
     end
 end
-

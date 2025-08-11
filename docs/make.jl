@@ -5,9 +5,9 @@ links = InterLinks(
 );
 
 makedocs(
-    sitename="Differential Evolution Metropolis",
+    sitename = "Differential Evolution Metropolis",
     plugins = [links],
-    pages    = [
+    pages = [
         "index.md",
         "tutorial.md",
         "custom.md"

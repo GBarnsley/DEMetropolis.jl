@@ -11,16 +11,17 @@ function setup_rngs(rng, n_chains)
 end
 
 function population_to_samples(chains::chains_struct, its)
-    samples = Array{eltype(chains.X)}(undef, length(its), chains.n_chains, size(chains.X, 2));
-    for i in eachindex(its), j in 1:chains.n_chains;
+    samples = Array{eltype(chains.X)}(
+        undef, length(its), chains.n_chains, size(chains.X, 2))
+    for i in eachindex(its), j in 1:(chains.n_chains)
         samples[i, j, :] = chains.X[j + ((its[i] - 1) * chains.n_chains) + chains.N₀, :]
     end
     return samples
 end
 
 function ld_to_samples(chains::chains_struct, its)
-    lds = Array{eltype(chains.X)}(undef, length(its), chains.n_chains);
-    for i in eachindex(its), j in 1:chains.n_chains;
+    lds = Array{eltype(chains.X)}(undef, length(its), chains.n_chains)
+    for i in eachindex(its), j in 1:(chains.n_chains)
         lds[i, j] = chains.ld[j + ((its[i] - 1) * chains.n_chains) + chains.N₀]
     end
     return lds
@@ -45,8 +46,8 @@ function format_output(chains::chains_struct, sampler_scheme, sample_indices, bu
 end
 
 function get_sampling_indices(min_it, max_it)
-    n_its = halve(max_it - min_it);
-    (max_it - n_its + 1):max_it;
+    n_its = halve(max_it - min_it)
+    (max_it - n_its + 1):max_it
 end
 
 function partition_integer(I::Int, n::Int)
