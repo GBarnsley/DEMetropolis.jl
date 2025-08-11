@@ -15,14 +15,14 @@ function build_initial_state(rng, ld, initial_state, n_chains, N₀, memory)
         if current_N == N₀
             return initial_state
         elseif current_N < N₀
-            warning("Initial state is smaller than the number of chains. Expanding initial state.")
+            @warn "Initial state is smaller than the number of chains. Expanding initial state."
             return cat(
                 randn(rng, eltype(initial_state), N₀ - current_N, current_pars),
                 initial_state,
                 dims = 1
             )
         else
-            warning("Initial state is larger than the number of chains. Shrinking initial state.")
+            @warn "Initial state is larger than the number of chains. Shrinking initial state."
             #shrink initial state
             return initial_state[1:N₀, :, :]
         end
@@ -91,7 +91,7 @@ function deMC(
 )
 
     if n_chains < dimension(ld) && !memory
-        warning("Number of chains should be greater than or equal to the number of parameters")
+        @warn "Number of chains should be greater than or equal to the number of parameters"
     end
 
     #setup initial state
@@ -179,7 +179,7 @@ function deMCzs(
 )
 
     if n_chains < dimension(ld)
-        warning("Number of chains should be greater than or equal to the number of parameters")
+        @warn "Number of chains should be greater than or equal to the number of parameters"
     end
 
     #setup initial state
@@ -282,7 +282,7 @@ function DREAMz(
 )
 
     if n_chains < dimension(ld)
-        warning("Number of chains should be greater than or equal to the number of parameters")
+        @warn "Number of chains should be greater than or equal to the number of parameters"
     end
 
     #setup initial state

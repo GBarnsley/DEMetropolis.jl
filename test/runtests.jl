@@ -10,7 +10,7 @@ end
 
 if VERSION ≥ v"1.11"
     @testset "JET" begin
-        JET.test_package(DEMetropolis)
+        JET.test_package(DEMetropolis; target_defined_modules=true)
     end
 end
 
