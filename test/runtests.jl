@@ -1,7 +1,7 @@
 using DEMetropolis
 using Test
 using TransformVariables, TransformedLogDensities, Random, Distributions
-using Aqua, JET
+using Aqua
 
 @testset "DEMetropolis.jl" begin
     @testset "Aqua" begin

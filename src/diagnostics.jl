@@ -11,7 +11,8 @@ See also [`acceptance_check`](@ref).
 struct ld_check <: diagnostic_check_struct
 end
 
-function run_diagnostic_check!(chains::chains_struct, diagnostic_check::ld_check, rngs::Vector{R}, current_iteration::Int) where R <: AbstractRNG
+function run_diagnostic_check!(chains::chains_struct, diagnostic_check::ld_check,
+        rngs::Vector{R}, current_iteration::Int) where {R <: AbstractRNG}
 
     #calculate IQR of log densities of the last 50%
     ld_means = mean(
@@ -26,9 +27,9 @@ function run_diagnostic_check!(chains::chains_struct, diagnostic_check::ld_check
         best_chain = argmax(ld_means)
 
         chains.ld[chains.current_position[outliers], :] .= chains.ld[
-            chains.current_position[[best_chain]], :]
+        chains.current_position[[best_chain]], :]
         chains.X[chains.current_position[outliers], :] .= chains.X[
-            chains.current_position[[best_chain]], :]
+        chains.current_position[[best_chain]], :]
     end
 end
 
@@ -50,7 +51,8 @@ end
 acceptance_check() = acceptance_check(0.1, 0.24)
 
 function run_diagnostic_check!(
-        chains::chains_struct, diagnostic_check::acceptance_check, rngs::Vector{R}, current_iteration::Int) where R <: AbstractRNG
+        chains::chains_struct, diagnostic_check::acceptance_check, rngs::Vector{R},
+        current_iteration::Int) where {R <: AbstractRNG}
 
     #calculate average acceptance
     X = population_to_samples(chains, get_sampling_indices(1, current_iteration))
@@ -72,8 +74,8 @@ function run_diagnostic_check!(
         #remove outliers
         best_chain = [argmin(abs.(p_acceptance .- diagnostic_check.target_acceptance))]
         chains.ld[chains.current_position[outliers], :] .= chains.ld[
-            chains.current_position[best_chain], :]
+        chains.current_position[best_chain], :]
         chains.X[chains.current_position[outliers], :] .= chains.X[
-            chains.current_position[best_chain], :]
+        chains.current_position[best_chain], :]
     end
 end

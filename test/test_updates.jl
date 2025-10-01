@@ -96,5 +96,4 @@
         @test isa(dist.cr, Distributions.Dirac)
         @test isa(dist.δ, Distributions.Poisson)
     end
-
 end

@@ -47,7 +47,8 @@ function setup_de_update(
     return de_update{eltype(γ)}(γ, β)
 end
 
-function update!(update::de_update, chains::chains_struct, ld::TransformedLogDensity, rng::AbstractRNG, chain::Int)
+function update!(update::de_update, chains::chains_struct,
+        ld::TransformedLogDensity, rng::AbstractRNG, chain::Int)
     x = get_value(chains, chain)
     sampled_chains = sample_chains(chains, rng, chain, 2)
     x₁ = chains.X[sampled_chains[1], :]
@@ -97,7 +98,8 @@ function setup_snooker_update(;
     return snooker_update{eltype(γ)}(γ)
 end
 
-function update!(update::snooker_update, chains::chains_struct, ld::TransformedLogDensity, rng::AbstractRNG, chain::Int)
+function update!(update::snooker_update, chains::chains_struct,
+        ld::TransformedLogDensity, rng::AbstractRNG, chain::Int)
     x = get_value(chains, chain)
     sampled_chains = sample_chains(chains, rng, chain, 3)
     x₁ = chains.X[sampled_chains[1], :]
@@ -214,11 +216,13 @@ function get_γ(rng::AbstractRNG, update::subspace_sampling, δ::Int, d::Int)
     2.38 / sqrt(2 * δ * d)
 end
 
-function get_γ(rng::AbstractRNG, update::subspace_sampling_fixed_γ{T}, δ::Int, d::Int) where {T <: Real}
+function get_γ(rng::AbstractRNG, update::subspace_sampling_fixed_γ{T}, δ::Int, d::Int) where {T <:
+                                                                                              Real}
     update.γ
 end
 
-function update!(update::subspace_sampling_struct, chains::chains_struct, ld::TransformedLogDensity, rng::AbstractRNG, chain::Int)
+function update!(update::subspace_sampling_struct, chains::chains_struct,
+        ld::TransformedLogDensity, rng::AbstractRNG, chain::Int)
     x = get_value(chains, chain)
 
     #determine how many dimensions to update
@@ -257,7 +261,8 @@ function update!(update::subspace_sampling_struct, chains::chains_struct, ld::Tr
 end
 
 function update_jumping_distance!(
-        adaptation::adaptive_subspace_sampling{T}, x::Vector{T}, z::Vector{T}, chains::chains_struct, accepted::Bool, cr) where {T <: Real}
+        adaptation::adaptive_subspace_sampling{T}, x::Vector{T}, z::Vector{T}, chains::chains_struct,
+        accepted::Bool, cr) where {T <: Real}
     m = findfirst(cr .== adaptation.crs)
     adaptation.L[m] += 1 #update because this number of attempts
     if accepted
@@ -267,7 +272,8 @@ function update_jumping_distance!(
 end
 
 function update_jumping_distance!(
-        adaptation::static_subspace_sampling, x::Vector{T}, z::Vector{T}, chains::chains_struct{T}, accepted::Bool, cr) where {T <: Real}
+        adaptation::static_subspace_sampling, x::Vector{T}, z::Vector{T}, chains::chains_struct{T},
+        accepted::Bool, cr) where {T <: Real}
     nothing
 end
 

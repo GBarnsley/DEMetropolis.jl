@@ -1,4 +1,4 @@
-abstract type chains_struct{T<:Real} end
+abstract type chains_struct{T <: Real} end
 
 function always_store(samples::Int)
     return true
@@ -10,7 +10,8 @@ function is_multiple_of(a::Int)
 end
 
 function setup_population(
-        ld::TransformedLogDensity, initial_state::Array{T, 2}, total_iterations::Int, N₀::Int, n_pars::Int, n_chains::Int, memory::Bool, parallel::Bool, thin::Int) where T <: Real
+        ld::TransformedLogDensity, initial_state::Array{T, 2}, total_iterations::Int, N₀::Int, n_pars::Int,
+        n_chains::Int, memory::Bool, parallel::Bool, thin::Int) where {T <: Real}
     X = Array{T}(undef, total_iterations + N₀, n_pars)
     X_ld = Array{T}(undef, total_iterations + N₀)
     X[1:N₀, :] .= initial_state
@@ -61,7 +62,8 @@ function get_value(chains::chains_struct, chain::Int)
     return chains.X[chains.current_position[chain], :]
 end
 
-function update_value!(chains::chains_struct{T}, rng::AbstractRNG, chain::Int, xₚ::Array{T, 1}, ldₚ::T) where T <: Real
+function update_value!(chains::chains_struct{T}, rng::AbstractRNG,
+        chain::Int, xₚ::Array{T, 1}, ldₚ::T) where {T <: Real}
     old_position = chains.current_position[chain]
     new_position = old_position + chains.n_chains
     if log(rand(rng)) < ldₚ - chains.ld[old_position]
@@ -75,7 +77,8 @@ function update_value!(chains::chains_struct{T}, rng::AbstractRNG, chain::Int, x
     end
 end
 
-function update_value!(chains::chains_struct{T}, rng::AbstractRNG, chain::Int, xₚ::Array{T, 1}, ldₚ::T, offset::T) where T <: Real
+function update_value!(chains::chains_struct{T}, rng::AbstractRNG, chain::Int,
+        xₚ::Array{T, 1}, ldₚ::T, offset::T) where {T <: Real}
     old_position = chains.current_position[chain]
     new_position = old_position + chains.n_chains
     if log(rand(rng)) < ldₚ - chains.ld[old_position] + offset
@@ -96,7 +99,7 @@ function update_position!(chains::chains_struct)
     else
         # set the current position to the updated value
         chains.X[chains.current_position, :] .= chains.X[
-            chains.current_position .+ chains.n_chains, :]
+        chains.current_position .+ chains.n_chains, :]
         chains.ld[chains.current_position] .= chains.ld[chains.current_position .+ chains.n_chains]
     end
     chains.samples += 1
@@ -125,7 +128,7 @@ function sample_chains(chains::chains_memory, rng::AbstractRNG, chain::Int, n_sa
     indices
 end
 
-function resize_chains!(chains::chains_struct{T}, new_size::Int) where T <: Real
+function resize_chains!(chains::chains_struct{T}, new_size::Int) where {T <: Real}
     #not great have to re allocate the whole array
     new_X = Array{T}(undef, new_size, size(chains.X, 2))
     new_X[axes(chains.X, 1), :] .= chains.X

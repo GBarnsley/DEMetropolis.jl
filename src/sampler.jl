@@ -68,7 +68,8 @@ function adapt_samplers!(sampler_scheme::sampler_scheme_multi, chains::chains_st
     end
 end
 
-function check_initial_state(n_chains::Int, N₀::Int, n_pars::Int, ld::TransformedLogDensity, memory::Bool)
+function check_initial_state(
+        n_chains::Int, N₀::Int, n_pars::Int, ld::TransformedLogDensity, memory::Bool)
     if !memory
         if N₀ != n_chains
             error("Number of chains must be equal to the number of initial states")
@@ -125,8 +126,10 @@ julia> composite_sampler(
 See also [`deMC`](@ref), [`deMCzs`](@ref), [`DREAMz`](@ref).
 """
 function composite_sampler(
-        ld::TransformedLogDensity, n_its::Int, n_chains::Int, memory::Bool, initial_state::Array{<:Real, 2}, sampler_scheme::sampler_scheme_struct;
-        thin::Int = 1, save_burnt::Bool = false, rng::AbstractRNG = default_rng(), n_burnin::Int = n_its * 5, parallel::Bool = false,
+        ld::TransformedLogDensity, n_its::Int, n_chains::Int, memory::Bool,
+        initial_state::Array{<:Real, 2}, sampler_scheme::sampler_scheme_struct;
+        thin::Int = 1, save_burnt::Bool = false, rng::AbstractRNG = default_rng(),
+        n_burnin::Int = n_its * 5, parallel::Bool = false,
         diagnostic_checks::Union{Nothing, Vector{<:diagnostic_check_struct}} = nothing, check_epochs::Int = 1
 )
     N₀, n_pars = size(initial_state)
@@ -214,7 +217,8 @@ julia> composite_sampler(
 See also [`deMC`](@ref), [`deMCzs`](@ref), [`DREAMz`](@ref).
 """
 function composite_sampler(
-        ld::TransformedLogDensity, epoch_size::Int, n_chains::Int, memory::Bool, initial_state::Array{<:Real, 2},
+        ld::TransformedLogDensity, epoch_size::Int, n_chains::Int, memory::Bool, initial_state::Array{
+            <:Real, 2},
         sampler_scheme::sampler_scheme_struct, stopping_criteria::stopping_criteria_struct;
         thin::Int = 1, save_burnt::Bool = false, rng::AbstractRNG = default_rng(),
         warmup_epochs::Int = 5, parallel::Bool = false, epoch_limit::Int = 20,

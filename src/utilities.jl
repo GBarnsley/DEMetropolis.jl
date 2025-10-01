@@ -10,18 +10,21 @@ function setup_rngs(rng::AbstractRNG, n_chains::Int)
     end
 end
 
-function population_to_samples(chains::chains_struct{T}, its::UnitRange{Int}) where T <: Real
+function population_to_samples(chains::chains_struct{T}, its::UnitRange{Int}) where {T <:
+                                                                                     Real}
     samples = Array{T}(
         undef, length(its), chains.n_chains, size(chains.X, 2))
     for i in eachindex(its), j in 1:(chains.n_chains)
+
         samples[i, j, :] = chains.X[j + ((its[i] - 1) * chains.n_chains) + chains.N₀, :]
     end
     return samples
 end
 
-function ld_to_samples(chains::chains_struct{T}, its::UnitRange{Int}) where T <: Real
+function ld_to_samples(chains::chains_struct{T}, its::UnitRange{Int}) where {T <: Real}
     lds = Array{T}(undef, length(its), chains.n_chains)
     for i in eachindex(its), j in 1:(chains.n_chains)
+
         lds[i, j] = chains.ld[j + ((its[i] - 1) * chains.n_chains) + chains.N₀]
     end
     return lds

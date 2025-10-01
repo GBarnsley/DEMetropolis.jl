@@ -1,4 +1,6 @@
-function build_initial_state(rng::AbstractRNG, ld::TransformedLogDensity, initial_state::Union{Nothing, Array{<:Real, 2}}, n_chains::Int, N₀::Int, memory::Bool)
+function build_initial_state(rng::AbstractRNG, ld::TransformedLogDensity,
+        initial_state::Union{Nothing, Array{<:Real, 2}},
+        n_chains::Int, N₀::Int, memory::Bool)
     if memory
         N₀ = max(N₀, n_chains + 3)
     else
@@ -88,7 +90,7 @@ function deMC(
         γ₂::T = 1.0,
         p_γ₂::T = 0.1,
         β::Distributions.Uniform{T} = Distributions.Uniform(-1e-4, 1e-4)
-) where T <: Real
+) where {T <: Real}
     if n_chains < dimension(ld) && !memory
         @warn "Number of chains should be greater than or equal to the number of parameters"
     end
@@ -174,7 +176,7 @@ function deMCzs(
         p_snooker::Union{Nothing, T} = 0.1,
         β::Distributions.Uniform{T} = Distributions.Uniform(-1e-4, 1e-4),
         thin::Int = 10
-) where T <: Real
+) where {T <: Real}
     if n_chains < dimension(ld)
         @warn "Number of chains should be greater than or equal to the number of parameters"
     end
@@ -275,7 +277,7 @@ function DREAMz(
         e::Distributions.Normal{T} = Distributions.Normal(0.0, 1e-2),
         δ::Distributions.DiscreteUniform = Distributions.DiscreteUniform(1, 3),
         thin::Int = 1
-) where T <: Real
+) where {T <: Real}
     if n_chains < dimension(ld)
         @warn "Number of chains should be greater than or equal to the number of parameters"
     end
