@@ -6,7 +6,7 @@
 [![codecov](https://codecov.io/gh/GBarnsley/DEMetropolis.jl/graph/badge.svg)](https://codecov.io/gh/GBarnsley/DEMetropolis.jl)
 
 [![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
-[![JET](https://img.shields.io/badge/%E2%9C%88%EF%B8%8F%20tested%20with%20-%20JET.jl%20-%20red)](https://github.com/aviatesk/JET.jl)
+
 ## Overview
 
 This package implements various differential evolution MCMC samplers in the Julia language, with some minor tweaks to simplify parallelism.

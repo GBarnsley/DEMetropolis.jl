@@ -39,39 +39,36 @@ julia> setup_sampler_scheme(setup_snooker_update(), setup_de_update())
 julia> setup_sampler_scheme(setup_snooker_update(), setup_de_update(), w = [0.9, 0.1])
 ```
 """
-function setup_sampler_scheme(updates...; w = nothing)
-    if isnothing(w)
-        w = ones(length(updates)) ./ length(updates)
-    end
+function setup_sampler_scheme(updates::update_struct...; w::Vector{Float64} = ones(length(updates)))
     if any(w .< 0)
         error("Update weights must be non-negative")
     end
-    if length(w) > 1
-        sampler_scheme_multi(w, collect(updates))
-    else
-        sampler_scheme_single(updates[1])
-    end
+    return sampler_scheme_multi(w, collect(updates))
 end
 
-function get_update(sampler_scheme::sampler_scheme_single, rng)
-    sampler_scheme.update
+function setup_sampler_scheme(update::update_struct)
+    return sampler_scheme_single(update)
 end
 
-function get_update(sampler_scheme::sampler_scheme_multi, rng)
-    wsample(rng, sampler_scheme.updates, sampler_scheme.update_weights)
+function get_update(sampler_scheme::sampler_scheme_single, rng::AbstractRNG)
+    return sampler_scheme.update
 end
 
-function adapt_samplers!(sampler_scheme::sampler_scheme_single, chains)
+function get_update(sampler_scheme::sampler_scheme_multi, rng::AbstractRNG)
+    return wsample(rng, sampler_scheme.updates, sampler_scheme.update_weights)
+end
+
+function adapt_samplers!(sampler_scheme::sampler_scheme_single, chains::chains_struct)
     adapt_update!(sampler_scheme.update, chains)
 end
 
-function adapt_samplers!(sampler_scheme::sampler_scheme_multi, chains)
+function adapt_samplers!(sampler_scheme::sampler_scheme_multi, chains::chains_struct)
     for update in sampler_scheme.updates
         adapt_update!(update, chains)
     end
 end
 
-function check_initial_state(n_chains, N₀, n_pars, ld, memory)
+function check_initial_state(n_chains::Int, N₀::Int, n_pars::Int, ld::TransformedLogDensity, memory::Bool)
     if !memory
         if N₀ != n_chains
             error("Number of chains must be equal to the number of initial states")
@@ -112,7 +109,7 @@ For sampling with your own sampling scheme from `setup_sampling_scheme`
 - `n_burnin`: Number of burn-in iterations. Defaults to `n_its * 5`. Any adaptions occur over this period.
 - `parallel`: Boolean indicating whether to run chains in parallel using multithreading. Defaults to `false`.
 - `diagnostic_checks`: A vector of `diagnostic_check_struct` to run during burn-in. Defaults to `nothing`.
-- `check_epochs`: Splits `n_burnin` into `check_epochs + 1` epochs and applies the diagnostic checks at the end of each epoch, other than the final epoch. Defaults to 1. 
+- `check_epochs`: Splits `n_burnin` into `check_epochs + 1` epochs and applies the diagnostic checks at the end of each epoch, other than the final epoch. Defaults to 1.
 
 # Returns
 - A named tuple containing the samples, sampler scheme, and potentially burn-in samples.
@@ -128,9 +125,9 @@ julia> composite_sampler(
 See also [`deMC`](@ref), [`deMCzs`](@ref), [`DREAMz`](@ref).
 """
 function composite_sampler(
-        ld, n_its, n_chains, memory, initial_state, sampler_scheme::sampler_scheme_struct;
-        thin = 1, save_burnt = false, rng = default_rng(), n_burnin = n_its * 5, parallel = false,
-        diagnostic_checks::Union{Nothing, Vector{<:diagnostic_check_struct}} = nothing, check_epochs = 1
+        ld::TransformedLogDensity, n_its::Int, n_chains::Int, memory::Bool, initial_state::Array{<:Real, 2}, sampler_scheme::sampler_scheme_struct;
+        thin::Int = 1, save_burnt::Bool = false, rng::AbstractRNG = default_rng(), n_burnin::Int = n_its * 5, parallel::Bool = false,
+        diagnostic_checks::Union{Nothing, Vector{<:diagnostic_check_struct}} = nothing, check_epochs::Int = 1
 )
     N₀, n_pars = size(initial_state)
 
@@ -217,10 +214,10 @@ julia> composite_sampler(
 See also [`deMC`](@ref), [`deMCzs`](@ref), [`DREAMz`](@ref).
 """
 function composite_sampler(
-        ld, epoch_size, n_chains, memory, initial_state,
+        ld::TransformedLogDensity, epoch_size::Int, n_chains::Int, memory::Bool, initial_state::Array{<:Real, 2},
         sampler_scheme::sampler_scheme_struct, stopping_criteria::stopping_criteria_struct;
-        thin = 1, save_burnt = false, rng = default_rng(),
-        warmup_epochs = 5, parallel = false, epoch_limit = 20,
+        thin::Int = 1, save_burnt::Bool = false, rng::AbstractRNG = default_rng(),
+        warmup_epochs::Int = 5, parallel::Bool = false, epoch_limit::Int = 20,
         diagnostic_checks::Union{Nothing, Vector{<:diagnostic_check_struct}} = nothing
 )
     N₀, n_pars = size(initial_state)
@@ -271,7 +268,7 @@ function composite_sampler(
     end
 
     #format outputs
-    #sample from 
+    #sample from
     max_its = (epoch + warmup_epochs) * epoch_size
     sample_indices = get_sampling_indices(sample_from, max_its)
     if save_burnt

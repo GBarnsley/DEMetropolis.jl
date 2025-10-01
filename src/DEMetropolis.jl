@@ -3,15 +3,16 @@ export composite_sampler, setup_de_update, setup_snooker_update, setup_subspace_
        setup_sampler_scheme, R̂_stopping_criteria, ld_check, acceptance_check
 export deMC, deMCzs, DREAMz
 
-using StatsBase: mean, quantile, sample, wsample
-using Statistics: var
-using Random: default_rng
+import StatsBase: mean, quantile, sample, wsample
+import Statistics: var
+import Random: default_rng, AbstractRNG
 import Random
-using LogDensityProblems: logdensity, dimension
+import LogDensityProblems: logdensity, dimension
+import TransformedLogDensities: TransformedLogDensity
 import Distributions
-using ProgressMeter: Progress, next!, finish!
-using LinearAlgebra: norm, dot, normalize
-using MCMCDiagnosticTools: rhat
+import ProgressMeter: Progress, next!, finish!
+import LinearAlgebra: norm, dot, normalize
+import MCMCDiagnosticTools: rhat
 
 include("population.jl")
 include("updates.jl")

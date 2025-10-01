@@ -11,7 +11,7 @@ See also [`acceptance_check`](@ref).
 struct ld_check <: diagnostic_check_struct
 end
 
-function run_diagnostic_check!(chains, diagnostic_check::ld_check, rngs, current_iteration)
+function run_diagnostic_check!(chains::chains_struct, diagnostic_check::ld_check, rngs::Vector{R}, current_iteration::Int) where R <: AbstractRNG
 
     #calculate IQR of log densities of the last 50%
     ld_means = mean(
@@ -50,7 +50,7 @@ end
 acceptance_check() = acceptance_check(0.1, 0.24)
 
 function run_diagnostic_check!(
-        chains, diagnostic_check::acceptance_check, rngs, current_iteration)
+        chains::chains_struct, diagnostic_check::acceptance_check, rngs::Vector{R}, current_iteration::Int) where R <: AbstractRNG
 
     #calculate average acceptance
     X = population_to_samples(chains, get_sampling_indices(1, current_iteration))
