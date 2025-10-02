@@ -12,6 +12,9 @@ struct sampler_scheme_multi <: sampler_scheme_struct
         if length(update_weights) != length(updates)
             error("Number of update weights must be equal to the number of updates")
         end
+        if any(update_weights .< 0)
+            error("Update weights must be non-negative")
+        end
         return new(update_weights, updates)
     end
 end
@@ -40,9 +43,6 @@ julia> setup_sampler_scheme(setup_snooker_update(), setup_de_update(), w = [0.9,
 ```
 """
 function setup_sampler_scheme(updates::update_struct...; w::Vector{Float64} = ones(length(updates)))
-    if any(w .< 0)
-        error("Update weights must be non-negative")
-    end
     return sampler_scheme_multi(w, collect(updates))
 end
 

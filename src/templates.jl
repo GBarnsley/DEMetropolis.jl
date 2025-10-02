@@ -19,14 +19,14 @@ function build_initial_state(rng::AbstractRNG, ld::TransformedLogDensity,
         elseif current_N < N₀
             @warn "Initial state is smaller than the number of chains. Expanding initial state."
             return cat(
-                randn(rng, T, N₀ - current_N, current_pars),
+                randn(rng, eltype(initial_state), N₀ - current_N, current_pars),
                 initial_state,
                 dims = 1
             )
         else
             @warn "Initial state is larger than the number of chains. Shrinking initial state."
             #shrink initial state
-            return initial_state[1:N₀, :, :]
+            return initial_state[1:N₀, :]
         end
     end
 end
