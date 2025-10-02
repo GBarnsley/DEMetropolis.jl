@@ -2,7 +2,7 @@ function halve(x::Integer)
     return Int(ceil(x / 2))
 end
 
-function setup_rngs(rng, n_chains)
+function setup_rngs(rng::AbstractRNG, n_chains::Int)
     @static if VERSION >= v"1.7"
         return [Random.Xoshiro(rand(rng, UInt)) for _ in 1:n_chains]
     else
@@ -10,18 +10,21 @@ function setup_rngs(rng, n_chains)
     end
 end
 
-function population_to_samples(chains::chains_struct, its)
-    samples = Array{eltype(chains.X)}(
+function population_to_samples(chains::chains_struct{T}, its::UnitRange{Int}) where {T <:
+                                                                                     Real}
+    samples = Array{T}(
         undef, length(its), chains.n_chains, size(chains.X, 2))
     for i in eachindex(its), j in 1:(chains.n_chains)
+
         samples[i, j, :] = chains.X[j + ((its[i] - 1) * chains.n_chains) + chains.N₀, :]
     end
     return samples
 end
 
-function ld_to_samples(chains::chains_struct, its)
-    lds = Array{eltype(chains.X)}(undef, length(its), chains.n_chains)
+function ld_to_samples(chains::chains_struct{T}, its::UnitRange{Int}) where {T <: Real}
+    lds = Array{T}(undef, length(its), chains.n_chains)
     for i in eachindex(its), j in 1:(chains.n_chains)
+
         lds[i, j] = chains.ld[j + ((its[i] - 1) * chains.n_chains) + chains.N₀]
     end
     return lds
@@ -45,7 +48,7 @@ function format_output(chains::chains_struct, sampler_scheme, sample_indices, bu
     )
 end
 
-function get_sampling_indices(min_it, max_it)
+function get_sampling_indices(min_it::Int, max_it::Int)
     n_its = halve(max_it - min_it)
     (max_it - n_its + 1):max_it
 end

@@ -1,4 +1,6 @@
-function build_initial_state(rng, ld, initial_state, n_chains, N₀, memory)
+function build_initial_state(rng::AbstractRNG, ld::TransformedLogDensity,
+        initial_state::Union{Nothing, Array{<:Real, 2}},
+        n_chains::Int, N₀::Int, memory::Bool)
     if memory
         N₀ = max(N₀, n_chains + 3)
     else
@@ -24,7 +26,7 @@ function build_initial_state(rng, ld, initial_state, n_chains, N₀, memory)
         else
             @warn "Initial state is larger than the number of chains. Shrinking initial state."
             #shrink initial state
-            return initial_state[1:N₀, :, :]
+            return initial_state[1:N₀, :]
         end
     end
 end
@@ -72,23 +74,23 @@ julia> deMC(ld, 1000; n_chains = 10)
 See also [`composite_sampler`](@ref), [`deMCzs`](@ref), [`DREAMz`](@ref).
 """
 function deMC(
-        ld, n_its;
-        n_burnin = n_its * 5,
-        n_chains = dimension(ld) * 2,
-        N₀ = n_chains,
-        initial_state = nothing,
-        memory = false,
-        save_burnt = false,
-        parallel = false,
-        rng = default_rng(),
-        diagnostic_checks = nothing,
-        check_epochs = 1,
-        thin = 1,
-        γ₁ = nothing,
-        γ₂ = 1.0,
-        p_γ₂ = 0.1,
-        β = Distributions.Uniform(-1e-4, 1e-4)
-)
+        ld::TransformedLogDensity, n_its::Int;
+        n_burnin::Int = n_its * 5,
+        n_chains::Int = dimension(ld) * 2,
+        N₀::Int = n_chains,
+        initial_state::Union{Array{T, 2}, Nothing} = nothing,
+        memory::Bool = false,
+        save_burnt::Bool = false,
+        parallel::Bool = false,
+        rng::AbstractRNG = default_rng(),
+        diagnostic_checks::Union{Nothing, Vector{<:diagnostic_check_struct}} = nothing,
+        check_epochs::Int = 1,
+        thin::Int = 1,
+        γ₁::Union{Nothing, T} = nothing,
+        γ₂::T = 1.0,
+        p_γ₂::T = 0.1,
+        β::Distributions.Uniform{T} = Distributions.Uniform(-1e-4, 1e-4)
+) where {T <: Real}
     if n_chains < dimension(ld) && !memory
         @warn "Number of chains should be greater than or equal to the number of parameters"
     end
@@ -157,24 +159,24 @@ julia> deMCzs(ld, 1000; n_chains = 3)
 See also [`composite_sampler`](@ref), [`deMC`](@ref), [`DREAMz`](@ref).
 """
 function deMCzs(
-        ld, epoch_size;
-        warmup_epochs = 5,
-        epoch_limit = 20,
-        n_chains = dimension(ld) * 2,
-        N₀ = n_chains * 2,
-        initial_state = nothing,
-        memory = true,
-        save_burnt = true,
-        parallel = false,
-        rng = default_rng(),
-        diagnostic_checks = nothing,
-        stopping_criteria = R̂_stopping_criteria(),
-        γ = nothing,
-        γₛ = nothing,
-        p_snooker = 0.1,
-        β = Distributions.Uniform(-1e-4, 1e-4),
-        thin = 10
-)
+        ld::TransformedLogDensity, epoch_size::Int;
+        warmup_epochs::Int = 5,
+        epoch_limit::Int = 20,
+        n_chains::Int = dimension(ld) * 2,
+        N₀::Int = n_chains * 2,
+        initial_state::Union{Array{<:Real, 2}, Nothing} = nothing,
+        memory::Bool = true,
+        save_burnt::Bool = true,
+        parallel::Bool = false,
+        rng::AbstractRNG = default_rng(),
+        diagnostic_checks::Union{Nothing, Vector{<:diagnostic_check_struct}} = nothing,
+        stopping_criteria::stopping_criteria_struct = R̂_stopping_criteria(),
+        γ::Union{Nothing, T} = nothing,
+        γₛ::Union{Nothing, T} = nothing,
+        p_snooker::Union{Nothing, T} = 0.1,
+        β::Distributions.Uniform{T} = Distributions.Uniform(-1e-4, 1e-4),
+        thin::Int = 10
+) where {T <: Real}
     if n_chains < dimension(ld)
         @warn "Number of chains should be greater than or equal to the number of parameters"
     end
@@ -253,29 +255,29 @@ julia> DREAMz(ld, 1000; n_chains = 10)
 See also [`composite_sampler`](@ref), [`deMC`](@ref), [`deMCzs`](@ref).
 """
 function DREAMz(
-        ld, epoch_size;
-        warmup_epochs = 5,
-        epoch_limit = 20,
-        n_chains = dimension(ld) * 2,
-        N₀ = n_chains,
-        initial_state = nothing,
-        memory = true,
-        save_burnt = true,
-        parallel = false,
-        rng = default_rng(),
-        diagnostic_checks = [ld_check()],
-        stopping_criteria = R̂_stopping_criteria(),
-        γ₁ = nothing,
-        γ₂ = 1.0,
-        p_γ₂ = 0.2,
-        n_cr = 3,
-        cr₁ = nothing,
-        cr₂ = nothing,
-        ϵ = Distributions.Uniform(-1e-4, 1e-4),
-        e = Distributions.Normal(0.0, 1e-2),
-        δ = Distributions.DiscreteUniform(1, 3),
-        thin = 1
-)
+        ld::TransformedLogDensity, epoch_size::Int;
+        warmup_epochs::Int = 5,
+        epoch_limit::Int = 20,
+        n_chains::Int = dimension(ld) * 2,
+        N₀::Int = n_chains,
+        initial_state::Union{Array{<:Real, 2}, Nothing} = nothing,
+        memory::Bool = true,
+        save_burnt::Bool = true,
+        parallel::Bool = false,
+        rng::AbstractRNG = default_rng(),
+        diagnostic_checks::Union{Nothing, Vector{<:diagnostic_check_struct}} = nothing,
+        stopping_criteria::stopping_criteria_struct = R̂_stopping_criteria(),
+        γ₁::Union{Nothing, T} = nothing,
+        γ₂::Union{Nothing, T} = 1.0,
+        p_γ₂::Union{Nothing, T} = 0.2,
+        n_cr::Int = 3,
+        cr₁::Union{Nothing, T} = nothing,
+        cr₂::Union{Nothing, T} = nothing,
+        ϵ::Distributions.Uniform{T} = Distributions.Uniform(-1e-4, 1e-4),
+        e::Distributions.Normal{T} = Distributions.Normal(0.0, 1e-2),
+        δ::Distributions.DiscreteUniform = Distributions.DiscreteUniform(1, 3),
+        thin::Int = 1
+) where {T <: Real}
     if n_chains < dimension(ld)
         @warn "Number of chains should be greater than or equal to the number of parameters"
     end

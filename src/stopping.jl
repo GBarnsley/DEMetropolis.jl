@@ -17,7 +17,7 @@ function R̂_stopping_criteria()
 end
 
 function stop_sampling(stopping_criteria::R̂_stopping_criteria,
-        chains::chains_struct, sample_from, last_iteration)
+        chains::chains_struct, sample_from::Int, last_iteration::Int)
     #check the last half of the sampling iterations
     rhat_ = rhat(
         population_to_samples(chains, get_sampling_indices(sample_from, last_iteration))

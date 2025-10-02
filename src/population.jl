@@ -1,4 +1,4 @@
-abstract type chains_struct end
+abstract type chains_struct{T <: Real} end
 
 function always_store(samples::Int)
     return true
@@ -10,9 +10,10 @@ function is_multiple_of(a::Int)
 end
 
 function setup_population(
-        ld, initial_state, total_iterations, N₀, n_pars, n_chains, memory, parallel, thin)
-    X = Array{eltype(initial_state)}(undef, total_iterations + N₀, n_pars)
-    X_ld = Array{eltype(initial_state)}(undef, total_iterations + N₀)
+        ld::TransformedLogDensity, initial_state::Array{T, 2}, total_iterations::Int, N₀::Int, n_pars::Int,
+        n_chains::Int, memory::Bool, parallel::Bool, thin::Int) where {T <: Real}
+    X = Array{T}(undef, total_iterations + N₀, n_pars)
+    X_ld = Array{T}(undef, total_iterations + N₀)
     X[1:N₀, :] .= initial_state
     if parallel
         Threads.@threads for i in 1:N₀
@@ -45,9 +46,9 @@ function setup_population(
     end
 end
 
-mutable struct chains_memoryless{X_type <: Real} <: chains_struct
-    X::Array{X_type, 2}
-    ld::Array{X_type, 1}
+mutable struct chains_memoryless{T} <: chains_struct{T}
+    X::Array{T, 2}
+    ld::Array{T, 1}
     other_chains::Vector{Vector{Int}}
     current_position::Array{Int, 1}
     n_chains::Int
@@ -57,11 +58,12 @@ mutable struct chains_memoryless{X_type <: Real} <: chains_struct
     store_sample::Function
 end
 
-function get_value(chains::chains_struct, chain)
+function get_value(chains::chains_struct, chain::Int)
     return chains.X[chains.current_position[chain], :]
 end
 
-function update_value!(chains::chains_struct, rng, chain, xₚ, ldₚ)
+function update_value!(chains::chains_struct{T}, rng::AbstractRNG,
+        chain::Int, xₚ::Array{T, 1}, ldₚ::T) where {T <: Real}
     old_position = chains.current_position[chain]
     new_position = old_position + chains.n_chains
     if log(rand(rng)) < ldₚ - chains.ld[old_position]
@@ -75,7 +77,8 @@ function update_value!(chains::chains_struct, rng, chain, xₚ, ldₚ)
     end
 end
 
-function update_value!(chains::chains_struct, rng, chain, xₚ, ldₚ, offset)
+function update_value!(chains::chains_struct{T}, rng::AbstractRNG, chain::Int,
+        xₚ::Array{T, 1}, ldₚ::T, offset::T) where {T <: Real}
     old_position = chains.current_position[chain]
     new_position = old_position + chains.n_chains
     if log(rand(rng)) < ldₚ - chains.ld[old_position] + offset
@@ -96,21 +99,21 @@ function update_position!(chains::chains_struct)
     else
         # set the current position to the updated value
         chains.X[chains.current_position, :] .= chains.X[
-            chains.current_position .+ chains.n_chains, :]
+        chains.current_position .+ chains.n_chains, :]
         chains.ld[chains.current_position] .= chains.ld[chains.current_position .+ chains.n_chains]
     end
     chains.samples += 1
 end
 
-function sample_chains(chains::chains_memoryless, rng, chain, n_samples)
+function sample_chains(chains::chains_memoryless, rng::AbstractRNG, chain::Int, n_samples::Int)
     # Sample from the chains
     chains.current_position[sample(
         rng, chains.other_chains[chain], n_samples, replace = false)]
 end
 
-mutable struct chains_memory{X_type <: Real} <: chains_struct
-    X::Array{X_type, 2}
-    ld::Array{X_type, 1}
+mutable struct chains_memory{T} <: chains_struct{T}
+    X::Array{T, 2}
+    ld::Array{T, 1}
     current_position::Array{Int, 1}
     n_chains::Int
     N₀::Int
@@ -119,17 +122,17 @@ mutable struct chains_memory{X_type <: Real} <: chains_struct
     store_sample::Function
 end
 
-function sample_chains(chains::chains_memory, rng, chain, n_samples)
+function sample_chains(chains::chains_memory, rng::AbstractRNG, chain::Int, n_samples::Int)
     #sample up to the current position
     indices = sample(rng, 1:(chains.current_position[1] - 1), n_samples, replace = false)
     indices
 end
 
-function resize_chains!(chains::chains_struct, new_size)
+function resize_chains!(chains::chains_struct{T}, new_size::Int) where {T <: Real}
     #not great have to re allocate the whole array
-    new_X = Array{eltype(chains.X)}(undef, new_size, size(chains.X, 2))
+    new_X = Array{T}(undef, new_size, size(chains.X, 2))
     new_X[axes(chains.X, 1), :] .= chains.X
-    new_ld = Array{eltype(chains.ld)}(undef, new_size)
+    new_ld = Array{T}(undef, new_size)
     new_ld[axes(chains.ld, 1)] .= chains.ld
 
     chains.X = new_X
