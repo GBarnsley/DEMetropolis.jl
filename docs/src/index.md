@@ -16,7 +16,8 @@ I opted to implement my own version as I wanted a more flexible API and the subs
 
 A few plans for this package, feel free to suggest features or improvements via [issues](https://github.com/GBarnsley/DEMetropolis/issues):
 - Implement multi-try and delayed rejection DREAM, I avoided these so far since I have been using these samplers for costly log-densities with relatively few parameters, such as one that solve an ODE.
-- Integrate with AbstractMCMC and MCMCChains, potentially not worth the cost since parrallelism in a deMCMC is within chains rather than across chains.
+- Enhanced integration with MCMCChains for better post-processing and diagnostics.
+- Additional diagnostic checks and adaptive schemes.
 
 ## Contents
 
@@ -33,32 +34,28 @@ deMCzs
 DREAMz
 ```
 
-### Tools for setting up your own sampler
+### Setup Functions
 
 ```@docs
 setup_sampler_scheme
-composite_sampler
-```
-
-### Proposal Distributions
-
-```@docs
 setup_de_update
 setup_snooker_update
 setup_subspace_sampling
 ```
 
-### Stopping Criteria
+### Core Sampling Functions
 
 ```@docs
-R̂_stopping_criteria
+step
+step_warmup
+fix_sampler
+fix_sampler_state
 ```
 
-### Diagnostics Checks with Resampling
+### Convergence and Stopping Criteria
 
 ```@docs
-ld_check
-acceptance_check
+r̂_stopping_criteria
 ```
 
 ## Index

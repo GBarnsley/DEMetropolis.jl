@@ -33,9 +33,13 @@ using Aqua
     LogDensityProblems.capabilities(model::BendyBananaModel) = LogDensityProblems.LogDensityOrder{0}()
 
     include("test_differential_evolution_update.jl")
-    #include("test_composite.jl")
-    #include("test_rng.jl")
-    #include("test_templates.jl")
+    include("test_snooker_update.jl")
+    include("test_subspace_update.jl")
+    include("test_subspace_adaptive_update.jl")
+    include("test_composite.jl")
+    include("test_rng.jl")
+    include("test_convergence.jl")
+    include("test_templates.jl")
     #include("test_diagnostics.jl")
 
     #if VERSION ≥ v"1.11"

@@ -1,45 +1,28 @@
-@testset "Differential Evolution Update" begin
-    @testset "deMC setup" begin
-        double_dist = setup_de_update(
-            γ = Normal(0.8, 1.2),
-            β = Uniform(-1e-4, 1e-4)
+@testset "Subspace Update" begin
+    @testset "Subspace Setup" begin
+         dist = setup_subspace_sampling(
+            γ = nothing,
+            δ = 1
         )
-        @test isa(double_dist.γ_spl, Normal)
-        @test isa(double_dist.β_spl, Uniform)
-        @test double_dist == setup_de_update(
-            γ = Normal(0.8, 1.2),
-            β = Uniform(-1e-4, 1e-4),
-            n_dims = 10
+        @test isa(dist.δ_spl, Dirac)
+        @test isa(dist.cr_spl, Distributions.AliasTable)
+        dist = setup_subspace_sampling(
+            γ = 1.0,
+            δ = Poisson(0.5),
+            cr = 0.5
         )
-
-        single_dist = setup_de_update(
-            γ = 0.5,
-            β = Beta(1e-4, 1e-4)
-        )
-        @test isa(single_dist.γ_spl, Dirac)
-        @test isa(single_dist.β_spl, Distributions.BetaSampler)
-        @test single_dist == setup_de_update(
-            γ = 0.5,
-            β = Beta(1e-4, 1e-4),
-            n_dims = 10
-        )
-        det = setup_de_update(
-            n_dims = 10
-        )
-        @test isa(det.γ_spl, Dirac)
-        @test isa(det.β_spl, Uniform)
-        ran = setup_de_update()
-        @test isa(ran.γ_spl, Uniform)
-        @test isa(ran.β_spl, Uniform)
+        @test isa(dist.γ, Real)
+        @test isa(dist.cr_spl, Dirac)
+        @test isa(dist.δ_spl, Distributions.PoissonCountSampler)
     end
 
-    @testset "Sample using regular deMC" begin
+    @testset "Sample using regular Subspace" begin
         rng = MersenneTwister(1234)
         model = IsotropicNormalModel([-5.0, 5.0])
 
-        de_sampler = setup_de_update()
+        de_sampler = setup_subspace_sampling(cr = DiscreteUniform(1, 5))
 
-        sample_result, initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; memory = false)
+        sample_result, initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; memory = false, adapt = false)
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
@@ -64,25 +47,23 @@
         @test isa(initial_state.x[1], Vector{Float64})
 
         samples = sample(
-            rng,
             AbstractMCMC.LogDensityModel(model),
             de_sampler,
             100;
-            progress=false
+            progress=false,
+            adapt=false
         )
         @test length(samples) == 100
         @test all(isa(x, DEMetropolis.DifferentialEvolutionSample) for x in samples)
     end
 
-    @testset "Sample using memory deMC" begin
+    @testset "Sample using memory Subspace" begin
         rng = MersenneTwister(1234)
         model = IsotropicNormalModel([-5.0, 5.0])
 
-        de_sampler = setup_de_update(
-            n_dims = LogDensityProblems.dimension(model)
-        )
+        de_sampler = setup_subspace_sampling(cr = DiscreteUniform(1, 5), γ = 1.0)
 
-        sample_result, initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; memory = true)
+        sample_result, initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; memory = true, adapt = false)
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
@@ -111,7 +92,8 @@
             AbstractMCMC.LogDensityModel(model),
             de_sampler,
             100;
-            progress=false
+            progress=false,
+            adapt=false
         )
         @test length(samples) == 100
         @test all(isa(x, DEMetropolis.DifferentialEvolutionSample) for x in samples)

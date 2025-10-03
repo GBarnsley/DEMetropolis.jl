@@ -1,43 +1,27 @@
-@testset "Differential Evolution Update" begin
-    @testset "deMC setup" begin
-        double_dist = setup_de_update(
-            γ = Normal(0.8, 1.2),
-            β = Uniform(-1e-4, 1e-4)
+@testset "Snooker Update" begin
+    @testset "Snooker Setup" begin
+        double_dist = setup_snooker_update(
+            γ = Normal(0.8, 1.2)
         )
         @test isa(double_dist.γ_spl, Normal)
-        @test isa(double_dist.β_spl, Uniform)
-        @test double_dist == setup_de_update(
-            γ = Normal(0.8, 1.2),
-            β = Uniform(-1e-4, 1e-4),
-            n_dims = 10
-        )
 
-        single_dist = setup_de_update(
-            γ = 0.5,
-            β = Beta(1e-4, 1e-4)
+        single_dist = setup_snooker_update(
+            γ = 0.5
         )
         @test isa(single_dist.γ_spl, Dirac)
-        @test isa(single_dist.β_spl, Distributions.BetaSampler)
-        @test single_dist == setup_de_update(
-            γ = 0.5,
-            β = Beta(1e-4, 1e-4),
-            n_dims = 10
-        )
-        det = setup_de_update(
-            n_dims = 10
-        )
+        det = setup_snooker_update()
         @test isa(det.γ_spl, Dirac)
-        @test isa(det.β_spl, Uniform)
-        ran = setup_de_update()
+        ran = setup_snooker_update(
+            deterministic_γ = false
+        )
         @test isa(ran.γ_spl, Uniform)
-        @test isa(ran.β_spl, Uniform)
     end
 
-    @testset "Sample using regular deMC" begin
+    @testset "Sample using regular Snooker" begin
         rng = MersenneTwister(1234)
         model = IsotropicNormalModel([-5.0, 5.0])
 
-        de_sampler = setup_de_update()
+        de_sampler = setup_snooker_update()
 
         sample_result, initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; memory = false)
 
@@ -74,12 +58,12 @@
         @test all(isa(x, DEMetropolis.DifferentialEvolutionSample) for x in samples)
     end
 
-    @testset "Sample using memory deMC" begin
+    @testset "Sample using memory Snooker" begin
         rng = MersenneTwister(1234)
         model = IsotropicNormalModel([-5.0, 5.0])
 
-        de_sampler = setup_de_update(
-            n_dims = LogDensityProblems.dimension(model)
+        de_sampler = setup_snooker_update(
+            deterministic_γ = false
         )
 
         sample_result, initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; memory = true)
