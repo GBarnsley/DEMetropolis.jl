@@ -1,26 +1,20 @@
 module DEMetropolis
-export composite_sampler, setup_de_update, setup_snooker_update, setup_subspace_sampling,
-       setup_sampler_scheme, R̂_stopping_criteria, ld_check, acceptance_check
-export deMC, deMCzs, DREAMz
+export setup_de_update, step
 
-import StatsBase: mean, quantile, sample, wsample
-import Statistics: var
-import Random: default_rng, AbstractRNG
-import Random
+
+import Distributions: UnivariateDistribution, DiscreteUnivariateDistribution, ContinuousUnivariateDistribution
+import Distributions: Sampleable, Discrete, Continuous, Univariate, sampler
+import Distributions: Dirac, Uniform
+
 import LogDensityProblems: logdensity, dimension
-import TransformedLogDensities: TransformedLogDensity
-import Distributions
-import ProgressMeter: Progress, next!, finish!
-import LinearAlgebra: norm, dot, normalize
-import MCMCDiagnosticTools: rhat
+import StatsBase: sample
+import Random: AbstractRNG, default_rng
+import AbstractMCMC: LogDensityModel, AbstractSampler, step
 
-include("population.jl")
-include("updates.jl")
-include("stopping.jl")
-include("diagnostics.jl")
-include("sampler.jl")
-include("update_chain.jl")
-include("utilities.jl")
-include("templates.jl")
+abstract type AbstractDifferentialEvolutionSampler <: AbstractSampler end
+
+abstract type AbstractDifferentialEvolutionState end
+
+include("differential_evolution_update.jl")
 
 end
