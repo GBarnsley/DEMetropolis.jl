@@ -72,6 +72,8 @@ based on the effectiveness of different parameter subsets.
 - `state`: Current state including adaptive parameters
 
 # Keyword Arguments
+- `update_memory`: Whether to update the memory with new positions (for memory-based samplers). 
+  Defaults to `true`. Useful if memory has grown too large.
 - `parallel`: Whether to run chains in parallel using threading. Defaults to `false`.
 - `kwargs...`: Additional keyword arguments passed to update functions
 
@@ -90,10 +92,11 @@ function step_warmup(
     rng::AbstractRNG,
     model_wrapper::LogDensityModel,
     sampler::AbstractDifferentialEvolutionSubspaceSampler,
-    state::AbstractDifferentialEvolutionState{T, V, VV, DifferentialEvolutionAdaptiveSubspace{T}};
+    state::AbstractDifferentialEvolutionState{T, DifferentialEvolutionAdaptiveSubspace{T}};
+    update_memory::Bool = true,
     parallel::Bool = false,
     kwargs...
-) where {T<:Real, V<:AbstractVector{T}, VV<:AbstractVector{V}}
+) where {T<:Real}
 
     # Extract the wrapped model which implements LogDensityProblems.jl.
     model = model_wrapper.logdensity
@@ -117,7 +120,7 @@ function step_warmup(
         @inbounds Threads.@threads for i in eachindex(x)
             prop = proposal(rngs[i], fix_sampler(sampler, adaptive_state), state, i)
             xₚ[i] = prop.xₚ
-            accepted = update_chain!(model, rngs[i], xₚ, ldₚ, x, ld, prop.offset, i)
+            accepted = update_chain!(model, rngs[i], xₚ, ldₚ, x, ld, prop.offset, i, get_temperature(state.temperature_ladder, i))
             cr_update[i] = prop.cr
             if accepted
                 Δ_update[i] += sum(
@@ -134,7 +137,7 @@ function step_warmup(
             chain_rng = Random.seed!(copy(rng),  rand(rng, UInt)) #so its identical to parallel
             prop = proposal(chain_rng, fix_sampler(sampler, adaptive_state), state, i)
             xₚ[i] = prop.xₚ
-            accepted = update_chain!(model, chain_rng, xₚ, ldₚ, x, ld, prop.offset, i)
+            accepted = update_chain!(model, chain_rng, xₚ, ldₚ, x, ld, prop.offset, i, get_temperature(state.temperature_ladder, i))
 
             L[prop.cr] += 1
             if accepted
@@ -156,7 +159,12 @@ function step_warmup(
         cr_spl = adaptive_state.cr_spl
     end
 
-    return DifferentialEvolutionSample(xₚ, ldₚ), update_state(state; adaptive_state = DifferentialEvolutionAdaptiveSubspace{T}(L, Δ, cr_spl, var_count, var_mean, var_m2), x = xₚ, ld = ldₚ)
+    return create_sample(xₚ, ldₚ, state), update_state(
+        state;
+        adaptive_state = DifferentialEvolutionAdaptiveSubspace{T}(L, Δ, cr_spl, var_count, var_mean, var_m2),
+        update_memory = update_memory,
+        x = xₚ, ld = ldₚ
+    )
 end
 
 function initialize_adaptive_state(sampler::AbstractDifferentialEvolutionSubspaceSampler, model_wrapper::LogDensityModel, n_chains::Int)

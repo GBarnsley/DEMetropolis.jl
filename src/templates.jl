@@ -30,6 +30,13 @@ See doi.org/10.1007/s11222-006-8769-1 for more information.
 - `γ₂`: Secondary scaling factor for mode switching. Defaults to 1.0.
 - `p_γ₂`: Probability of using `γ₂`. Defaults to 0.1.
 - `β`: Noise distribution. Defaults to `Uniform(-1e-4, 1e-4)`.
+- `n_hot_chains`: Number of hot chains for parallel tempering. Defaults to 0 (no parallel tempering).
+- `max_temp_pt`: Maximum temperature for parallel tempering. Defaults to 2*sqrt(dimension).
+- `max_temp_sa`: Maximum temperature for simulated annealing. Defaults to `max_temp_pt`.
+- `α`: Temperature ladder spacing parameter. Defaults to 1.0.
+- `annealing`: Whether to use simulated annealing. Defaults to `false`.
+- `annealing_steps`: Number of annealing steps. Defaults to 0 or the number of warmup-steps (when using AbstractMCMC.sample).
+- `temperature_ladder`: Pre-defined temperature ladder. Defaults to automatic creation based on other parameters.
 - `kwargs...`: Additional keyword arguments passed to `AbstractMCMC.sample` (see [AbstractMCMC documentation](https://turinglang.org/AbstractMCMC.jl/stable/api/#Common-keyword-arguments)).
 
 # Returns
@@ -45,14 +52,11 @@ See also [`deMCzs`](@ref), [`DREAMz`](@ref), [`setup_de_update`](@ref).
 function deMC(
         model_wrapper::LogDensityModel, n_its::Int;
         n_burnin::Int = n_its * 5,
-        n_chains::Int = max(dimension(model_wrapper.logdensity) * 2, 3),
-        N₀::Int = n_chains,
         initial_state::Union{AbstractVector{<:AbstractVector{T}}, Nothing} = nothing,
-        memory::Bool = false,
         save_burnt::Bool = false,
-        parallel::Bool = false,
         rng::AbstractRNG = default_rng(),
         thin::Int = 1,
+        memory::Bool = false,
         γ₁::Union{Nothing, T} = nothing,
         γ₂::T = 1.0,
         p_γ₂::T = 0.1,
@@ -79,13 +83,10 @@ function deMC(
         sampler_scheme,
         n_its;
         num_warmup = n_burnin,
-        n_chains = n_chains,
-        N₀ = N₀,
         initial_position = initial_state,
         thinning = thin,
-        memory = memory,
-        parallel = parallel,
         discard_initial = save_burnt ? 0 : n_burnin,
+        memory = memory,
         kwargs...
     ); save_burnt = save_burnt, n_burnin = n_burnin)
 end
@@ -120,7 +121,14 @@ Proposed by ter Braak and Vrugt (2008), see doi.org/10.1007/s11222-008-9104-9.
 - `γₛ`: Scaling factor for snooker updates. Defaults to `2.38 / sqrt(2)`.
 - `p_snooker`: Probability of snooker moves. Defaults to 0.1.
 - `β`: Noise distribution for DE updates. Defaults to `Uniform(-1e-4, 1e-4)`.
-- `thin`: Thinning interval for saved samples. Defaults to 10.
+- `thin`: Thinning interval for saved samples. Defaults to 1.
+- `n_hot_chains`: Number of hot chains for parallel tempering. Defaults to 0 (no parallel tempering).
+- `max_temp_pt`: Maximum temperature for parallel tempering. Defaults to 2*sqrt(dimension).
+- `max_temp_sa`: Maximum temperature for simulated annealing. Defaults to `max_temp_pt`.
+- `α`: Temperature ladder spacing parameter. Defaults to 1.0.
+- `annealing`: Whether to use simulated annealing. Defaults to `false`.
+- `annealing_steps`: Number of annealing steps. Defaults to 0 or the number of warmup-steps (when using AbstractMCMC.sample).
+- `temperature_ladder`: Pre-defined temperature ladder. Defaults to automatic creation based on other parameters.
 - `kwargs...`: Additional keyword arguments passed to `AbstractMCMC.sample` (see [AbstractMCMC documentation](https://turinglang.org/AbstractMCMC.jl/stable/api/#Common-keyword-arguments)).
 
 # Returns
@@ -138,18 +146,14 @@ function deMCzs(
         warmup_epochs::Int = 5,
         epoch_limit::Int = 20,
         maximum_R̂::T = 1.2,
-        n_chains::Int = max(dimension(model_wrapper.logdensity) * 2, 3),
-        N₀::Int = n_chains * 2,
         initial_state::Union{AbstractVector{<:AbstractVector{T}}, Nothing} = nothing,
-        memory::Bool = true,
-        save_burnt::Bool = true,
-        parallel::Bool = false,
+        save_burnt::Bool = false,
         rng::AbstractRNG = default_rng(),
         γ::Union{Nothing, T} = nothing,
         γₛ::Union{Nothing, T} = nothing,
         p_snooker::Union{Nothing, T} = 0.1,
         β::Distributions.Uniform{T} = Distributions.Uniform(-1e-4, 1e-4),
-        thin::Int = 10,
+        thin::Int = 1,
         kwargs...
 ) where {T<:Real}
 
@@ -178,12 +182,8 @@ function deMCzs(
         minimum_iterations = save_burnt ? n_burnin + 1 : 0,
         maximum_iterations = save_burnt ? (check_every * epoch_limit) + n_burnin : (check_every * epoch_limit),
         num_warmup = n_burnin,
-        n_chains = n_chains,
-        N₀ = N₀,
-        parallel = parallel,
         initial_position = initial_state,
         thinning = thin,
-        memory = memory,
         discard_initial = save_burnt ? 0 : n_burnin,
         kwargs...
     ); save_burnt = save_burnt, n_burnin = n_burnin)
@@ -226,6 +226,12 @@ Based on Vrugt et al. (2009), see doi.org/10.1515/IJNSNS.2009.10.3.273.
 - `e`: Multiplicative noise distribution. Defaults to `Normal(0.0, 1e-2)`.
 - `δ`: Number of difference vectors distribution. Defaults to `DiscreteUniform(1, 3)`.
 - `thin`: Thinning interval for saved samples. Defaults to 1.
+- `n_hot_chains`: Number of hot chains for parallel tempering. Defaults to 0 (no parallel tempering).
+- `max_temp_pt`: Maximum temperature for parallel tempering. Defaults to 2*sqrt(dimension).
+- `max_temp_sa`: Maximum temperature for simulated annealing. Defaults to `max_temp_pt`.
+- `α`: Temperature ladder spacing parameter. Defaults to 1.0.
+- `annealing`: Whether to use simulated annealing. Defaults to `false`.
+- `annealing_steps`: Number of annealing steps. Defaults to 0 or the number of warmup-steps (when using AbstractMCMC.sample).
 - `kwargs...`: Additional keyword arguments passed to `AbstractMCMC.sample` (see [AbstractMCMC documentation](https://turinglang.org/AbstractMCMC.jl/stable/api/#Common-keyword-arguments)).
 
 # Returns
@@ -243,12 +249,8 @@ function DREAMz(
         warmup_epochs::Int = 5,
         epoch_limit::Int = 20,
         maximum_R̂::T = 1.2,
-        n_chains::Int = max(dimension(model_wrapper.logdensity) * 2, 3),
-        N₀::Int = n_chains * 2,
         initial_state::Union{AbstractVector{<:AbstractVector{T}}, Nothing} = nothing,
-        memory::Bool = true,
-        save_burnt::Bool = true,
-        parallel::Bool = false,
+        save_burnt::Bool = false,
         rng::AbstractRNG = default_rng(),
         γ₁::Union{Nothing, T} = nothing,
         γ₂::Union{Nothing, T} = 1.0,
@@ -288,12 +290,8 @@ function DREAMz(
         minimum_iterations = save_burnt ? n_burnin + 1 : 0,
         maximum_iterations = save_burnt ? (check_every * epoch_limit) + n_burnin : (check_every * epoch_limit),
         num_warmup = n_burnin,
-        n_chains = n_chains,
-        N₀ = N₀,
         initial_position = initial_state,
-        parallel = parallel,
         thinning = thin,
-        memory = memory,
         discard_initial = save_burnt ? 0 : n_burnin,
         kwargs...
     ); save_burnt = save_burnt, n_burnin = n_burnin)

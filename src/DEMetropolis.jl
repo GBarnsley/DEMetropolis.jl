@@ -20,10 +20,14 @@ import MCMCDiagnosticTools: rhat
 
 abstract type AbstractDifferentialEvolutionSampler <: AbstractSampler end
 
-abstract type AbstractDifferentialEvolutionState{T, V, VV, A} end
+abstract type AbstractDifferentialEvolutionState{T, A, L, V, VV} end
 
 abstract type AbstractDifferentialEvolutionAdaptiveState{T} end
 
+abstract type AbstractDifferentialEvolutionTemperatureLadder{T} end
+
+
+include("temperature.jl")
 include("chains.jl")
 include("differential_evolution_update.jl")
 include("snooker_update.jl")

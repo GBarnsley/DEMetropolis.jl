@@ -40,14 +40,14 @@ function r̂_stopping_criteria(
     model::AbstractModel,
     sampler::AbstractDifferentialEvolutionSampler,
     samples::Vector{DifferentialEvolutionSample{V, VV}},
-    state::AbstractDifferentialEvolutionState{T, V, VV, A},
+    state::AbstractDifferentialEvolutionState{T, A, L, V, VV},
     iteration::Int;
     check_every::Int = 1000,
     maximum_R̂::T = 1.2,
     maximum_iterations::Int = 100000,
     minimum_iterations::Int = 0,
     kwargs...
-) where {T<:Real, V<:AbstractVector{T}, VV<:AbstractVector{V}, A<:AbstractDifferentialEvolutionAdaptiveState{T}}
+) where {T<:Real, V<:AbstractVector{T}, VV<:AbstractVector{V}, A<:AbstractDifferentialEvolutionAdaptiveState{T}, L<:AbstractDifferentialEvolutionTemperatureLadder{T}}
     if iteration % check_every != 0 || iteration < minimum_iterations
         return false
     elseif iteration >= maximum_iterations

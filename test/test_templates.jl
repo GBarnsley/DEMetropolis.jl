@@ -16,6 +16,11 @@
         deMCzs(ld, 1000; thin = 2, memory = false, p_snooker = 0.0, epoch_limit = 3)
         DREAMz(ld, 1000; thin = 2, memory = true, p_γ₂ = 0.0, epoch_limit = 3)
     end
+    @testset "annealing and parallel tempering" begin
+        DREAMz(ld, 1000; thin = 2, memory = false, epoch_limit = 3, n_hot_chains = 10)
+        deMC(ld, 100, memory = false; annealing = true)
+        deMCzs(ld, 1000; thin = 2, memory = true, epoch_limit = 3, annealing = true)
+    end
     @testset "warnings" begin
         #check for warning
         ld_wide = AbstractMCMC.LogDensityModel(IsotropicNormalModel([-5.0, 5.0, 0.0, 0.0, 0.0]));

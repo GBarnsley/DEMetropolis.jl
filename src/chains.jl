@@ -1,17 +1,21 @@
 struct DifferentialEvolutionAdaptiveStatic{T} <: AbstractDifferentialEvolutionAdaptiveState{T} end
 
-struct DifferentialEvolutionState{T<:Real, V<:AbstractVector{T}, VV<:AbstractVector{V}, A<:AbstractDifferentialEvolutionAdaptiveState{T}} <: AbstractDifferentialEvolutionState{T, V, VV, A}
+struct DifferentialEvolutionState{
+    T<:Real, A<:AbstractDifferentialEvolutionAdaptiveState{T}, L<:AbstractDifferentialEvolutionTemperatureLadder{T}, V<:AbstractVector{T}, VV<:AbstractVector{V}
+} <: AbstractDifferentialEvolutionState{T, A, L, V, VV}
     "current position"
     x::VV
     "log density at current position"
     ld::V
     "struct for holding the status of the adaptive scheme"
     adaptive_state::A
+    "temperature ladder"
+    temperature_ladder::L
 end
 
-DifferentialEvolutionState(x::VV, ld::V) where {T<:Real, V<:AbstractVector{T}, VV<:AbstractVector{V}} = DifferentialEvolutionState{T, V, VV, DifferentialEvolutionAdaptiveStatic{T}}(x, ld, DifferentialEvolutionAdaptiveStatic{T}())
-
-struct DifferentialEvolutionStateMemory{T<:Real, V<:AbstractVector{T}, VV<:AbstractVector{V}, A<:AbstractDifferentialEvolutionAdaptiveState{T}} <: AbstractDifferentialEvolutionState{T, V, VV, A}
+struct DifferentialEvolutionStateMemory{
+    T<:Real, A<:AbstractDifferentialEvolutionAdaptiveState{T}, L<:AbstractDifferentialEvolutionTemperatureLadder{T}, V<:AbstractVector{T}, VV<:AbstractVector{V}
+} <: AbstractDifferentialEvolutionState{T, A, L, V, VV}
     "current position"
     x::VV
     "log density at current position"
@@ -20,15 +24,31 @@ struct DifferentialEvolutionStateMemory{T<:Real, V<:AbstractVector{T}, VV<:Abstr
     mem_x::VV
     "struct for holding the status of the adaptive scheme"
     adaptive_state::A
+    "temperature ladder"
+    temperature_ladder::L
 end
-
-DifferentialEvolutionStateMemory(x::VV, ld::V, mem_x::VV) where {T<:Real, V<:AbstractVector{T}, VV<:AbstractVector{V}} = DifferentialEvolutionStateMemory{T, V, VV, DifferentialEvolutionAdaptiveStatic{T}}(x, ld, mem_x, DifferentialEvolutionAdaptiveStatic{T}())
 
 struct DifferentialEvolutionSample{V<:AbstractVector{<:Real}, VV<:AbstractVector{V}}
     "current position"
     x::VV
     "log density at current position"
     ld::V
+end
+
+function create_sample(x::VV, ld::V, state::AbstractDifferentialEvolutionState{T, A, L}) where {
+    T<:Real, A<:AbstractDifferentialEvolutionAdaptiveState{T}, L<:AbstractDifferentialEvolutionTemperatureLadder{T}, V<:AbstractVector{T}, VV<:AbstractVector{V}
+}
+    DifferentialEvolutionSample(
+        x[state.temperature_ladder.cold_chains], ld[state.temperature_ladder.cold_chains]
+    )
+end
+
+function create_sample(x::VV, ld::V, state::AbstractDifferentialEvolutionState{T, A, DifferentialEvolutionNullTemperatureLadder{T}}) where {
+    T<:Real, A<:AbstractDifferentialEvolutionAdaptiveState{T}, V<:AbstractVector{T}, VV<:AbstractVector{V}
+}
+    DifferentialEvolutionSample(
+        x, ld
+    )
 end
 
 function pick_chains(rng::AbstractRNG, state::DifferentialEvolutionState, current_chain::Int, n_chains::Int)
@@ -44,38 +64,40 @@ function pick_chains(rng::AbstractRNG, state::DifferentialEvolutionStateMemory, 
 end
 
 function update_state(
-    state::DifferentialEvolutionState{T, V, VV, A};
+    state::DifferentialEvolutionState{T, A, L, V, VV};
     adaptive_state::AbstractDifferentialEvolutionAdaptiveState{T} = state.adaptive_state,
+    temperature_ladder::AbstractDifferentialEvolutionTemperatureLadder{T} = update_ladder!!(state.temperature_ladder),
     xₚ::VV = state.x,
     ldₚ::V = state.ld,
     kwargs...
-    ) where {T<:Real, V<:AbstractVector{T}, VV<:AbstractVector{V}, A<:AbstractDifferentialEvolutionAdaptiveState{T}}
-    return DifferentialEvolutionState(xₚ, ldₚ, adaptive_state)
+    ) where {T<:Real, V<:AbstractVector{T}, VV<:AbstractVector{V}, A<:AbstractDifferentialEvolutionAdaptiveState{T}, L<:AbstractDifferentialEvolutionTemperatureLadder{T}}
+    return DifferentialEvolutionState(xₚ, ldₚ, adaptive_state, temperature_ladder)
 end
 
 function update_state(
-    state::DifferentialEvolutionStateMemory{T, V, VV, A};
+    state::DifferentialEvolutionStateMemory{T, A, L, V, VV};
     adaptive_state::AbstractDifferentialEvolutionAdaptiveState{T} = state.adaptive_state,
+    temperature_ladder::AbstractDifferentialEvolutionTemperatureLadder{T} = update_ladder!!(state.temperature_ladder),
     x::VV = state.x,
     ld::V = state.ld,
     update_memory::Bool = false,
     kwargs...
-    ) where {T<:Real, V<:AbstractVector{T}, VV<:AbstractVector{V}, A<:AbstractDifferentialEvolutionAdaptiveState{T}}
+    ) where {T<:Real, V<:AbstractVector{T}, VV<:AbstractVector{V}, A<:AbstractDifferentialEvolutionAdaptiveState{T}, L<:AbstractDifferentialEvolutionTemperatureLadder{T}}
     if update_memory
-        return DifferentialEvolutionStateMemory(x, ld, cat(state.mem_x, x; dims=1), adaptive_state)
+        return DifferentialEvolutionStateMemory(x, ld, cat(state.mem_x, x; dims=1), adaptive_state, temperature_ladder)
     else
-        return DifferentialEvolutionStateMemory(x, ld, state.mem_x, adaptive_state)
+        return DifferentialEvolutionStateMemory(x, ld, state.mem_x, adaptive_state, temperature_ladder)
     end
 end
 
-function update_chain!(model, rng, xₚ, ldₚ, x, ld, offset, i)
+function update_chain!(model, rng, xₚ, ldₚ, x, ld, offset, i, temperature)
     if isinf(offset) & (sign(offset) == -1.0)
         xₚ[i] = x[i]
         ldₚ[i] = ld[i]
         return false
     else
         ldₚ[i] = logdensity(model, xₚ[i])
-        if log(rand(rng)) > (ldₚ[i] - ld[i] + offset)
+        if log(rand(rng)) * temperature > (ldₚ[i] - ld[i] + offset)
             xₚ[i] = x[i]
             ldₚ[i] = ld[i]
             return false
@@ -121,11 +143,11 @@ function step(
     rng::AbstractRNG,
     model_wrapper::LogDensityModel,
     sampler::AbstractDifferentialEvolutionSampler,
-    state::AbstractDifferentialEvolutionState{T, V, VV, DifferentialEvolutionAdaptiveStatic{T}};
+    state::AbstractDifferentialEvolutionState{T, DifferentialEvolutionAdaptiveStatic{T}};
     parallel::Bool = false,
     update_memory::Bool = true,
     kwargs...
-) where {T<:Real, V<:AbstractVector{T}, VV<:AbstractVector{V}}
+) where {T<:Real}
     # Extract the wrapped model which implements LogDensityProblems.jl.
     model = model_wrapper.logdensity
     # Extract the current states
@@ -139,18 +161,18 @@ function step(
         @inbounds Threads.@threads for i in eachindex(x)
             prop = proposal(rngs[i], sampler, state, i)
             xₚ[i] = prop.xₚ
-            update_chain!(model, rngs[i], xₚ, ldₚ, x, ld, prop.offset, i)
+            update_chain!(model, rngs[i], xₚ, ldₚ, x, ld, prop.offset, i, get_temperature(state.temperature_ladder, i))
         end
     else
         @inbounds for i in eachindex(x)
             chain_rng = Random.seed!(copy(rng),  rand(rng, UInt)) #so its identical to parallel
             prop = proposal(chain_rng, sampler, state, i)
             xₚ[i] = prop.xₚ
-            update_chain!(model, chain_rng, xₚ, ldₚ, x, ld, prop.offset, i)
+            update_chain!(model, chain_rng, xₚ, ldₚ, x, ld, prop.offset, i, get_temperature(state.temperature_ladder, i))
         end
     end
 
-    return DifferentialEvolutionSample(xₚ, ldₚ), update_state(state; adaptive_state = adaptive_state, x = xₚ, ld = ldₚ, update_memory = update_memory)
+    return create_sample(xₚ, ldₚ, state), update_state(state; adaptive_state = adaptive_state, x = xₚ, ld = ldₚ, update_memory = update_memory)
 end
 
 #previously adapted step
@@ -203,27 +225,26 @@ julia> fixed_sampler, fixed_state = fix_sampler_state(sampler, state)
 
 See also [`fix_sampler`](@ref).
 """
-function fix_sampler_state(sampler::AbstractDifferentialEvolutionSampler, state::DifferentialEvolutionState)
-    return fix_sampler(sampler, state.adaptive_state), DifferentialEvolutionState(state.x, state.ld)
+function fix_sampler_state(sampler::AbstractDifferentialEvolutionSampler, state::DifferentialEvolutionState{T}) where {T<:Real}
+    return fix_sampler(sampler, state.adaptive_state), DifferentialEvolutionState(state.x, state.ld, DifferentialEvolutionAdaptiveStatic{T}(), state.temperature_ladder)
 end
 
-function fix_sampler_state(sampler::AbstractDifferentialEvolutionSampler, state::DifferentialEvolutionStateMemory)
-    return fix_sampler(sampler, state.adaptive_state), DifferentialEvolutionStateMemory(state.x, state.ld, state.mem_x)
+function fix_sampler_state(sampler::AbstractDifferentialEvolutionSampler, state::DifferentialEvolutionStateMemory{T}) where {T<:Real}
+    return fix_sampler(sampler, state.adaptive_state), DifferentialEvolutionStateMemory(state.x, state.ld, state.mem_x, DifferentialEvolutionAdaptiveStatic{T}(), state.temperature_ladder)
 end
 
 function step(
     rng::AbstractRNG,
     model_wrapper::LogDensityModel,
     sampler::AbstractDifferentialEvolutionSampler,
-    state::AbstractDifferentialEvolutionState{T, V, VV, A};
+    state::AbstractDifferentialEvolutionState;
     update_memory::Bool = true,
     kwargs...
-) where {T<:Real, V<:AbstractVector{T}, VV<:AbstractVector{V}, A<:AbstractDifferentialEvolutionAdaptiveState{T}}
-
+)
     fixed_sampler, fixed_state = fix_sampler_state(sampler, state)
     sample, new_state = step(rng, model_wrapper, fixed_sampler, fixed_state; kwargs...)
 
-    return sample, update_state(state; x = new_state.x, ld = new_state.ld, update_memory = update_memory)
+    return sample, update_state(state; x = new_state.x, ld = new_state.ld, update_memory = update_memory, temperature_ladder = new_state.temperature_ladder)
 end
 
 function initialize_adaptive_state(sampler::AbstractDifferentialEvolutionSampler, model_wrapper::LogDensityModel, n_chains::Int)
@@ -246,16 +267,26 @@ and returns the initial sample and state that can be used with `AbstractMCMC.sam
 
 # Keyword Arguments
 - `n_chains`: Number of parallel chains. Defaults to `max(2 * dimension, 3)` for adequate mixing.
+- `n_hot_chains`: Number of hot chains for parallel tempering. Defaults to 0 (no parallel tempering).
 - `memory`: Whether to use memory-based sampling that stores past positions. Memory-based
   samplers can be more efficient for high-dimensional problems. Defaults to `true`.
-- `N₀`: Initial memory size for memory-based samplers. Should be ≥ `n_chains`. Defaults to `2 * n_chains`.
+- `N₀`: Initial memory size for memory-based samplers. Should be ≥ `n_chains + n_hot_chains`.
+  Defaults to `2 * n_chains + n_hot_chains`.
 - `adapt`: Whether to enable adaptive behavior during warm-up (if the sampler supports it).
   Defaults to `true`.
 - `initial_position`: Starting positions for chains. Can be `nothing` (random initialization),
-  or a vector of parameter vectors. If the provided vector is smaller than `n_chains`, it will
-  be expanded; if larger and `memory=true`, excess positions become initial memory. Defaults to `nothing`.
+  or a vector of parameter vectors. If the provided vector is smaller than `n_chains + n_hot_chains`,
+  it will be expanded; if larger and `memory=true`, excess positions become initial memory. Defaults to `nothing`.
 - `parallel`: Whether to evaluate initial log-densities in parallel. Useful for expensive models.
   Defaults to `false`.
+- `max_temp_pt`: Maximum temperature for parallel tempering. Defaults to 2*sqrt(dimension).
+- `max_temp_sa`: Maximum temperature for simulated annealing. Defaults to `max_temp_pt`.
+- `α`: Temperature ladder spacing parameter. Controls the geometric spacing between temperatures.
+  Defaults to 1.0.
+- `annealing`: Whether to use simulated annealing (temperature decreases over time). Defaults to `false`.
+- `annealing_steps`: Number of annealing steps. Defaults to `annealing ? num_warmup : 0`.
+- `temperature_ladder`: Pre-defined temperature ladder as a vector of vectors. If provided,
+  overrides automatic temperature ladder creation. Defaults to `create_temperature_ladder(n_chains, n_hot_chains, α, max_temp_pt, max_temp_sa, annealing_steps)`.
 - `kwargs...`: Additional keyword arguments (unused in this method)
 
 # Returns
@@ -281,6 +312,10 @@ julia> sample, state = step(rng, model_wrapper, sampler; initial_position=init_p
 - Memory-based samplers can work effectively with fewer chains than the problem dimension
 - The function handles dimension mismatches and provides informative warnings
 - Initial log-densities are computed automatically for all starting positions
+- When using parallel tempering (`n_hot_chains > 0`), only the cold chains (first `n_chains`)
+  are returned in the sample, but all chains participate in the sampling process
+- Memory-based samplers with parallel tempering may issue warnings since hot chains typically
+  aren't necessary when using memory
 
 See also [`AbstractMCMC.sample`](@ref), [`deMC`](@ref), [`deMCzs`](@ref), [`DREAMz`](@ref).
 """
@@ -289,17 +324,28 @@ function step(
     model_wrapper::LogDensityModel,
     sampler::AbstractDifferentialEvolutionSampler;
     n_chains::Int = max(dimension(model_wrapper.logdensity) * 2, 3),
+    n_hot_chains::Int = 0,
     memory::Bool = true,
-    N₀::Int = 2 * n_chains,
+    N₀::Int = 2 * n_chains + n_hot_chains,
     adapt::Bool = true,
-    initial_position::Union{Nothing, AbstractVector{<:AbstractVector{<:Real}}} = nothing,
+    initial_position::Union{Nothing, AbstractVector{<:AbstractVector{T}}} = nothing,
     parallel::Bool = false,
+    #parallel tempering and annealing parameters
+    max_temp_pt::T = 2.0 * sqrt(dimension(model_wrapper.logdensity)),
+    max_temp_sa::T = max_temp_pt,
+    α::T = 1.0,
+    annealing::Bool = false,
+    num_warmup::Int = 0,
+    annealing_steps::Int = annealing ? num_warmup : 0,
+    temperature_ladder::Vector{Vector{T}} = create_temperature_ladder(n_chains, n_hot_chains, α, max_temp_pt, max_temp_sa, annealing_steps),
     kwargs...
-)
+) where {T<:Real}
     model = model_wrapper.logdensity
 
+    n_true_chains = n_chains + n_hot_chains
+
     if adapt
-        adaptive_state = initialize_adaptive_state(sampler, model_wrapper, n_chains)
+        adaptive_state = initialize_adaptive_state(sampler, model_wrapper, n_true_chains)
     else
         adaptive_state = DifferentialEvolutionAdaptiveStatic{Float64}()
     end
@@ -307,31 +353,33 @@ function step(
     extra_memory = nothing
 
     if isnothing(initial_position)
-        x = [randn(rng, dimension(model)) for _ in 1:n_chains]
+        x = [randn(rng, dimension(model)) for _ in 1:n_true_chains]
     else
         current_N = size(initial_position, 1)
         current_pars = size(initial_position[1], 1)
         if current_pars != dimension(model)
             error("Number of parameters in initial position must be equal to the number of parameters in the log density")
         end
-        if current_N == n_chains
+        if current_N == n_true_chains
             x = initial_position
-        elseif current_N < n_chains
-            @warn "Initial position is smaller than the requested (or required) n_chains. Expanding initial position."
+        elseif current_N < n_true_chains
+            @warn "Initial position is smaller than the requested (or required) n_chains (including hot chains). Expanding initial position."
             x = cat(
-                [randn(rng, eltype(initial_position[1]), current_pars) for _ in 1:(n_chains - current_N)],
+                [randn(rng, eltype(initial_position[1]), current_pars) for _ in 1:(n_true_chains - current_N)],
                 initial_position,
                 dims = 1
             )
         elseif memory
             @warn "Initial position is larger than requested number of chains. Shrinking initial position appending the rest to initial memory."
             #shrink initial position
-            x = initial_position[1:n_chains]
-            extra_memory = initial_position[(n_chains + 1):end]
-        else
+            x = initial_position[1:n_true_chains]
+            extra_memory = initial_position[(n_true_chains + 1):end]
+        elseif n_hot_chains == 0
             #assume n_chains is wrong
-            n_chains = current_N
+            n_true_chains = current_N
             x = initial_position
+        else
+            error("Initial position size greater than n_chains + n_hot_chains. Cannot resolve mismatch.")
         end
     end
 
@@ -348,23 +396,29 @@ function step(
         ld = [logdensity(model, xi) for xi in x]
     end
 
+    if memory && n_hot_chains > 0
+        @warn "Memory-based samplers do not typically require hot chains. Consider setting n_hot_chains=0."
+    end
+
+    temperature_ladder_struct = setup_temperature_struct(temperature_ladder)
+
     if memory
         mem_x = copy(x)
         if !isnothing(extra_memory)
             append!(mem_x, extra_memory)
         end
-        if n_chains < N₀
+        if n_true_chains < N₀
             for _ in 1:(N₀ - length(mem_x))
                 push!(mem_x, randn(rng, eltype(x[1]), dimension(model)))
             end
-        elseif n_chains > N₀
+        elseif n_true_chains > N₀
             @warn "Initial memory size greater than N₀, truncating memory."
             mem_x = mem_x[end-N₀+1:end]
         end
-        state = DifferentialEvolutionStateMemory(x, ld, mem_x, adaptive_state)
+        state = DifferentialEvolutionStateMemory(x, ld, mem_x, adaptive_state, temperature_ladder_struct)
     else
-        state = DifferentialEvolutionState(x, ld, adaptive_state)
+        state = DifferentialEvolutionState(x, ld, adaptive_state, temperature_ladder_struct)
     end
 
-    return DifferentialEvolutionSample(x, ld), state
+    return create_sample(x, ld, state), state
 end

@@ -40,6 +40,7 @@ using Aqua
     include("test_rng.jl")
     include("test_convergence.jl")
     include("test_templates.jl")
+    include("test_temperature.jl")
     #include("test_diagnostics.jl")
 
     #if VERSION ≥ v"1.11"
