@@ -77,11 +77,17 @@ function deMC(
         )
     end
 
+    if save_burnt
+        its = n_its + n_burnin
+    else
+        its = n_its
+    end
+
     return process_outputs(sample(
         rng,
         model_wrapper,
         sampler_scheme,
-        n_its;
+        its;
         num_warmup = n_burnin,
         initial_position = initial_state,
         thinning = thin,

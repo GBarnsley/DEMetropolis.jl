@@ -66,6 +66,7 @@ function setup_subspace_sampling(;
 
     if isa(cr, Real)
         cr = Dirac(cr)
+        n_cr = 0
     elseif isnothing(cr)
         cr = Categorical(repeat([1 / n_cr], n_cr))
     else

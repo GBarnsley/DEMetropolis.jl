@@ -57,6 +57,25 @@
         @test all(isa(x, DEMetropolis.DifferentialEvolutionSample) for x in samples)
     end
 
+     @testset "Sample which will likely fail to pick a dimension atleast once" begin
+        rng = MersenneTwister(1234)
+        model = IsotropicNormalModel([-5.0, 5.0])
+
+        de_sampler = setup_subspace_sampling(cr = Categorical([0.95, repeat([0.005], 10)...]))
+
+        sample_result, initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; memory = false, adapt = false)
+
+        @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
+        @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
+        @test isa(initial_state, DEMetropolis.DifferentialEvolutionState)
+        @test length(initial_state.x) == LogDensityProblems.dimension(model) * 2
+        @test length(initial_state.x[1]) == LogDensityProblems.dimension(model)
+        @test length(initial_state.ld) == LogDensityProblems.dimension(model) * 2
+        @test all(isfinite, initial_state.ld)
+        @test all([all(isfinite, x) for x in initial_state.x])
+        @test isa(initial_state.x[1], Vector{Float64})
+    end
+
     @testset "Sample using memory Subspace" begin
         rng = MersenneTwister(1234)
         model = IsotropicNormalModel([-5.0, 5.0])

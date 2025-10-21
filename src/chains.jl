@@ -151,7 +151,9 @@ function step(
     # Extract the wrapped model which implements LogDensityProblems.jl.
     model = model_wrapper.logdensity
     # Extract the current states
-    (; x, ld, adaptive_state) = state
+    x = state.x
+    ld = state.ld
+    adaptive_state = state.adaptive_state
 
     # loop through chains running the update
     xₚ = similar(x)

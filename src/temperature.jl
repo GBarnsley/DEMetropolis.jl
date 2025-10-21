@@ -48,7 +48,7 @@ end
 struct DifferentialEvolutionNullTemperatureLadder{T<:Real} <: AbstractDifferentialEvolutionTemperatureLadder{T}
 end
 
-function get_temperature(ladder::AbstractDifferentialEvolutionTemperatureLadder{T}, current_chain::Int) where T<:Real
+function get_temperature(ladder::DifferentialEvolutionNullTemperatureLadder{T}, current_chain::Int) where T<:Real
     one(T)
 end
 

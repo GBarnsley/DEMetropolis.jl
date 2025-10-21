@@ -168,4 +168,20 @@
         end
         @test isa(states_noadapt[end], DEMetropolis.DifferentialEvolutionStateMemory)
     end
+    @testset "warnings" begin
+        rng = MersenneTwister(1234)
+        model = IsotropicNormalModel([-5.0, 5.0])
+
+        # Test warning when sampler has fixed crossover probability (n_cr = 0)
+        @test_logs (:warn, "sampler already has a fixed crossover probability, cannot adapt.") begin
+            de_sampler_fixed = setup_subspace_sampling(cr = 0.5)  # Fixed cr means n_cr = 0
+            AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler_fixed; adapt = true)
+        end
+
+        # Test warning when only one crossover probability (n_cr = 1)
+        @test_logs (:warn, "Only one crossover probability, cannot adapt.") begin
+            de_sampler_one_cr = setup_subspace_sampling(n_cr = 1)
+            AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler_one_cr; adapt = true)
+        end
+    end
 end

@@ -72,7 +72,7 @@ based on the effectiveness of different parameter subsets.
 - `state`: Current state including adaptive parameters
 
 # Keyword Arguments
-- `update_memory`: Whether to update the memory with new positions (for memory-based samplers). 
+- `update_memory`: Whether to update the memory with new positions (for memory-based samplers).
   Defaults to `true`. Useful if memory has grown too large.
 - `parallel`: Whether to run chains in parallel using threading. Defaults to `false`.
 - `kwargs...`: Additional keyword arguments passed to update functions
@@ -100,8 +100,10 @@ function step_warmup(
 
     # Extract the wrapped model which implements LogDensityProblems.jl.
     model = model_wrapper.logdensity
-    # Extract the current states
-    (; x, ld, adaptive_state) = state
+    # Extract the current state
+    x = state.x
+    ld = state.ld
+    adaptive_state = state.adaptive_state
 
     variance = get_current_variance(adaptive_state)
 
