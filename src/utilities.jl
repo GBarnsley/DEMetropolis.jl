@@ -63,8 +63,6 @@ It handles separation of burn-in and post-burn-in samples when requested.
 # Internal usage in template functions
 result = process_outputs(raw_samples; save_burnt=true, n_burnin=5000)
 ```
-
-See also [`samples_to_array`](@ref), [`ld_to_array`](@ref).
 """
 function process_outputs(
     samples::Vector{DifferentialEvolutionSample{V, VV}};

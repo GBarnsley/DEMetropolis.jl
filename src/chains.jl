@@ -137,7 +137,7 @@ function automatically fixes adaptive parameters before sampling.
 julia> sample, new_state = step(rng, model, sampler, state; parallel=true)
 ```
 
-See also [`step_warmup`](@ref), [`AbstractMCMC.sample`](@ref).
+See also [`step_warmup`](@ref), [`sample` from AbstractMCMC](https://turinglang.org/AbstractMCMC.jl/dev/api/#Common-keyword-arguments).
 """
 function step(
     rng::AbstractRNG,
@@ -319,7 +319,7 @@ julia> sample, state = step(rng, model_wrapper, sampler; initial_position=init_p
 - Memory-based samplers with parallel tempering may issue warnings since hot chains typically
   aren't necessary when using memory
 
-See also [`AbstractMCMC.sample`](@ref), [`deMC`](@ref), [`deMCzs`](@ref), [`DREAMz`](@ref).
+See also [`sample` from AbstractMCMC](https://turinglang.org/AbstractMCMC.jl/dev/api/#Common-keyword-arguments), [`deMC`](@ref), [`deMCzs`](@ref), [`DREAMz`](@ref).
 """
 function step(
     rng::AbstractRNG,

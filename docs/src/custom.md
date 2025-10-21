@@ -91,7 +91,7 @@ The function should return a named tuple `(xₚ = proposed_position, offset = ha
 
 Here is an example of a simple Metropolis-Hastings random walk update with a fixed step size:
 
-```@example
+```@example MHSampler
 using DEMetropolis, Distributions, Random
 
 # Define the struct for the sampler
@@ -123,8 +123,8 @@ For proposals that require adaptation during warm-up, you need to implement the 
 
 You'll also need to define adaptive state structures and methods. Here's an example of an adaptive Metropolis-Hastings sampler:
 
-```@example
-using AbstractMCMC
+```@example MHSampler
+using AbstractMCMC, DEMetropolis
 # Define adaptive state
 struct AdaptiveMetropolisState{T<:Real} <:DEMetropolis.AbstractDifferentialEvolutionAdaptiveState{T}
     proposal_cov::Matrix{T}
@@ -236,7 +236,7 @@ end
 
 Here is a complete example that shows how to use custom components with the new AbstractMCMC interface:
 
-```@example
+```@example MHSampler
 using Distributions, TransformedLogDensities, LinearAlgebra, TransformVariables, Plots
 
 # Set up a simple log-density to sample from (a 2D standard normal distribution)

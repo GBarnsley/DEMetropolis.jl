@@ -9,7 +9,7 @@ In theory this allows the sampler to easily jump between modes of the distributi
 
 First we need to implement a multimodal distribution. We'll use a mixture of three Gaussians for one parameter and two LogNormal distributions for another, making this a 2D distribution. We can easily implement this using the `Distributions` package, which underpins most of the functionality in `DEMetropolis`.
 
-```@example
+```@example MMSampler
 using Distributions
 
 α_mixed_dist = MixtureModel([
@@ -32,7 +32,7 @@ end
 
 We can also transform our log density function, so we can provide real-valued inputs. This is much easier to work with.
 
-```@example
+```@example MMSampler
 using TransformedLogDensities, TransformVariables
 transformation = as((α = asℝ, β = asℝ₊))
 transformed_ld = TransformedLogDensity(transformation, multimodal_ld)
@@ -42,7 +42,7 @@ transformed_ld = TransformedLogDensity(transformation, multimodal_ld)
 
 Now let's use `DEMetropolis` to sample from this multimodal distribution. Here we use the DREAMz sampler, which is well-suited for exploring complex, multimodal spaces. We increase the number of chains to allow the sampler to explore the distribution more effectively.
 
-```@example
+```@example MMSampler
 using DEMetropolis, AbstractMCMC, Random
 
 model = AbstractMCMC.LogDensityModel(transformed_ld)
@@ -61,7 +61,7 @@ DREAMz can be further customized. For example, we could include snooker updates 
 
 You can also modify aspects of the implemented sampling, for example tell DREAMz to use non-memory-based sampling with `DREAMz(...; memory = false)`, or you can define your own sampler scheme for more control over the sampling process.
 
-```@example
+```@example MMSampler
 # Create a custom sampler scheme combining different update types
 custom_sampler = setup_sampler_scheme(
     setup_subspace_sampling(), # a DREAM-like sampler that uses subspace sampling
@@ -99,7 +99,7 @@ To evaluate how well your sampler is performing, you can compute the effective s
 
 Below is an example of how to compute these diagnostics for the DEMetropolis samplers using `MCMCDiagnosticTools`:
 
-```@example
+```@example MMSampler
 using Statistics, MCMCDiagnosticTools
 
 # Compute diagnostics for DREAMz results
@@ -115,7 +115,7 @@ println("  R-hat: $rhat_val")
 
 Once you have confirmed good mixing and convergence, you can summarize your posterior samples. For each parameter, you may want to compute the median and a credible interval (such as the 90% interval):
 
-```@example
+```@example MMSampler
 # Example: summarize the custom sampler's posterior
 custom_results = process_outputs(custom_result)
 

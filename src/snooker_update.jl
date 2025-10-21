@@ -22,7 +22,7 @@ See doi.org/10.1007/s11222-008-9104-9 for more information.
   Defaults to `true`.
 
 # Returns
-- A `DifferentialEvolutionSnookerSampler` that can be used with [`setup_sampler_scheme`](@ref) or [`step`](@ref) or [`AbstractMCMC.sample`](@ref).
+- A `DifferentialEvolutionSnookerSampler` that can be used with [`setup_sampler_scheme`](@ref) or [`step`](@ref) or [`sample` from AbstractMCMC](https://turinglang.org/AbstractMCMC.jl/dev/api/#Common-keyword-arguments).
 
 # Example
 ```jldoctest

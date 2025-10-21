@@ -23,7 +23,7 @@ See doi.org/10.1007/s11222-006-8769-1 for more information.
   `Uniform(0.8, 1.2)`. Defaults to 0.
 
 # Returns
-- A `DifferentialEvolutionSampler` that can be used with [`setup_sampler_scheme`](@ref) or [`step`](@ref) or [`AbstractMCMC.sample`](@ref).
+- A `DifferentialEvolutionSampler` that can be used with [`setup_sampler_scheme`](@ref) or [`step`](@ref) or [`sample` from AbstractMCMC](https://turinglang.org/AbstractMCMC.jl/dev/api/#Common-keyword-arguments).
 
 # Example
 ```jldoctest

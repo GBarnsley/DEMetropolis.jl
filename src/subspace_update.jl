@@ -42,7 +42,7 @@ See doi.org/10.1515/IJNSNS.2009.10.3.273 for more information.
   Defaults to `Normal(0.0, 1e-2)`.
 
 # Returns
-- A subspace sampler that can be used with [`setup_sampler_scheme`](@ref) or [`step`](@ref) or [`AbstractMCMC.sample`](@ref).
+- A subspace sampler that can be used with [`setup_sampler_scheme`](@ref) or [`step`](@ref) or [`sample` from AbstractMCMC](https://turinglang.org/AbstractMCMC.jl/dev/api/#Common-keyword-arguments).
 
 # Example
 ```jldoctest
