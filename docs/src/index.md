@@ -58,6 +58,12 @@ DEMetropolis.fix_sampler_state
 r̂_stopping_criteria
 ```
 
+### Utilities
+
+```@docs
+process_outputs
+```
+
 ## Index
 
 ```@index

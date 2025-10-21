@@ -189,7 +189,6 @@
             epoch_limit = 2,
             rng = rng
         )
-
     end
 
     @testset "Temperature with Different Samplers" begin

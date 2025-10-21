@@ -39,7 +39,8 @@
 
         de_sampler = setup_de_update()
 
-        sample_result, initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; memory = false)
+        sample_result,
+        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; memory = false)
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
@@ -51,7 +52,8 @@
         @test all([all(isfinite, x) for x in initial_state.x])
         @test isa(initial_state.x[1], Vector{Float64})
 
-        sample_result, initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
+        sample_result,
+        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
@@ -68,7 +70,7 @@
             AbstractMCMC.LogDensityModel(model),
             de_sampler,
             100;
-            progress=false
+            progress = false
         )
         @test length(samples) == 100
         @test all(isa(x, DEMetropolis.DifferentialEvolutionSample) for x in samples)
@@ -82,7 +84,8 @@
             n_dims = LogDensityProblems.dimension(model)
         )
 
-        sample_result, initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; memory = true)
+        sample_result,
+        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; memory = true)
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
@@ -94,7 +97,8 @@
         @test all([all(isfinite, x) for x in initial_state.x])
         @test isa(initial_state.x[1], Vector{Float64})
 
-        sample_result, initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
+        sample_result,
+        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
@@ -111,7 +115,7 @@
             AbstractMCMC.LogDensityModel(model),
             de_sampler,
             100;
-            progress=false
+            progress = false
         )
         @test length(samples) == 100
         @test all(isa(x, DEMetropolis.DifferentialEvolutionSample) for x in samples)

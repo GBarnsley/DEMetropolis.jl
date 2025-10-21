@@ -43,8 +43,14 @@ See doi.org/10.1007/s11222-006-8769-1 for more information.
 - Named tuple containing samples and optionally burn-in samples
 
 # Example
-```jldoctest
-julia> result = deMC(model_wrapper, 1000; n_chains = 10, parallel = true)
+```@example deMC
+using DEMetropolis, Random, Distributions
+
+# Define a simple log-density function
+model_wrapper(θ) = logpdf(MvNormal([0.0, 0.0], I), θ)
+
+# Run differential evolution MCMC
+result = deMC(model_wrapper, 1000; n_chains = 10, parallel = false)
 ```
 
 See also [`deMCzs`](@ref), [`DREAMz`](@ref), [`setup_de_update`](@ref).
@@ -62,7 +68,7 @@ function deMC(
         p_γ₂::T = 0.1,
         β::ContinuousUnivariateDistribution = Uniform(-1e-4, 1e-4),
         kwargs...
-) where {T<:Real}
+) where {T <: Real}
 
     #build sampler scheme
     if γ₁ != γ₂
@@ -83,18 +89,21 @@ function deMC(
         its = n_its
     end
 
-    return process_outputs(sample(
-        rng,
-        model_wrapper,
-        sampler_scheme,
-        its;
-        num_warmup = n_burnin,
-        initial_position = initial_state,
-        thinning = thin,
-        discard_initial = save_burnt ? 0 : n_burnin,
-        memory = memory,
-        kwargs...
-    ); save_burnt = save_burnt, n_burnin = n_burnin)
+    return process_outputs(
+        sample(
+            rng,
+            model_wrapper,
+            sampler_scheme,
+            its;
+            num_warmup = n_burnin,
+            initial_position = initial_state,
+            thinning = thin,
+            discard_initial = save_burnt ? 0 : n_burnin,
+            memory = memory,
+            kwargs...
+        );
+        save_burnt = save_burnt,
+        n_burnin = n_burnin)
 end
 
 """
@@ -141,8 +150,14 @@ Proposed by ter Braak and Vrugt (2008), see doi.org/10.1007/s11222-008-9104-9.
 - Named tuple containing samples, sampler scheme, and optionally burn-in samples
 
 # Example
-```jldoctest
-julia> result = deMCzs(model_wrapper, 1000; n_chains = 3, maximum_R̂ = 1.1)
+```@example deMCzs
+using DEMetropolis, Random, Distributions
+
+# Define a simple log-density function
+model_wrapper(θ) = logpdf(MvNormal([0.0, 0.0], I), θ)
+
+# Run adaptive differential evolution MCMC with convergence checking
+result = deMCzs(model_wrapper, 1000; n_chains = 3, maximum_R̂ = 1.1)
 ```
 
 See also [`deMC`](@ref), [`DREAMz`](@ref), [`r̂_stopping_criteria`](@ref).
@@ -161,7 +176,7 @@ function deMCzs(
         β::Distributions.Uniform{T} = Distributions.Uniform(-1e-4, 1e-4),
         thin::Int = 1,
         kwargs...
-) where {T<:Real}
+) where {T <: Real}
 
     #build sampler scheme
     if p_snooker == 0
@@ -178,21 +193,25 @@ function deMCzs(
 
     n_burnin = check_every * warmup_epochs
 
-    return process_outputs(sample(
-        rng,
-        model_wrapper,
-        sampler_scheme,
-        r̂_stopping_criteria;
-        maximum_R̂ = maximum_R̂,
-        check_every = check_every,
-        minimum_iterations = save_burnt ? n_burnin + 1 : 0,
-        maximum_iterations = save_burnt ? (check_every * epoch_limit) + n_burnin : (check_every * epoch_limit),
-        num_warmup = n_burnin,
-        initial_position = initial_state,
-        thinning = thin,
-        discard_initial = save_burnt ? 0 : n_burnin,
-        kwargs...
-    ); save_burnt = save_burnt, n_burnin = n_burnin)
+    return process_outputs(
+        sample(
+            rng,
+            model_wrapper,
+            sampler_scheme,
+            r̂_stopping_criteria;
+            maximum_R̂ = maximum_R̂,
+            check_every = check_every,
+            minimum_iterations = save_burnt ? n_burnin + 1 : 0,
+            maximum_iterations = save_burnt ? (check_every * epoch_limit) + n_burnin :
+                                 (check_every * epoch_limit),
+            num_warmup = n_burnin,
+            initial_position = initial_state,
+            thinning = thin,
+            discard_initial = save_burnt ? 0 : n_burnin,
+            kwargs...
+        );
+        save_burnt = save_burnt,
+        n_burnin = n_burnin)
 end
 
 """
@@ -244,8 +263,14 @@ Based on Vrugt et al. (2009), see doi.org/10.1515/IJNSNS.2009.10.3.273.
 - Named tuple containing samples, sampler scheme, and optionally burn-in samples
 
 # Example
-```jldoctest
-julia> result = DREAMz(model_wrapper, 1000; n_chains = 10, memory = false)
+```@example DREAMz
+using DEMetropolis, Random, Distributions
+
+# Define a simple log-density function
+model_wrapper(θ) = logpdf(MvNormal([0.0, 0.0], I), θ)
+
+# Run DREAM with subspace sampling
+result = DREAMz(model_wrapper, 1000; n_chains = 10, memory = false)
 ```
 
 See also [`deMC`](@ref), [`deMCzs`](@ref), [`setup_subspace_sampling`](@ref).
@@ -269,7 +294,7 @@ function DREAMz(
         δ::Distributions.DiscreteUniform = Distributions.DiscreteUniform(1, 3),
         thin::Int = 1,
         kwargs...
-) where {T<:Real}
+) where {T <: Real}
 
     #build sampler scheme
     if p_γ₂ == 0
@@ -286,19 +311,23 @@ function DREAMz(
 
     n_burnin = check_every * warmup_epochs
 
-    return process_outputs(sample(
-        rng,
-        model_wrapper,
-        sampler_scheme,
-        r̂_stopping_criteria;
-        maximum_R̂ = maximum_R̂,
-        check_every = check_every,
-        minimum_iterations = save_burnt ? n_burnin + 1 : 0,
-        maximum_iterations = save_burnt ? (check_every * epoch_limit) + n_burnin : (check_every * epoch_limit),
-        num_warmup = n_burnin,
-        initial_position = initial_state,
-        thinning = thin,
-        discard_initial = save_burnt ? 0 : n_burnin,
-        kwargs...
-    ); save_burnt = save_burnt, n_burnin = n_burnin)
+    return process_outputs(
+        sample(
+            rng,
+            model_wrapper,
+            sampler_scheme,
+            r̂_stopping_criteria;
+            maximum_R̂ = maximum_R̂,
+            check_every = check_every,
+            minimum_iterations = save_burnt ? n_burnin + 1 : 0,
+            maximum_iterations = save_burnt ? (check_every * epoch_limit) + n_burnin :
+                                 (check_every * epoch_limit),
+            num_warmup = n_burnin,
+            initial_position = initial_state,
+            thinning = thin,
+            discard_initial = save_burnt ? 0 : n_burnin,
+            kwargs...
+        );
+        save_burnt = save_burnt,
+        n_burnin = n_burnin)
 end

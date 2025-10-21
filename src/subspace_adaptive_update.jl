@@ -1,4 +1,5 @@
-struct DifferentialEvolutionAdaptiveSubspace{T<:Real} <: AbstractDifferentialEvolutionAdaptiveState{T}
+struct DifferentialEvolutionAdaptiveSubspace{T <: Real} <:
+       AbstractDifferentialEvolutionAdaptiveState{T}
     "attempts for each crossover probability"
     L::Vector{Int}
     "squared normalised jumping distance for each crossover probability for each crossover probability"
@@ -14,7 +15,8 @@ struct DifferentialEvolutionAdaptiveSubspace{T<:Real} <: AbstractDifferentialEvo
 end
 
 # Helper function to update running variance using Welford's algorithm
-function calculate_running_variance(adaptive_state::DifferentialEvolutionAdaptiveSubspace, new_values::Vector{V}) where {T<:Real, V<:Vector{T}}
+function calculate_running_variance(adaptive_state::DifferentialEvolutionAdaptiveSubspace,
+        new_values::Vector{V}) where {T <: Real, V <: Vector{T}}
     new_count = copy(adaptive_state.var_count)
     new_mean = copy(adaptive_state.var_mean)
     new_m2 = copy(adaptive_state.var_m2)
@@ -29,32 +31,39 @@ function calculate_running_variance(adaptive_state::DifferentialEvolutionAdaptiv
 end
 
 # Helper function to get current variance
-function get_current_variance(adaptive_state::DifferentialEvolutionAdaptiveSubspace{T}) where {T<:Real}
+function get_current_variance(adaptive_state::DifferentialEvolutionAdaptiveSubspace{T}) where {T <:
+                                                                                               Real}
     if adaptive_state.var_count < 2
         return ones(T, length(adaptive_state.var_m2))  # Use 1.0 as default when insufficient data
     else
-        return  adaptive_state.var_m2 ./ adaptive_state.var_count
+        return adaptive_state.var_m2 ./ adaptive_state.var_count
     end
 end
 
 #update the sampler with the adapted cr
 
-fix_sampler(sampler::DifferentialEvolutionSubspaceSampler, adaptive_state::DifferentialEvolutionAdaptiveSubspace) = DifferentialEvolutionSubspaceSampler(
-    adaptive_state.cr_spl,
-    sampler.n_cr,
-    sampler.δ_spl,
-    sampler.ϵ_spl,
-    sampler.e_spl
-)
+function fix_sampler(sampler::DifferentialEvolutionSubspaceSampler,
+        adaptive_state::DifferentialEvolutionAdaptiveSubspace)
+    DifferentialEvolutionSubspaceSampler(
+        adaptive_state.cr_spl,
+        sampler.n_cr,
+        sampler.δ_spl,
+        sampler.ϵ_spl,
+        sampler.e_spl
+    )
+end
 
-fix_sampler(sampler::DifferentialEvolutionSubspaceSamplerFixedGamma, adaptive_state::DifferentialEvolutionAdaptiveSubspace) = DifferentialEvolutionSubspaceSamplerFixedGamma(
-    adaptive_state.cr_spl,
-    sampler.n_cr,
-    sampler.δ_spl,
-    sampler.ϵ_spl,
-    sampler.e_spl,
-    sampler.γ
-)
+function fix_sampler(sampler::DifferentialEvolutionSubspaceSamplerFixedGamma,
+        adaptive_state::DifferentialEvolutionAdaptiveSubspace)
+    DifferentialEvolutionSubspaceSamplerFixedGamma(
+        adaptive_state.cr_spl,
+        sampler.n_cr,
+        sampler.δ_spl,
+        sampler.ϵ_spl,
+        sampler.e_spl,
+        sampler.γ
+    )
+end
 
 """
     step_warmup(rng, model_wrapper, sampler, state; parallel=false, kwargs...)
@@ -82,21 +91,30 @@ based on the effectiveness of different parameter subsets.
 - `new_state`: Updated state with adapted parameters for the next iteration
 
 # Example
-```jldoctest
-julia> sample, new_state = step_warmup(rng, model, sampler, state; parallel=true)
+```@example step_warmup
+using DEMetropolis, Random, Distributions
+
+# Setup for warmup step example
+rng = Random.default_rng()
+model_wrapper(θ) = logpdf(MvNormal([0.0, 0.0], I), θ)
+sampler = DREAMz()
+
+# Initialize state (this would typically be done by AbstractMCMC.sample)
+# sample, new_state = step_warmup(rng, model_wrapper, sampler, state; parallel=false)
 ```
 
 See also [`step`](@ref), [`fix_sampler`](@ref).
 """
 function step_warmup(
-    rng::AbstractRNG,
-    model_wrapper::LogDensityModel,
-    sampler::AbstractDifferentialEvolutionSubspaceSampler,
-    state::AbstractDifferentialEvolutionState{T, DifferentialEvolutionAdaptiveSubspace{T}};
-    update_memory::Bool = true,
-    parallel::Bool = false,
-    kwargs...
-) where {T<:Real}
+        rng::AbstractRNG,
+        model_wrapper::LogDensityModel,
+        sampler::AbstractDifferentialEvolutionSubspaceSampler,
+        state::AbstractDifferentialEvolutionState{
+            T, DifferentialEvolutionAdaptiveSubspace{T}};
+        update_memory::Bool = true,
+        parallel::Bool = false,
+        kwargs...
+) where {T <: Real}
 
     # Extract the wrapped model which implements LogDensityProblems.jl.
     model = model_wrapper.logdensity
@@ -117,12 +135,13 @@ function step_warmup(
         # thread safe updating
         Δ_update = zeros(T, length(x))
         cr_update = Vector{Int}(undef, length(x))
-        rngs = [Random.seed!(copy(rng),  rand(rng, UInt)) for i in eachindex(x)]
+        rngs = [Random.seed!(copy(rng), rand(rng, UInt)) for i in eachindex(x)]
 
         @inbounds Threads.@threads for i in eachindex(x)
             prop = proposal(rngs[i], fix_sampler(sampler, adaptive_state), state, i)
             xₚ[i] = prop.xₚ
-            accepted = update_chain!(model, rngs[i], xₚ, ldₚ, x, ld, prop.offset, i, get_temperature(state.temperature_ladder, i))
+            accepted = update_chain!(model, rngs[i], xₚ, ldₚ, x, ld, prop.offset, i,
+                get_temperature(state.temperature_ladder, i))
             cr_update[i] = prop.cr
             if accepted
                 Δ_update[i] += sum(
@@ -136,10 +155,11 @@ function step_warmup(
         end
     else
         @inbounds for i in eachindex(x)
-            chain_rng = Random.seed!(copy(rng),  rand(rng, UInt)) #so its identical to parallel
+            chain_rng = Random.seed!(copy(rng), rand(rng, UInt)) #so its identical to parallel
             prop = proposal(chain_rng, fix_sampler(sampler, adaptive_state), state, i)
             xₚ[i] = prop.xₚ
-            accepted = update_chain!(model, chain_rng, xₚ, ldₚ, x, ld, prop.offset, i, get_temperature(state.temperature_ladder, i))
+            accepted = update_chain!(model, chain_rng, xₚ, ldₚ, x, ld, prop.offset,
+                i, get_temperature(state.temperature_ladder, i))
 
             L[prop.cr] += 1
             if accepted
@@ -161,15 +181,18 @@ function step_warmup(
         cr_spl = adaptive_state.cr_spl
     end
 
-    return create_sample(xₚ, ldₚ, state), update_state(
+    return create_sample(xₚ, ldₚ, state),
+    update_state(
         state;
-        adaptive_state = DifferentialEvolutionAdaptiveSubspace{T}(L, Δ, cr_spl, var_count, var_mean, var_m2),
+        adaptive_state = DifferentialEvolutionAdaptiveSubspace{T}(
+            L, Δ, cr_spl, var_count, var_mean, var_m2),
         update_memory = update_memory,
         x = xₚ, ld = ldₚ
     )
 end
 
-function initialize_adaptive_state(sampler::AbstractDifferentialEvolutionSubspaceSampler, model_wrapper::LogDensityModel, n_chains::Int)
+function initialize_adaptive_state(sampler::AbstractDifferentialEvolutionSubspaceSampler,
+        model_wrapper::LogDensityModel, n_chains::Int)
     n_cr = sampler.n_cr
     T = Float64
     d = dimension(model_wrapper.logdensity)
@@ -187,6 +210,7 @@ function initialize_adaptive_state(sampler::AbstractDifferentialEvolutionSubspac
         var_count = 0
         var_mean = zeros(T, d)
         var_m2 = zeros(T, d)
-        return DifferentialEvolutionAdaptiveSubspace{T}(L, Δ, cr_spl, var_count, var_mean, var_m2)
+        return DifferentialEvolutionAdaptiveSubspace{T}(
+            L, Δ, cr_spl, var_count, var_mean, var_m2)
     end
 end

@@ -2,7 +2,6 @@ struct DifferentialEvolutionSnookerSampler <: AbstractDifferentialEvolutionSampl
     γ_spl::Sampleable{Univariate, <:Union{Continuous, Discrete}}
 end
 
-
 """
 Set up a Snooker update step for MCMC sampling.
 
@@ -25,8 +24,11 @@ See doi.org/10.1007/s11222-008-9104-9 for more information.
 - A `DifferentialEvolutionSnookerSampler` that can be used with [`setup_sampler_scheme`](@ref) or [`step`](@ref) or [`sample` from AbstractMCMC](https://turinglang.org/AbstractMCMC.jl/dev/api/#Common-keyword-arguments).
 
 # Example
-```jldoctest
-julia> setup_snooker_update(γ = Uniform(0.1, 2.0))
+```@example snooker_update
+using DEMetropolis, Distributions
+
+# Setup snooker update with custom gamma distribution
+snooker_update = setup_snooker_update(γ = Uniform(0.1, 2.0))
 ```
 
 See also [`setup_de_update`](@ref), [`setup_subspace_sampling`](@ref), [`setup_sampler_scheme`](@ref).
@@ -48,7 +50,8 @@ function setup_snooker_update(;
     return DifferentialEvolutionSnookerSampler(sampler(γ))
 end
 
-function proposal(rng::AbstractRNG, sampler::DifferentialEvolutionSnookerSampler, state::AbstractDifferentialEvolutionState, current_state::Int)
+function proposal(rng::AbstractRNG, sampler::DifferentialEvolutionSnookerSampler,
+        state::AbstractDifferentialEvolutionState, current_state::Int)
     # Propose a new position.
     x₁, x₂, xₐ = pick_chains(rng, state, current_state, 3)
 
@@ -59,7 +62,8 @@ function proposal(rng::AbstractRNG, sampler::DifferentialEvolutionSnookerSampler
         e = normalize(xₐ .- state.x[current_state])
         xₚ = state.x[current_state] .+ rand(rng, sampler.γ_spl) .* dot(x₁ .- x₂, e) .* e
 
-        offset = (length(state.x[current_state]) - 1) * (log(norm(xₐ .- xₚ)) - log(norm(xₐ .- state.x[current_state])))
+        offset = (length(state.x[current_state]) - 1) *
+                 (log(norm(xₐ .- xₚ)) - log(norm(xₐ .- state.x[current_state])))
     end
 
     return (xₚ = xₚ, offset = offset)

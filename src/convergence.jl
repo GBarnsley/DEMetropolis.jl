@@ -29,25 +29,38 @@ the stationary portion of the chains.
 - `false` if sampling should continue
 
 # Example
-```jldoctest
-julia> sample(rng, model, sampler, r̂_stopping_criteria; check_every=500, maximum_R̂=1.1)
+```@example convergence
+using DEMetropolis, AbstractMCMC, Random, Distributions
+
+# Create a simple model
+model_wrapper(θ) = logpdf(MvNormal([0.0, 0.0], I), θ)
+
+# Setup sampler 
+sampler = deMCzs()
+
+# Use with adaptive stopping criterion
+rng = Random.default_rng()
+chains = sample(rng, model_wrapper, sampler, r̂_stopping_criteria; 
+               n_chains=4, check_every=500, maximum_R̂=1.1)
 ```
 
 See also [`MCMCDiagnosticTools.rhat`](@extref), [`deMCzs`](@ref), [`DREAMz`](@ref).
 """
 function r̂_stopping_criteria(
-    rng::AbstractRNG,
-    model::AbstractModel,
-    sampler::AbstractDifferentialEvolutionSampler,
-    samples::Vector{DifferentialEvolutionSample{V, VV}},
-    state::AbstractDifferentialEvolutionState{T, A, L, V, VV},
-    iteration::Int;
-    check_every::Int = 1000,
-    maximum_R̂::T = 1.2,
-    maximum_iterations::Int = 100000,
-    minimum_iterations::Int = 0,
-    kwargs...
-) where {T<:Real, V<:AbstractVector{T}, VV<:AbstractVector{V}, A<:AbstractDifferentialEvolutionAdaptiveState{T}, L<:AbstractDifferentialEvolutionTemperatureLadder{T}}
+        rng::AbstractRNG,
+        model::AbstractModel,
+        sampler::AbstractDifferentialEvolutionSampler,
+        samples::Vector{DifferentialEvolutionSample{V, VV}},
+        state::AbstractDifferentialEvolutionState{T, A, L, V, VV},
+        iteration::Int;
+        check_every::Int = 1000,
+        maximum_R̂::T = 1.2,
+        maximum_iterations::Int = 100000,
+        minimum_iterations::Int = 0,
+        kwargs...
+) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V},
+        A <: AbstractDifferentialEvolutionAdaptiveState{T},
+        L <: AbstractDifferentialEvolutionTemperatureLadder{T}}
     if iteration % check_every != 0 || iteration < minimum_iterations
         return false
     elseif iteration >= maximum_iterations

@@ -17,29 +17,34 @@ sampling strategies (e.g., DE updates with snooker updates) in a single sampler.
 - A `DifferentialEvolutionCompositeSampler` that can be used with `AbstractMCMC.sample`.
 
 # Examples
-```jldoctest
+```@example sampler_scheme
+using DEMetropolis
+
 # Only snooker updates
-julia> setup_sampler_scheme(setup_snooker_update())
+sampler1 = setup_sampler_scheme(setup_snooker_update())
 
 # DE and Snooker with equal probability
-julia> setup_sampler_scheme(setup_de_update(), setup_snooker_update())
+sampler2 = setup_sampler_scheme(setup_de_update(), setup_snooker_update())
 
 # Snooker 10% of the time, DE 90% of the time
-julia> setup_sampler_scheme(setup_de_update(), setup_snooker_update(); w = [0.9, 0.1])
+sampler3 = setup_sampler_scheme(setup_de_update(), setup_snooker_update(); w = [0.9, 0.1])
 ```
 
 See also [`setup_de_update`](@ref), [`setup_snooker_update`](@ref), [`setup_subspace_sampling`](@ref).
 """
-function setup_sampler_scheme(updates::AbstractDifferentialEvolutionSampler...; w::Vector{Float64} = ones(length(updates)))
+function setup_sampler_scheme(updates::AbstractDifferentialEvolutionSampler...;
+        w::Vector{Float64} = ones(length(updates)))
     return DifferentialEvolutionCompositeSampler(collect(updates), w)
 end
 
-struct DifferentialEvolutionCompositeSampler{T<:Real, A<:AbstractDifferentialEvolutionSampler} <: AbstractDifferentialEvolutionSampler
+struct DifferentialEvolutionCompositeSampler{
+    T <: Real, A <: AbstractDifferentialEvolutionSampler} <:
+       AbstractDifferentialEvolutionSampler
     updates::Vector{A}
     update_weights::Vector{T} #should this be a non-parameteric type?
     function DifferentialEvolutionCompositeSampler(
             updates::Vector{A}, update_weights::Vector{T}
-        ) where {T<:Real, A<:AbstractDifferentialEvolutionSampler}
+    ) where {T <: Real, A <: AbstractDifferentialEvolutionSampler}
         if length(update_weights) != length(updates)
             error("Number of update weights must be equal to the number of updates")
         end
@@ -52,32 +57,33 @@ end
 
 # if there are no actually adaptive states, we can just use the static one
 function step(
-    rng::AbstractRNG,
-    model_wrapper::LogDensityModel,
-    sampler::DifferentialEvolutionCompositeSampler,
-    state::AbstractDifferentialEvolutionState{T, DifferentialEvolutionAdaptiveStatic{T}};
-    kwargs...
-) where {T<:Real}
-
+        rng::AbstractRNG,
+        model_wrapper::LogDensityModel,
+        sampler::DifferentialEvolutionCompositeSampler,
+        state::AbstractDifferentialEvolutionState{
+            T, DifferentialEvolutionAdaptiveStatic{T}};
+        kwargs...
+) where {T <: Real}
     sampler_id = wsample(rng, 1:length(sampler.updates), sampler.update_weights)
 
     return step(rng, model_wrapper, sampler.updates[sampler_id], state; kwargs...)
 end
 
 #if there are adaptive states, we need to keep track of them
-struct DifferentialEvolutionAdaptiveComposite{T<:Real} <: AbstractDifferentialEvolutionAdaptiveState{T}
+struct DifferentialEvolutionAdaptiveComposite{T <: Real} <:
+       AbstractDifferentialEvolutionAdaptiveState{T}
     adaptive_states::Vector{AbstractDifferentialEvolutionAdaptiveState{T}}
 end
 
 # no updates to adaptive step
 function step(
-    rng::AbstractRNG,
-    model_wrapper::LogDensityModel,
-    sampler::DifferentialEvolutionCompositeSampler,
-    state::AbstractDifferentialEvolutionState{T, DifferentialEvolutionAdaptiveComposite{T}};
-    kwargs...
-) where {T<:Real}
-
+        rng::AbstractRNG,
+        model_wrapper::LogDensityModel,
+        sampler::DifferentialEvolutionCompositeSampler,
+        state::AbstractDifferentialEvolutionState{
+            T, DifferentialEvolutionAdaptiveComposite{T}};
+        kwargs...
+) where {T <: Real}
     sampler_id = wsample(rng, 1:length(sampler.updates), sampler.update_weights)
 
     fixed_sampler = fix_sampler(sampler.updates[sampler_id], state.adaptive_state.adaptive_states[sampler_id])
@@ -113,34 +119,40 @@ adaptive state while preserving other component states.
 See also [`step_warmup`](@ref), [`setup_sampler_scheme`](@ref).
 """
 function step_warmup(
-    rng::AbstractRNG,
-    model_wrapper::LogDensityModel,
-    sampler::DifferentialEvolutionCompositeSampler,
-    state::AbstractDifferentialEvolutionState{T, DifferentialEvolutionAdaptiveComposite{T}};
-    update_memory::Bool = true,
-    kwargs...
-) where {T<:Real}
-
+        rng::AbstractRNG,
+        model_wrapper::LogDensityModel,
+        sampler::DifferentialEvolutionCompositeSampler,
+        state::AbstractDifferentialEvolutionState{
+            T, DifferentialEvolutionAdaptiveComposite{T}};
+        update_memory::Bool = true,
+        kwargs...
+) where {T <: Real}
     sampler_id = wsample(rng, 1:length(sampler.updates), sampler.update_weights)
 
     fixed_sampler = fix_sampler(sampler.updates[sampler_id], state.adaptive_state.adaptive_states[sampler_id])
 
-    fixed_state = update_state(state; adaptive_state = state.adaptive_state.adaptive_states[sampler_id], temperature_ladder = state.temperature_ladder)
+    fixed_state = update_state(
+        state; adaptive_state = state.adaptive_state.adaptive_states[sampler_id],
+        temperature_ladder = state.temperature_ladder)
 
-    sample, substate = step_warmup(rng, model_wrapper, fixed_sampler, fixed_state; kwargs...)
+    sample,
+    substate = step_warmup(rng, model_wrapper, fixed_sampler, fixed_state; kwargs...)
 
     adaptive_states = copy(state.adaptive_state.adaptive_states)
     adaptive_states[sampler_id] = substate.adaptive_state
 
-    return sample, update_state(
+    return sample,
+    update_state(
         state; adaptive_state = DifferentialEvolutionAdaptiveComposite{T}(adaptive_states),
         update_memory = update_memory, x = substate.x, ld = substate.ld,
         temperature_ladder = substate.temperature_ladder
     )
 end
 
-function initialize_adaptive_state(sampler::DifferentialEvolutionCompositeSampler, model_wrapper::LogDensityModel, n_chains::Int)
-    adaptive_states = [initialize_adaptive_state(s, model_wrapper, n_chains) for s in sampler.updates]
+function initialize_adaptive_state(sampler::DifferentialEvolutionCompositeSampler,
+        model_wrapper::LogDensityModel, n_chains::Int)
+    adaptive_states = [initialize_adaptive_state(s, model_wrapper, n_chains)
+                       for s in sampler.updates]
     T = Float64
 
     if all(s -> s isa DifferentialEvolutionAdaptiveStatic, adaptive_states)

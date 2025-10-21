@@ -23,7 +23,8 @@
     end
     @testset "warnings" begin
         #check for warning
-        ld_wide = AbstractMCMC.LogDensityModel(IsotropicNormalModel([-5.0, 5.0, 0.0, 0.0, 0.0]));
+        ld_wide = AbstractMCMC.LogDensityModel(IsotropicNormalModel([
+            -5.0, 5.0, 0.0, 0.0, 0.0]));
         @test_logs @test_logs (:warn,) deMC(ld_wide, 1000; thin = 2, n_chains = 4)
     end
     @testset "parallel" begin
@@ -32,12 +33,19 @@
     @testset "initial_state building" begin
         n_dims = LogDensityProblems.dimension(ld.logdensity)
         deMC(ld, 100, initial_state = [randn(n_dims) for _ in 1:(n_dims * 2)])
-        @test_logs (:warn,) deMC(ld, 100, initial_state = [randn(n_dims) for _ in 2:(n_dims * 2)])
-        @test_logs (:warn,) deMC(ld, 100, initial_state = [randn(n_dims) for _ in 0:(n_dims * 2)], memory = true)
-        @test_throws ErrorException deMC(ld, 100, initial_state = [randn(n_dims - 1) for _ in 1:(n_dims * 2)])
+        @test_logs (:warn,) deMC(ld, 100, initial_state = [randn(n_dims)
+                                                           for _ in 2:(n_dims * 2)])
+        @test_logs (:warn,) deMC(
+            ld, 100, initial_state = [randn(n_dims) for _ in 0:(n_dims * 2)], memory = true)
+        @test_throws ErrorException deMC(ld, 100, initial_state = [randn(n_dims - 1)
+                                                                   for _ in 1:(n_dims * 2)])
 
-        deMC(ld, 100, initial_state = [randn(n_dims) for _ in 1:10], n_chains = 5, memory = false)
-        @test_throws ErrorException deMC(ld, 100, initial_state = [randn(n_dims) for _ in 1:10], n_chains = 5, memory = false, n_hot_chains = 2)
-        @test_logs (:warn,) deMC(ld, 100, initial_state = [randn(n_dims) for _ in 0:10], N₀ = 5, memory = true)
+        deMC(ld, 100, initial_state = [randn(n_dims) for _ in 1:10],
+            n_chains = 5, memory = false)
+        @test_throws ErrorException deMC(
+            ld, 100, initial_state = [randn(n_dims) for _ in 1:10],
+            n_chains = 5, memory = false, n_hot_chains = 2)
+        @test_logs (:warn,) deMC(
+            ld, 100, initial_state = [randn(n_dims) for _ in 0:10], N₀ = 5, memory = true)
     end
 end

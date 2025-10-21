@@ -1,6 +1,6 @@
 @testset "Subspace Update" begin
     @testset "Subspace Setup" begin
-         dist = setup_subspace_sampling(
+        dist = setup_subspace_sampling(
             γ = nothing,
             δ = 1
         )
@@ -22,7 +22,9 @@
 
         de_sampler = setup_subspace_sampling(cr = DiscreteUniform(1, 5))
 
-        sample_result, initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; memory = false, adapt = false)
+        sample_result,
+        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model),
+            de_sampler; memory = false, adapt = false)
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
@@ -34,7 +36,8 @@
         @test all([all(isfinite, x) for x in initial_state.x])
         @test isa(initial_state.x[1], Vector{Float64})
 
-        sample_result, initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
+        sample_result,
+        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
@@ -50,20 +53,23 @@
             AbstractMCMC.LogDensityModel(model),
             de_sampler,
             100;
-            progress=false,
-            adapt=false
+            progress = false,
+            adapt = false
         )
         @test length(samples) == 100
         @test all(isa(x, DEMetropolis.DifferentialEvolutionSample) for x in samples)
     end
 
-     @testset "Sample which will likely fail to pick a dimension atleast once" begin
+    @testset "Sample which will likely fail to pick a dimension atleast once" begin
         rng = MersenneTwister(1234)
         model = IsotropicNormalModel([-5.0, 5.0])
 
-        de_sampler = setup_subspace_sampling(cr = Categorical([0.95, repeat([0.005], 10)...]))
+        de_sampler = setup_subspace_sampling(cr = Categorical([
+            0.95, repeat([0.005], 10)...]))
 
-        sample_result, initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; memory = false, adapt = false)
+        sample_result,
+        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model),
+            de_sampler; memory = false, adapt = false)
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
@@ -82,7 +88,9 @@
 
         de_sampler = setup_subspace_sampling(cr = DiscreteUniform(1, 5), γ = 1.0)
 
-        sample_result, initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; memory = true, adapt = false)
+        sample_result,
+        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model),
+            de_sampler; memory = true, adapt = false)
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
@@ -94,7 +102,8 @@
         @test all([all(isfinite, x) for x in initial_state.x])
         @test isa(initial_state.x[1], Vector{Float64})
 
-        sample_result, initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
+        sample_result,
+        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
@@ -111,8 +120,8 @@
             AbstractMCMC.LogDensityModel(model),
             de_sampler,
             100;
-            progress=false,
-            adapt=false
+            progress = false,
+            adapt = false
         )
         @test length(samples) == 100
         @test all(isa(x, DEMetropolis.DifferentialEvolutionSample) for x in samples)

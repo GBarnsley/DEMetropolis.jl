@@ -1,6 +1,7 @@
 #code for sample() outputs into something useful, see MCMCChains
 
-function samples_to_array(samples::Vector{DifferentialEvolutionSample{V, VV}}) where {T<:Real, V<:AbstractVector{T}, VV<:AbstractVector{V}}
+function samples_to_array(samples::Vector{DifferentialEvolutionSample{
+        V, VV}}) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
     n_draws = length(samples)
     n_chains = length(samples[1].x)
     n_params = length(samples[1].x[1])
@@ -19,7 +20,8 @@ function samples_to_array(samples::Vector{DifferentialEvolutionSample{V, VV}}) w
     return result
 end
 
-function ld_to_array(samples::Vector{DifferentialEvolutionSample{V, VV}}) where {T<:Real, V<:AbstractVector{T}, VV<:AbstractVector{V}}
+function ld_to_array(samples::Vector{DifferentialEvolutionSample{
+        V, VV}}) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
     n_draws = length(samples)
     n_chains = length(samples[1].ld)
 
@@ -65,10 +67,10 @@ result = process_outputs(raw_samples; save_burnt=true, n_burnin=5000)
 ```
 """
 function process_outputs(
-    samples::Vector{DifferentialEvolutionSample{V, VV}};
-    save_burnt::Bool = false,
-    n_burnin::Int = 0
-    ) where {T<:Real, V<:AbstractVector{T}, VV<:AbstractVector{V}}
+        samples::Vector{DifferentialEvolutionSample{V, VV}};
+        save_burnt::Bool = false,
+        n_burnin::Int = 0
+) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
     ld = ld_to_array(samples)
     x = samples_to_array(samples)
     if save_burnt

@@ -9,7 +9,7 @@ using Aqua
     end
 
     #define some common problems
-    struct IsotropicNormalModel{M<:AbstractVector{<:Real}}
+    struct IsotropicNormalModel{M <: AbstractVector{<:Real}}
         "mean of the isotropic Gaussian"
         mean::M
     end
@@ -21,7 +21,7 @@ using Aqua
     end
     LogDensityProblems.capabilities(model::IsotropicNormalModel) = LogDensityProblems.LogDensityOrder{0}()
 
-    struct BendyBananaModel{T<:Real}
+    struct BendyBananaModel{T <: Real}
         σ::T
     end
     function LogDensityProblems.dimension(model::BendyBananaModel{<:Real})

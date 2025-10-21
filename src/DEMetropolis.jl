@@ -4,7 +4,8 @@ export step, step_warmup, fix_sampler, fix_sampler_state
 export r̂_stopping_criteria, process_outputs
 export deMC, deMCzs, DREAMz
 
-import Distributions: UnivariateDistribution, DiscreteUnivariateDistribution, ContinuousUnivariateDistribution
+import Distributions: UnivariateDistribution, DiscreteUnivariateDistribution,
+                      ContinuousUnivariateDistribution
 import Distributions: Sampleable, Discrete, Continuous, Univariate, sampler, params
 import Distributions: Dirac, Uniform, DiscreteUniform, Normal, Categorical, AliasTable
 import Distributions
@@ -15,7 +16,8 @@ import StatsBase
 import LinearAlgebra: norm, normalize, dot
 import Random: AbstractRNG, default_rng
 import Random
-import AbstractMCMC: LogDensityModel, AbstractSampler, step, step_warmup, AbstractModel, sample
+import AbstractMCMC: LogDensityModel, AbstractSampler, step, step_warmup, AbstractModel,
+                     sample
 import MCMCDiagnosticTools: rhat
 
 abstract type AbstractDifferentialEvolutionSampler <: AbstractSampler end
@@ -25,7 +27,6 @@ abstract type AbstractDifferentialEvolutionState{T, A, L, V, VV} end
 abstract type AbstractDifferentialEvolutionAdaptiveState{T} end
 
 abstract type AbstractDifferentialEvolutionTemperatureLadder{T} end
-
 
 include("temperature.jl")
 include("chains.jl")

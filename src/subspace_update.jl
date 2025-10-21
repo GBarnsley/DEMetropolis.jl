@@ -1,4 +1,5 @@
-abstract type AbstractDifferentialEvolutionSubspaceSampler <: AbstractDifferentialEvolutionSampler end
+abstract type AbstractDifferentialEvolutionSubspaceSampler <:
+              AbstractDifferentialEvolutionSampler end
 
 struct DifferentialEvolutionSubspaceSampler <: AbstractDifferentialEvolutionSubspaceSampler
     cr_spl::Sampleable{Univariate, <:Union{Continuous, Discrete}}
@@ -8,7 +9,8 @@ struct DifferentialEvolutionSubspaceSampler <: AbstractDifferentialEvolutionSubs
     e_spl::Sampleable{Univariate, Continuous}
 end
 
-struct DifferentialEvolutionSubspaceSamplerFixedGamma{T<:Real} <: AbstractDifferentialEvolutionSubspaceSampler
+struct DifferentialEvolutionSubspaceSamplerFixedGamma{T <: Real} <:
+       AbstractDifferentialEvolutionSubspaceSampler
     cr_spl::Sampleable{Univariate, <:Union{Continuous, Discrete}}
     n_cr::Int
     δ_spl::Sampleable{Univariate, Discrete}
@@ -45,8 +47,11 @@ See doi.org/10.1515/IJNSNS.2009.10.3.273 for more information.
 - A subspace sampler that can be used with [`setup_sampler_scheme`](@ref) or [`step`](@ref) or [`sample` from AbstractMCMC](https://turinglang.org/AbstractMCMC.jl/dev/api/#Common-keyword-arguments).
 
 # Example
-```jldoctest
-julia> setup_subspace_sampling(cr = Beta(1, 2), δ = 2)
+```@example subspace_sampling
+using DEMetropolis, Distributions
+
+# Setup subspace sampling with custom crossover rate and delta
+subspace_config = setup_subspace_sampling(cr = Beta(1, 2), δ = 2)
 ```
 
 See also [`setup_de_update`](@ref), [`setup_snooker_update`](@ref), [`setup_sampler_scheme`](@ref).
@@ -93,7 +98,8 @@ function setup_subspace_sampling(;
     end
 end
 
-function proposal(rng::AbstractRNG, sampler::AbstractDifferentialEvolutionSubspaceSampler, state::AbstractDifferentialEvolutionState, current_state::Int)
+function proposal(rng::AbstractRNG, sampler::AbstractDifferentialEvolutionSubspaceSampler,
+        state::AbstractDifferentialEvolutionState, current_state::Int)
     x = state.x[current_state]
 
     #determine how many dimensions to update
@@ -130,6 +136,8 @@ function get_γ(rng::AbstractRNG, sampler::DifferentialEvolutionSubspaceSampler,
     2.38 / sqrt(2 * δ * d)
 end
 
-function get_γ(rng::AbstractRNG, sampler::DifferentialEvolutionSubspaceSamplerFixedGamma{T}, δ::Int, d::Int) where {T <: Real}
+function get_γ(
+        rng::AbstractRNG, sampler::DifferentialEvolutionSubspaceSamplerFixedGamma{T},
+        δ::Int, d::Int) where {T <: Real}
     sampler.γ
 end

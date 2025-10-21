@@ -22,7 +22,7 @@
         de_sampler,
         n_its;
         num_warmup = n_warmup,
-        progress=false
+        progress = false
     )
 
     rng = Random.MersenneTwister(112)
@@ -32,8 +32,8 @@
         de_sampler,
         n_its;
         num_warmup = n_warmup,
-        parallel=true,
-        progress=false
+        parallel = true,
+        progress = false
     )
 
     equality_x = [isequal(output1[i].x, output2[i].x) for i in 1:length(output1)]
