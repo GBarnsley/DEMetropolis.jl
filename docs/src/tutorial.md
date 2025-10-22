@@ -9,7 +9,7 @@ In theory this allows the sampler to easily jump between modes of the distributi
 
 First we need to implement a multimodal distribution. We'll use a mixture of three Gaussians for one parameter and two LogNormal distributions for another, making this a 2D distribution. We can easily implement this using the `Distributions` package, which underpins most of the functionality in `DEMetropolis`.
 
-```julia
+```@example MMSampler
 using Distributions
 
 α_mixed_dist = MixtureModel([
@@ -32,7 +32,7 @@ end
 
 We can also transform our log density function, so we can provide real-valued inputs. This is much easier to work with.
 
-```julia
+```@example MMSampler
 using TransformedLogDensities, TransformVariables
 transformation = as((α = asℝ, β = asℝ₊))
 transformed_ld = TransformedLogDensity(transformation, multimodal_ld)
@@ -42,10 +42,15 @@ transformed_ld = TransformedLogDensity(transformation, multimodal_ld)
 
 Now let's use `DEMetropolis` to sample from this multimodal distribution. Here we use the DREAMz sampler, which is well-suited for exploring complex, multimodal spaces. We increase the number of chains to allow the sampler to explore the distribution more effectively.
 
-```julia
-using DEMetropolis
+```@example MMSampler
+using DEMetropolis, AbstractMCMC, Random
 
-dreamz = DREAMz(transformed_ld, 10000; thin = 2, n_chains = 5);
+model = AbstractMCMC.LogDensityModel(transformed_ld)
+
+Random.seed!(1234)
+
+# Sample using DREAMz with adaptive stopping based on convergence
+dreamz = DREAMz(model, 10000; n_chains = 6, progress = true);
 ```
 
 Other implementations of the differential evolution MCMC algorithm are available in `DEMetropolis.jl`, such as `deMC` and `deMCzs`, which can be used similarly.
@@ -54,26 +59,32 @@ Other implementations of the differential evolution MCMC algorithm are available
 
 DREAMz can be further customized. For example, we could include snooker updates alongside the DREAMz-like subspace sampling.
 
-You can also modify aspects of the implemented sampling, for example tell DREAMz to use not memory-based sampling with `DREAMz(..., memory = false)`, or you can define your own sampler scheme for more control over the sampling process.
+You can also modify aspects of the implemented sampling, for example tell DREAMz to use non-memory-based sampling with `DREAMz(...; memory = false)`, or you can define your own sampler scheme for more control over the sampling process.
 
-```julia
-using DEMetropolis, LogDensityProblems
-
-low_chains_sampler = setup_sampler_scheme(
+```@example MMSampler
+# Create a custom sampler scheme combining different update types
+custom_sampler = setup_sampler_scheme(
     setup_subspace_sampling(), # a DREAM-like sampler that uses subspace sampling
-    setup_snooker_update(deterministic_γ = false); # a snooker update for better exploration
-    w = [0.8, 0.2] # only use snooker 20% of the time
+    setup_snooker_update(deterministic_γ = false), # a snooker update for better exploration
+    setup_de_update(); # standard DE update
+    w = [0.6, 0.2, 0.2] # weights for each update type
 );
 
-initial_state = randn(100, LogDensityProblems.dimension(transformed_ld));
-
-custom = composite_sampler(
-    transformed_ld, 10000, 5, true, initial_state, low_chains_sampler, R̂_stopping_criteria(1.05);
-    diagnostic_checks = [ld_check()]
+# Sample using AbstractMCMC.sample with custom stopping criteria
+custom_result = sample(
+    model,
+    custom_sampler,
+    r̂_stopping_criteria;
+    check_every = 1000,
+    maximum_R̂ = 1.05,
+    n_chains = 4,
+    memory = true,
+    parallel = true,
+    num_warmup = 10000
 );
 ```
 
-You can also define your own samplers for more specialized use cases.
+You can also define your own samplers for more specialized use cases by extending the abstract types.
 
 ## Interpreting Results
 
@@ -86,44 +97,48 @@ To evaluate how well your sampler is performing, you can compute the effective s
 - **Effective Sample Size (ESS):** This measures the number of independent samples your chains are equivalent to. Higher ESS values indicate more reliable estimates.
 - **R-hat Diagnostic:** Also known as the Gelman-Rubin statistic, R-hat compares the variance within each chain to the variance between chains. Values close to 1 suggest good mixing and convergence; values much greater than 1 indicate potential problems.
 
-Below is an example of how to compute these diagnostics for two DEMetropolis samplers, `dreamz` and `custom`, using `MCMCChains`:
+Below is an example of how to compute these diagnostics for the DEMetropolis samplers using `MCMCDiagnosticTools`:
 
-```julia
+```@example MMSampler
 using Statistics, MCMCDiagnosticTools
 
-samplers = [dreamz, custom]
-sampler_names = ["DREAMz", "Custom Sampler"]
+# Compute diagnostics for DREAMz results
+ess_val = ess(dreamz.samples) ./ size(dreamz.samples, 1)
+rhat_val = maximum(rhat(dreamz.samples))
 
-for (sampler, name) in zip(samplers, sampler_names)
-    samples = sampler.samples  # shape: (iterations, chains, parameters)
-    ess_val = ess(samples)./size(samples, 1)
-    rhat_val = maximum(rhat(samples))
-    println("$name diagnostics:")
-    println("  ESS per iteration: $ess_val")
-    println("  R-hat: $rhat_val\n")
-end
+println("DREAMz diagnostics:")
+println("  ESS per iteration: $ess_val")
+println("  R-hat: $rhat_val")
 ```
 
 ### Summarizing Posterior Samples
 
 Once you have confirmed good mixing and convergence, you can summarize your posterior samples. For each parameter, you may want to compute the median and a credible interval (such as the 90% interval):
 
-```julia
-# Example: summarize the DREAMz sampler's posterior
-samples = dreamz.samples
-n_params = size(samples, 3)
+```@example MMSampler
+# Example: summarize the custom sampler's posterior
+custom_results = process_outputs(custom_result)
 
 # Flatten the samples across all chains and iterations for each parameter
-flat_samples = [vec(samples[:, :, param]) for param in 1:n_params]
+n_params = size(custom_results.samples, 3)
 
-for (i, param_samples) in enumerate(flat_samples)
-    med = median(param_samples)
-    q05, q95 = quantile(param_samples, [0.05, 0.95])
-    println("Parameter $i: median = $med, 90% CI = ($q05, $q95)")
-end
+reduced_samples = custom_results.samples[(size(custom_results.samples, 1) ÷ 2):size(custom_results.samples, 1), :, :]
+transformed_samples = [
+    transform(transformation, vec(reduced_samples[iteration, chain, :])) for 
+        iteration in axes(reduced_samples, 1),
+        chain in axes(reduced_samples, 2)
+][:]
+flat_samples = [vec([transformed_samples[i][param] for i in axes(transformed_samples, 1)]) for param in 1:n_params]
+
+med = median(flat_samples[1])
+q05, q95 = quantile(flat_samples[1], [0.05, 0.95])
+println("Parameter α: median = $med, 90% CI = ($q05, $q95)")
+println("True α: median = $(median(α_mixed_dist)), 90% CI = ($(quantile(α_mixed_dist, 0.05)), $(quantile(α_mixed_dist, 0.95)))")
+
+med = median(flat_samples[2])
+q05, q95 = quantile(flat_samples[2], [0.05, 0.95])
+println("Parameter β: median = $med, 90% CI = ($q05, $q95)")
+println("True β: median = $(median(β_mixed_dist)), 90% CI = ($(quantile(β_mixed_dist, 0.05)), $(quantile(β_mixed_dist, 0.95)))")
 ```
 
-This will print the median and 90% credible interval for each parameter, giving you a summary of the posterior distribution.
-
-For more details, see the [DEMetropolis Documentation](@ref) and the [Customizing your sampler](@ref) section. For general Julia documentation and best practices, refer to the [Julia documentation manual](https://docs.julialang.org/en/v1/manual/documentation/).
-
+For more details, see the [DEMetropolis Documentation](@ref) and [Customizing your sampler](@ref).

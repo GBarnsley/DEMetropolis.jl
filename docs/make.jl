@@ -11,7 +11,8 @@ makedocs(
         "index.md",
         "tutorial.md",
         "custom.md"
-    ]
+    ],
+    modules = [DEMetropolis]
 )
 
 deploydocs(

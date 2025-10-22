@@ -1,62 +1,89 @@
-function halve(x::Integer)
-    return Int(ceil(x / 2))
+#code for sample() outputs into something useful, see MCMCChains
+
+function samples_to_array(samples::Vector{DifferentialEvolutionSample{
+        V, VV}}) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
+    n_draws = length(samples)
+    n_chains = length(samples[1].x)
+    n_params = length(samples[1].x[1])
+
+    # Pre-allocate the 3D array
+    result = Array{T, 3}(undef, n_draws, n_chains, n_params)
+
+    @inbounds for (i, sample) in enumerate(samples)
+        for (j, chain) in enumerate(sample.x)
+            for (k, param) in enumerate(chain)
+                result[i, j, k] = param
+            end
+        end
+    end
+
+    return result
 end
 
-function setup_rngs(rng::AbstractRNG, n_chains::Int)
-    @static if VERSION >= v"1.7"
-        return [Random.Xoshiro(rand(rng, UInt)) for _ in 1:n_chains]
+function ld_to_array(samples::Vector{DifferentialEvolutionSample{
+        V, VV}}) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
+    n_draws = length(samples)
+    n_chains = length(samples[1].ld)
+
+    # Pre-allocate the 3D array
+    result = Array{T, 2}(undef, n_draws, n_chains)
+
+    @inbounds for (i, sample) in enumerate(samples)
+        for (j, ld) in enumerate(sample.ld)
+            result[i, j] = ld
+        end
+    end
+
+    return result
+end
+
+"""
+    process_outputs(samples; save_burnt=false, n_burnin=0)
+
+Process raw differential evolution sampling output into a structured format.
+
+This internal function converts the vector of DifferentialEvolutionSample objects
+returned by AbstractMCMC.sample into organized arrays suitable for analysis.
+It handles separation of burn-in and post-burn-in samples when requested.
+
+# Arguments
+- `samples`: Vector of DifferentialEvolutionSample objects from sampling
+
+# Keyword Arguments
+- `save_burnt`: Whether to include burn-in samples in the output. Defaults to `false`.
+- `n_burnin`: Number of burn-in iterations to separate. Defaults to 0.
+
+# Returns
+- Named tuple containing:
+  - `samples`: 3D array (iterations, chains, parameters) of post-burn-in samples
+  - `ld`: 2D array (iterations, chains) of post-burn-in log-densities
+  - `burnt_samples`: 3D array of burn-in samples (only if `save_burnt=true`)
+  - `burnt_ld`: 2D array of burn-in log-densities (only if `save_burnt=true`)
+
+# Example
+```julia
+# Internal usage in template functions
+result = process_outputs(raw_samples; save_burnt=true, n_burnin=5000)
+```
+"""
+function process_outputs(
+        samples::Vector{DifferentialEvolutionSample{V, VV}};
+        save_burnt::Bool = false,
+        n_burnin::Int = 0
+) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
+    ld = ld_to_array(samples)
+    x = samples_to_array(samples)
+    if save_burnt
+        return (
+            samples = x[(n_burnin + 1):end, :, :],
+            ld = ld[(n_burnin + 1):end, :],
+            burnt_samples = x[1:n_burnin, :, :],
+            burnt_ld = ld[1:n_burnin, :]
+        )
     else
-        return [Random.MersenneTwister(rand(rng, UInt)) for _ in 1:n_chains]
+        return (
+            samples = x,
+            ld = ld
+        )
     end
-end
-
-function population_to_samples(chains::chains_struct{T}, its::UnitRange{Int}) where {T <:
-                                                                                     Real}
-    samples = Array{T}(
-        undef, length(its), chains.n_chains, size(chains.X, 2))
-    for i in eachindex(its), j in 1:(chains.n_chains)
-
-        samples[i, j, :] = chains.X[j + ((its[i] - 1) * chains.n_chains) + chains.N₀, :]
-    end
-    return samples
-end
-
-function ld_to_samples(chains::chains_struct{T}, its::UnitRange{Int}) where {T <: Real}
-    lds = Array{T}(undef, length(its), chains.n_chains)
-    for i in eachindex(its), j in 1:(chains.n_chains)
-
-        lds[i, j] = chains.ld[j + ((its[i] - 1) * chains.n_chains) + chains.N₀]
-    end
-    return lds
-end
-
-function format_output(chains::chains_struct, sampler_scheme, sample_indices)
-    return (
-        sampler_scheme = sampler_scheme,
-        samples = population_to_samples(chains, sample_indices),
-        ld = ld_to_samples(chains, sample_indices)
-    )
-end
-
-function format_output(chains::chains_struct, sampler_scheme, sample_indices, burnt_indices)
-    return (
-        sampler_scheme = sampler_scheme,
-        samples = population_to_samples(chains, sample_indices),
-        ld = ld_to_samples(chains, sample_indices),
-        burnt_samples = population_to_samples(chains, burnt_indices),
-        burnt_ld = ld_to_samples(chains, burnt_indices)
-    )
-end
-
-function get_sampling_indices(min_it::Int, max_it::Int)
-    n_its = halve(max_it - min_it)
-    (max_it - n_its + 1):max_it
-end
-
-function partition_integer(I::Int, n::Int)
-    base = I ÷ n  # Base size of each group
-    remainder = I % n  # Remaining units to distribute
-
-    # Create n groups: first 'remainder' groups get (base + 1), the rest get 'base'
-    return vcat(fill(base + 1, remainder), fill(base, n - remainder))
 end
