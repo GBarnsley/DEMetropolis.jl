@@ -73,7 +73,7 @@ function setup_subspace_sampling(;
         cr = Dirac(cr)
         n_cr = 0
     elseif isnothing(cr)
-        cr = Categorical(repeat([1 / n_cr], n_cr))
+        cr = create_cr_dist(n_cr)
     else
         n_cr = 0
     end
@@ -98,13 +98,17 @@ function setup_subspace_sampling(;
     end
 end
 
+function create_cr_dist(n_cr::Int)
+    DiscreteNonParametric(collect(1:n_cr) ./ n_cr, repeat([1 / n_cr], n_cr))
+end
+
 function proposal(rng::AbstractRNG, sampler::AbstractDifferentialEvolutionSubspaceSampler,
         state::AbstractDifferentialEvolutionState, current_state::Int)
     x = state.x[current_state]
 
     #determine how many dimensions to update
     cr = rand(rng, sampler.cr_spl)
-    to_update = rand(rng, length(x)) .< (cr / maximum(cr))
+    to_update = rand(rng, length(x)) .< cr
     d = sum(to_update)
 
     if d == 0

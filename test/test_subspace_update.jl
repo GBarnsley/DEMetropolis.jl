@@ -5,7 +5,7 @@
             δ = 1
         )
         @test isa(dist.δ_spl, Dirac)
-        @test isa(dist.cr_spl, Distributions.AliasTable)
+        @test isa(dist.cr_spl, Distributions.DiscreteNonParametricSampler)
         dist = setup_subspace_sampling(
             γ = 1.0,
             δ = Poisson(0.5),

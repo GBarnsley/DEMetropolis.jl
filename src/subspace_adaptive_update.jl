@@ -5,7 +5,7 @@ struct DifferentialEvolutionAdaptiveSubspace{T <: Real} <:
     "squared normalised jumping distance for each crossover probability for each crossover probability"
     Δ::Vector{T}
     "distribution for crossover probabilities"
-    cr_spl::Sampleable{Univariate, <:Union{Continuous, Discrete}}
+    cr_spl::DiscreteNonParametricSampler
     "running count for variance calculation"
     var_count::Int
     "running mean for each dimension"
@@ -142,7 +142,7 @@ function step_warmup(
             xₚ[i] = prop.xₚ
             accepted = update_chain!(model, rngs[i], xₚ, ldₚ, x, ld, prop.offset, i,
                 get_temperature(state.temperature_ladder, i))
-            cr_update[i] = prop.cr
+            cr_update[i] = findfirst(prop.cr .== adaptive_state.cr_spl.support)
             if accepted
                 Δ_update[i] += sum(
                     (x[i] .- xₚ[i]) .* (x[i] .- xₚ[i]) ./ variance
@@ -161,9 +161,10 @@ function step_warmup(
             accepted = update_chain!(model, chain_rng, xₚ, ldₚ, x, ld, prop.offset,
                 i, get_temperature(state.temperature_ladder, i))
 
-            L[prop.cr] += 1
+            cr_update = findfirst(prop.cr .== adaptive_state.cr_spl.support)
+            L[cr_update] += 1
             if accepted
-                Δ[prop.cr] += sum(
+                Δ[cr_update] += sum(
                     (x[i] .- xₚ[i]) .* (x[i] .- xₚ[i]) ./ variance
                 )
             end
@@ -176,7 +177,7 @@ function step_warmup(
         p = sum(L) .* (Δ ./ L) ./ sum(Δ)
         # correct (need to check this is right)
         p ./= sum(p)
-        cr_spl = Distributions.sampler(Categorical(p))
+        cr_spl = Distributions.sampler(DiscreteNonParametric(adaptive_state.cr_spl.support, p))
     else
         cr_spl = adaptive_state.cr_spl
     end
@@ -205,7 +206,14 @@ function initialize_adaptive_state(sampler::AbstractDifferentialEvolutionSubspac
     else
         L = zeros(Int, n_cr)
         Δ = zeros(T, n_cr)
-        cr_spl = Distributions.sampler(Categorical(repeat([1 / n_cr], n_cr)))
+        if sampler.cr_spl isa DiscreteNonParametricSampler
+            if any(.!(sampler.cr_spl.support .≈ create_cr_dist(n_cr).support))
+                @warn "Adapting provided crossover probabilities."
+            end
+            cr_spl = sampler.cr_spl
+        else
+            cr_spl = Distributions.sampler(create_cr_dist(n_cr))
+        end
         # Initialize running variance tracking
         var_count = 0
         var_mean = zeros(T, d)
