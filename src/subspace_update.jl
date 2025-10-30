@@ -33,7 +33,7 @@ See doi.org/10.1515/IJNSNS.2009.10.3.273 for more information.
   adaptive formula `2.38 / sqrt(2 * δ * d)` where `d` is the number of updated dimensions.
   If a `Real` is provided, uses that fixed value throughout sampling.
 - `cr`: Crossover probability for parameter selection. Can be a `Real` (fixed probability),
-  `nothing` (adaptive using `n_cr` values), or a `UnivariateDistribution`. Defaults to `nothing`.
+  `nothing` (adaptive using `n_cr` values), or a `UnivariateDistribution`. If cr is a `DiscreteNonParametric` then it those values can also be adapted. Defaults to `nothing`.
 - `n_cr`: Number of crossover probabilities to adapt between when `cr` is `nothing`.
   Higher values allow more fine-tuned adaptation. Defaults to 3.
 - `δ`: Number of difference vectors to sum. Can be an `Integer` (fixed) or a
@@ -42,6 +42,7 @@ See doi.org/10.1515/IJNSNS.2009.10.3.273 for more information.
   `Uniform(-1e-4, 1e-4)`.
 - `e`: Distribution for multiplicative noise `(1 + e)` applied to the difference vector sum.
   Defaults to `Normal(0.0, 1e-2)`.
+- `check_args`: Whether to validate input distributions. Defaults to `true`.
 
 # Returns
 - A subspace sampler that can be used with [`setup_sampler_scheme`](@ref) or [`step`](@ref) or [`sample` from AbstractMCMC](https://turinglang.org/AbstractMCMC.jl/dev/api/#Common-keyword-arguments).
@@ -63,7 +64,8 @@ function setup_subspace_sampling(;
         δ::Union{Integer, DiscreteUnivariateDistribution} = DiscreteUniform(
             1, 3),
         ϵ::ContinuousUnivariateDistribution = Uniform(-1e-4, 1e-4),
-        e::ContinuousUnivariateDistribution = Normal(0.0, 1e-2)
+        e::ContinuousUnivariateDistribution = Normal(0.0, 1e-2),
+        check_args::Bool = true
 )
     if isa(δ, Integer)
         δ = Dirac(δ)
@@ -74,8 +76,22 @@ function setup_subspace_sampling(;
         n_cr = 0
     elseif isnothing(cr)
         cr = create_cr_dist(n_cr)
+    elseif isa(cr, DiscreteNonParametric)
+        n_cr = length(Distributions.support(cr))
     else
         n_cr = 0
+    end
+
+    if check_args
+        if Distributions.minimum(cr) ≤ 0
+            error("Distribution of crossover probabilities (cr) should be bounded above 0")
+        elseif Distributions.maximum(cr) > 1
+            error("Distribution of crossover probabilities (cr) should be ≤ 1")
+        elseif Distributions.minimum(δ) ≤ 0
+            error("Distribution of δ should be bounded above 0")
+        end
+        noise_checks(ϵ, "ϵ")
+        noise_checks(e, "e")
     end
 
     if isnothing(γ)
@@ -87,6 +103,11 @@ function setup_subspace_sampling(;
             sampler(e)
         )
     else
+        if check_args
+            if γ ≤ 0
+                error("γ should be ≥ 0")
+            end
+        end
         DifferentialEvolutionSubspaceSamplerFixedGamma{eltype(γ)}(
             sampler(cr),
             n_cr,

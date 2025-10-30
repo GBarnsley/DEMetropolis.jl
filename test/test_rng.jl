@@ -9,7 +9,7 @@
         setup_snooker_update(deterministic_γ = true),
         setup_subspace_sampling(),
         setup_subspace_sampling(γ = 1.0),
-        setup_subspace_sampling(cr = DiscreteUniform(1, 2))
+        setup_subspace_sampling(cr = DiscreteNonParametric([0.5, 1.0], [0.5, 0.5]))
     )
 
     #should give the same result
