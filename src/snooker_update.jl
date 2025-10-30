@@ -19,6 +19,7 @@ See doi.org/10.1007/s11222-008-9104-9 for more information.
 - `deterministic_γ`: When `γ` is `nothing`, determines the automatic value. If `true`,
   uses the theoretically optimal `2.38 / sqrt(2)`. If `false`, uses `Uniform(0.8, 1.2)`.
   Defaults to `true`.
+- `check_args`: Whether to validate input distributions. Defaults to `true`.
 
 # Returns
 - A `DifferentialEvolutionSnookerSampler` that can be used with [`setup_sampler_scheme`](@ref) or [`step`](@ref) or [`sample` from AbstractMCMC](https://turinglang.org/AbstractMCMC.jl/dev/api/#Common-keyword-arguments).
@@ -35,7 +36,8 @@ See also [`setup_de_update`](@ref), [`setup_subspace_sampling`](@ref), [`setup_s
 """
 function setup_snooker_update(;
         γ::Union{Nothing, UnivariateDistribution, Real} = nothing,
-        deterministic_γ::Bool = true
+        deterministic_γ::Bool = true,
+        check_args::Bool = true
 )
     if isnothing(γ)
         if deterministic_γ
@@ -45,6 +47,14 @@ function setup_snooker_update(;
         end
     elseif isa(γ, Real)
         γ = Dirac(γ)
+    end
+
+    if check_args
+        if Distributions.minimum(γ) < 0
+            error("Distribution of γ should be bounded above 0")
+        elseif Distributions.maximum(γ) ≤ 0
+            error("Distribution of γ should be able to return values above 0")
+        end
     end
 
     return DifferentialEvolutionSnookerSampler(sampler(γ))

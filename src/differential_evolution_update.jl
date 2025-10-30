@@ -21,6 +21,7 @@ See doi.org/10.1007/s11222-006-8769-1 for more information.
 - `n_dims`: Problem dimension used for automatic `γ` selection. If > 0 and `γ` is `nothing`,
   sets `γ` to the theoretically optimal `2.38 / sqrt(2 * n_dims)`. If ≤ 0, uses
   `Uniform(0.8, 1.2)`. Defaults to 0.
+- `check_args`: Whether to validate input distributions. Defaults to `true`.
 
 # Returns
 - A `DifferentialEvolutionSampler` that can be used with [`setup_sampler_scheme`](@ref) or [`step`](@ref) or [`sample` from AbstractMCMC](https://turinglang.org/AbstractMCMC.jl/dev/api/#Common-keyword-arguments).
@@ -38,7 +39,8 @@ See also [`setup_snooker_update`](@ref), [`setup_subspace_sampling`](@ref), [`se
 function setup_de_update(;
         γ::Union{Nothing, UnivariateDistribution, Real} = nothing,
         β::ContinuousUnivariateDistribution = Uniform(-1e-4, 1e-4),
-        n_dims::Int = 0
+        n_dims::Int = 0,
+        check_args::Bool = true
 )
     if isnothing(γ)
         if n_dims > 0
@@ -50,7 +52,24 @@ function setup_de_update(;
         γ = Dirac(γ)
     end
 
+    if check_args
+        if Distributions.minimum(γ) < 0
+            error("Distribution of γ should be bounded above 0")
+        elseif Distributions.maximum(γ) ≤ 0
+            error("Distribution of γ should be able to return values above 0")
+        end
+        noise_checks(β, "β")
+    end
+
     return DifferentialEvolutionSampler(sampler(γ), sampler(β))
+end
+
+function noise_checks(dist, name)
+    if !(Distributions.mode(dist) ≈ 0.0)
+        error("Distribution of $name should be centred around 0")
+    elseif Distributions.median(dist) != Distributions.mode(dist)
+        error("Distribution of $name should be uni-model and symmetric")
+    end
 end
 
 function proposal(rng::AbstractRNG, sampler::DifferentialEvolutionSampler,
