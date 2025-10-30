@@ -71,7 +71,7 @@ custom_sampler = setup_sampler_scheme(
 );
 
 # Sample using AbstractMCMC.sample with custom stopping criteria
-custom_result = sample(
+custom_results = sample(
     model,
     custom_sampler,
     r̂_stopping_criteria;
@@ -80,7 +80,8 @@ custom_result = sample(
     n_chains = 4,
     memory = true,
     parallel = true,
-    num_warmup = 10000
+    num_warmup = 10000,
+    chain_type = DifferentialEvolutionOutput
 );
 ```
 
@@ -116,8 +117,6 @@ println("  R-hat: $rhat_val")
 Once you have confirmed good mixing and convergence, you can summarize your posterior samples. For each parameter, you may want to compute the median and a credible interval (such as the 90% interval):
 
 ```@example MMSampler
-# Example: summarize the custom sampler's posterior
-custom_results = process_outputs(custom_result)
 
 # Flatten the samples across all chains and iterations for each parameter
 n_params = size(custom_results.samples, 3)

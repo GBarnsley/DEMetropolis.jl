@@ -265,10 +265,9 @@ result = sample(
     n_chains = 6,
     num_warmup = 10000, #adaptive steps
     memory = true,
-    parallel = false
+    parallel = false,
+    chain_type = DifferentialEvolutionOutput
 )
-
-result = process_outputs(result)
 
 plot(result.samples[:, :, 1])
 plot(result.samples[:, :, 2])
