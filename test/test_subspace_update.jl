@@ -60,7 +60,7 @@
         model = IsotropicNormalModel([-5.0, 5.0])
 
         de_sampler = setup_subspace_sampling(
-            cr = DiscreteNonParametric((1:5)./5, repeat([1/5], 5))
+            cr = DiscreteNonParametric((1:5) ./ 5, repeat([1/5], 5))
         )
 
         sample_result,
@@ -127,7 +127,7 @@
         model = IsotropicNormalModel([-5.0, 5.0])
 
         de_sampler = setup_subspace_sampling(
-            cr = DiscreteNonParametric((1:5)./5, repeat([1/5], 5)),
+            cr = DiscreteNonParametric((1:5) ./ 5, repeat([1/5], 5)),
             γ = 1.0
         )
 

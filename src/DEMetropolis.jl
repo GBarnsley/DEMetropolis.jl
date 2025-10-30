@@ -7,7 +7,8 @@ export deMC, deMCzs, DREAMz
 import Distributions: UnivariateDistribution, DiscreteUnivariateDistribution,
                       ContinuousUnivariateDistribution, DiscreteNonParametricSampler
 import Distributions: Sampleable, Discrete, Continuous, Univariate, sampler, params
-import Distributions: Dirac, Uniform, DiscreteUniform, Normal, Categorical, AliasTable, DiscreteNonParametric
+import Distributions: Dirac, Uniform, DiscreteUniform, Normal, Categorical, AliasTable,
+                      DiscreteNonParametric
 import Distributions
 
 import LogDensityProblems: logdensity, dimension
