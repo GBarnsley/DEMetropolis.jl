@@ -76,7 +76,7 @@
                 rng = rng,
                 save_burnt = false
             )
-            @test haskey(result, :samples)
+            @test isa(result, DifferentialEvolutionOutput)
         end
 
         @testset "deMCzs with Simulated Annealing" begin
@@ -89,7 +89,7 @@
                 rng = rng
             )
 
-            @test haskey(result, :samples)
+            @test isa(result, DifferentialEvolutionOutput)
             @test size(result.samples, 3) == n_dims
         end
 
@@ -103,7 +103,7 @@
                 rng = rng
             )
 
-            @test haskey(result, :samples)
+            @test isa(result, DifferentialEvolutionOutput)
             @test size(result.samples, 3) == n_dims
         end
     end
@@ -123,7 +123,7 @@
             α = 1.0,
             rng = rng
         )
-        @test haskey(result, :samples)
+        @test isa(result, DifferentialEvolutionOutput)
     end
 
     @testset "Parameter Edge Cases and Validation" begin
@@ -136,7 +136,7 @@
                 max_temp_pt = 5.0,
                 rng = rng
             )
-            @test haskey(result, :samples)
+            @test isa(result, DifferentialEvolutionOutput)
         end
 
         @testset "Different Temperature Spacing" begin
@@ -149,7 +149,7 @@
                 memory = false,
                 rng = rng
             )
-            @test haskey(result_close, :samples)
+            @test isa(result_close, DifferentialEvolutionOutput)
 
             # Test wide temperature spacing
             result_wide = deMC(ld, 30;
@@ -160,7 +160,7 @@
                 memory = false,
                 rng = rng
             )
-            @test haskey(result_wide, :samples)
+            @test isa(result_wide, DifferentialEvolutionOutput)
         end
 
         @testset "Custom Temperature Ladder" begin
@@ -173,7 +173,7 @@
                 memory = false,
                 rng = rng
             )
-            @test haskey(result, :samples)
+            @test isa(result, DifferentialEvolutionOutput)
             @test size(result.samples, 2) == 2  # Only cold chains
         end
     end
@@ -204,7 +204,7 @@
                 rng = rng,
                 memory = false
             )
-            @test haskey(result, :samples)
+            @test isa(result, DifferentialEvolutionOutput)
         end
 
         @testset "Snooker Updates with Temperature" begin
@@ -216,7 +216,7 @@
                 rng = rng,
                 memory = false
             )
-            @test haskey(result, :samples)
+            @test isa(result, DifferentialEvolutionOutput)
         end
     end
 
@@ -232,7 +232,7 @@
             rng = rng,
             memory = false
         )
-        @test haskey(result, :samples)
+        @test isa(result, DifferentialEvolutionOutput)
         @test size(result.samples, 2) == 2
     end
 end
