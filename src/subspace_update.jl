@@ -142,7 +142,7 @@ function proposal(rng::AbstractRNG, sampler::AbstractDifferentialEvolutionSubspa
     δ = rand(rng, sampler.δ_spl)
 
     #generate candidate
-    z = copy(x)
+    z = zeros(eltype(x), length(x))
     for _ in 1:δ
         #pick to random chains find the difference and add to the candidate
         x₁, x₂ = pick_chains(rng, state, current_state, 2)
