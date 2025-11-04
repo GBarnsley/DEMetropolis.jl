@@ -1,6 +1,6 @@
 using DEMetropolis
 using Test
-using LogDensityProblems, Random, Distributions, AbstractMCMC
+using LogDensityProblems, Random, Distributions, AbstractMCMC, MCMCChains
 using Aqua
 
 @testset "DEMetropolis.jl" begin

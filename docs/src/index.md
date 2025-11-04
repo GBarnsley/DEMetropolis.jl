@@ -58,10 +58,12 @@ DEMetropolis.fix_sampler_state
 r̂_stopping_criteria
 ```
 
-### Utilities
+### Output
+
+The output format can be modified with `chain_type`, the supported options are `Chains` from [MCMCChains](https://turinglang.org/MCMCChains.jl/stable/), `Any` which returns the basic `DEMetropolis.DifferentialEvolutionSample`, and the default option `DifferentialEvolutionOutput`. If `save_final_state = true` the format will be `(sample::requested format, final_state)`. If run in parallel using `step(model, sampler, parallel_option, n_its, n_meta_chains; n_chains = n_chains)` the meta chains and DE chains will be merged into one dimension for both `Chains` and `DifferentialEvolutionOutput`, if the final state is saved it will be a vector of length `n_meta_chains` containing the final state for each.
 
 ```@docs
-process_outputs
+DifferentialEvolutionOutput
 ```
 
 ## Index

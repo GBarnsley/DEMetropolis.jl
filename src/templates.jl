@@ -37,6 +37,8 @@ See doi.org/10.1007/s11222-006-8769-1 for more information.
 - `annealing`: Whether to use simulated annealing. Defaults to `false`.
 - `annealing_steps`: Number of annealing steps. Defaults to 0 or the number of warmup-steps (when using AbstractMCMC.sample).
 - `temperature_ladder`: Pre-defined temperature ladder. Defaults to automatic creation based on other parameters.
+- `chain_type`: Type of chain to return (e.g., `Any`, `DifferentialEvolutionOutput`, `MCMCChains.Chains`). Defaults to `DifferentialEvolutionOutput`.
+- `save_final_state`: Whether to return the final state along with samples, if true the output will be (samples::chain_type, final_state). Defaults to `false`.
 - `kwargs...`: Additional keyword arguments passed to `AbstractMCMC.sample` (see [AbstractMCMC documentation](https://turinglang.org/AbstractMCMC.jl/stable/api/#Common-keyword-arguments)).
 
 # Returns
@@ -67,6 +69,7 @@ function deMC(
         γ₂::T = 1.0,
         p_γ₂::T = 0.1,
         β::ContinuousUnivariateDistribution = Uniform(-1e-4, 1e-4),
+        chain_type = DifferentialEvolutionOutput,
         kwargs...
 ) where {T <: Real}
 
@@ -89,21 +92,19 @@ function deMC(
         its = n_its
     end
 
-    return process_outputs(
-        sample(
-            rng,
-            model_wrapper,
-            sampler_scheme,
-            its;
-            num_warmup = n_burnin,
-            initial_position = initial_state,
-            thinning = thin,
-            discard_initial = save_burnt ? 0 : n_burnin,
-            memory = memory,
-            kwargs...
-        );
-        save_burnt = save_burnt,
-        n_burnin = n_burnin)
+    return sample(
+        rng,
+        model_wrapper,
+        sampler_scheme,
+        its;
+        num_warmup = n_burnin,
+        initial_position = initial_state,
+        thinning = thin,
+        discard_initial = save_burnt ? 0 : n_burnin,
+        memory = memory,
+        chain_type = chain_type,
+        kwargs...
+    )
 end
 
 """
@@ -144,6 +145,8 @@ Proposed by ter Braak and Vrugt (2008), see doi.org/10.1007/s11222-008-9104-9.
 - `annealing`: Whether to use simulated annealing. Defaults to `false`.
 - `annealing_steps`: Number of annealing steps. Defaults to 0 or the number of warmup-steps (when using AbstractMCMC.sample).
 - `temperature_ladder`: Pre-defined temperature ladder. Defaults to automatic creation based on other parameters.
+- `chain_type`: Type of chain to return (e.g., `Any`, `DifferentialEvolutionOutput`, `MCMCChains.Chains`). Defaults to `DifferentialEvolutionOutput`.
+- `save_final_state`: Whether to return the final state along with samples, if true the output will be (samples::chain_type, final_state). Defaults to `false`.
 - `kwargs...`: Additional keyword arguments passed to `AbstractMCMC.sample` (see [AbstractMCMC documentation](https://turinglang.org/AbstractMCMC.jl/stable/api/#Common-keyword-arguments)).
 
 # Returns
@@ -174,6 +177,7 @@ function deMCzs(
         γₛ::Union{Nothing, T} = nothing,
         p_snooker::Union{Nothing, T} = 0.1,
         β::Distributions.Uniform{T} = Distributions.Uniform(-1e-4, 1e-4),
+        chain_type = DifferentialEvolutionOutput,
         thin::Int = 1,
         kwargs...
 ) where {T <: Real}
@@ -193,25 +197,23 @@ function deMCzs(
 
     n_burnin = check_every * warmup_epochs
 
-    return process_outputs(
-        sample(
-            rng,
-            model_wrapper,
-            sampler_scheme,
-            r̂_stopping_criteria;
-            maximum_R̂ = maximum_R̂,
-            check_every = check_every,
-            minimum_iterations = save_burnt ? n_burnin + 1 : 0,
-            maximum_iterations = save_burnt ? (check_every * epoch_limit) + n_burnin :
-                                 (check_every * epoch_limit),
-            num_warmup = n_burnin,
-            initial_position = initial_state,
-            thinning = thin,
-            discard_initial = save_burnt ? 0 : n_burnin,
-            kwargs...
-        );
-        save_burnt = save_burnt,
-        n_burnin = n_burnin)
+    return sample(
+        rng,
+        model_wrapper,
+        sampler_scheme,
+        r̂_stopping_criteria;
+        maximum_R̂ = maximum_R̂,
+        check_every = check_every,
+        minimum_iterations = save_burnt ? n_burnin + 1 : 0,
+        maximum_iterations = save_burnt ? (check_every * epoch_limit) + n_burnin :
+                             (check_every * epoch_limit),
+        num_warmup = n_burnin,
+        initial_position = initial_state,
+        thinning = thin,
+        discard_initial = save_burnt ? 0 : n_burnin,
+        chain_type = chain_type,
+        kwargs...
+    )
 end
 
 """
@@ -257,6 +259,8 @@ Based on Vrugt et al. (2009), see doi.org/10.1515/IJNSNS.2009.10.3.273.
 - `α`: Temperature ladder spacing parameter. Defaults to 1.0.
 - `annealing`: Whether to use simulated annealing. Defaults to `false`.
 - `annealing_steps`: Number of annealing steps. Defaults to 0 or the number of warmup-steps (when using AbstractMCMC.sample).
+- `chain_type`: Type of chain to return (e.g., `Any`, `DifferentialEvolutionOutput`, `MCMCChains.Chains`). Defaults to `DifferentialEvolutionOutput`.
+- `save_final_state`: Whether to return the final state along with samples, if true the output will be (samples::chain_type, final_state). Defaults to `false`.
 - `kwargs...`: Additional keyword arguments passed to `AbstractMCMC.sample` (see [AbstractMCMC documentation](https://turinglang.org/AbstractMCMC.jl/stable/api/#Common-keyword-arguments)).
 
 # Returns
@@ -292,6 +296,7 @@ function DREAMz(
         ϵ::Distributions.Uniform{T} = Distributions.Uniform(-1e-4, 1e-4),
         e::Distributions.Normal{T} = Distributions.Normal(0.0, 1e-2),
         δ::Distributions.DiscreteUniform = Distributions.DiscreteUniform(1, 3),
+        chain_type = DifferentialEvolutionOutput,
         thin::Int = 1,
         kwargs...
 ) where {T <: Real}
@@ -311,23 +316,21 @@ function DREAMz(
 
     n_burnin = check_every * warmup_epochs
 
-    return process_outputs(
-        sample(
-            rng,
-            model_wrapper,
-            sampler_scheme,
-            r̂_stopping_criteria;
-            maximum_R̂ = maximum_R̂,
-            check_every = check_every,
-            minimum_iterations = save_burnt ? n_burnin + 1 : 0,
-            maximum_iterations = save_burnt ? (check_every * epoch_limit) + n_burnin :
-                                 (check_every * epoch_limit),
-            num_warmup = n_burnin,
-            initial_position = initial_state,
-            thinning = thin,
-            discard_initial = save_burnt ? 0 : n_burnin,
-            kwargs...
-        );
-        save_burnt = save_burnt,
-        n_burnin = n_burnin)
+    return sample(
+        rng,
+        model_wrapper,
+        sampler_scheme,
+        r̂_stopping_criteria;
+        maximum_R̂ = maximum_R̂,
+        check_every = check_every,
+        minimum_iterations = save_burnt ? n_burnin + 1 : 0,
+        maximum_iterations = save_burnt ? (check_every * epoch_limit) + n_burnin :
+                             (check_every * epoch_limit),
+        num_warmup = n_burnin,
+        initial_position = initial_state,
+        thinning = thin,
+        discard_initial = save_burnt ? 0 : n_burnin,
+        chain_type = chain_type,
+        kwargs...
+    )
 end
