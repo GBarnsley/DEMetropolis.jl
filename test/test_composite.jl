@@ -1,153 +1,351 @@
-@testset "composite sampler" begin
-    #easy problem that uses all the updates
-    function ld_normal(x)
-        sum(-(x .* x) / 2)
-    end
-    n_pars = 2;
-    ld = TransformedLogDensities.TransformedLogDensity(as(Array, n_pars), ld_normal);
-    n_chains = 4;
-    rng = Random.MersenneTwister(1234);
-    initial_state = randn(rng, n_chains, n_pars);
-    sampler_scheme = setup_sampler_scheme(
-        setup_de_update(ld, deterministic_γ = false),
-        setup_de_update(ld, deterministic_γ = true),
-        setup_snooker_update(deterministic_γ = false),
-        setup_snooker_update(deterministic_γ = true),
-        setup_subspace_sampling(),
-        setup_subspace_sampling(γ = 1.0),
-        setup_subspace_sampling(γ = 1.0, cr = 0.5);
-        w = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-    );
+@testset "Composite Sampler" begin
+    @testset "Composite Setup" begin
+        # Test single update
+        single_sampler = setup_sampler_scheme(setup_de_update())
+        @test isa(single_sampler, DEMetropolis.DifferentialEvolutionCompositeSampler)
+        @test length(single_sampler.updates) == 1
+        @test length(single_sampler.update_weights) == 1
+        @test single_sampler.update_weights[1] == 1.0
 
-    diagnostic_checks = [
-        ld_check(),
-        acceptance_check()
-    ];
+        # Test multiple updates with equal weights
+        multi_sampler = setup_sampler_scheme(
+            setup_de_update(),
+            setup_snooker_update(),
+            setup_subspace_sampling()
+        )
+        @test isa(multi_sampler, DEMetropolis.DifferentialEvolutionCompositeSampler)
+        @test length(multi_sampler.updates) == 3
+        @test length(multi_sampler.update_weights) == 3
+        @test all(multi_sampler.update_weights .== 1.0)
 
-    @testset "iterative" begin
-        n_its = 10
-        n_burnin = 10
-        output_mem = composite_sampler(
-            ld, n_its, n_chains, true,
-            cat(initial_state, initial_state, initial_state, dims = 1), sampler_scheme;
-            save_burnt = true, rng = rng, n_burnin = n_burnin, parallel = false,
-            diagnostic_checks = diagnostic_checks
+        # Test with custom weights
+        weighted_sampler = setup_sampler_scheme(
+            setup_de_update(),
+            setup_snooker_update(),
+            w = [0.7, 0.3]
         )
-        output = composite_sampler(
-            ld, n_its, n_chains, false, initial_state, sampler_scheme;
-            save_burnt = true, rng = rng, n_burnin = n_burnin, parallel = false
-        )
-        output_nob = composite_sampler(
-            ld, n_its, n_chains, false, initial_state, sampler_scheme;
-            save_burnt = false, rng = rng, n_burnin = n_burnin, parallel = false
-        )
-        @test size(output.samples) == (n_its, n_chains, n_pars)
-        @test size(output.ld) == (n_its, n_chains)
-        @test size(output.burnt_samples) == (n_its, n_chains, n_pars)
-        @test size(output.burnt_ld) == (n_its, n_chains)
-        @test size(output_mem.samples) == (n_its, n_chains, n_pars)
-        @test size(output_mem.ld) == (n_its, n_chains)
-        @test size(output_mem.burnt_samples) == (n_its, n_chains, n_pars)
-        @test size(output_mem.burnt_ld) == (n_its, n_chains)
-        @test !(:burnt_samples in keys(output_nob))
-        @test eltype(output.samples) == eltype(initial_state)
-        @test eltype(output.ld) == eltype(initial_state)
-    end
+        @test isa(weighted_sampler, DEMetropolis.DifferentialEvolutionCompositeSampler)
+        @test length(weighted_sampler.updates) == 2
+        @test weighted_sampler.update_weights == [0.7, 0.3]
 
-    @testset "iterative_simple_update" begin
-        n_its = 10
-        n_burnin = 10
-        output_mem = composite_sampler(
-            ld, n_its, n_chains, true,
-            cat(initial_state, initial_state, initial_state, dims = 1),
-            setup_sampler_scheme(setup_subspace_sampling());
-            save_burnt = true, rng = rng, n_burnin = n_burnin, parallel = false,
-            diagnostic_checks = diagnostic_checks
-        )
-        output = composite_sampler(
-            ld, n_its, n_chains, false, initial_state,
-            setup_sampler_scheme(setup_subspace_sampling());
-            save_burnt = true, rng = rng, n_burnin = n_burnin, parallel = false
-        )
-        output_nob = composite_sampler(
-            ld, n_its, n_chains, false, initial_state,
-            setup_sampler_scheme(setup_subspace_sampling());
-            save_burnt = false, rng = rng, n_burnin = n_burnin, parallel = false
-        )
-        @test size(output.samples) == (n_its, n_chains, n_pars)
-        @test size(output.ld) == (n_its, n_chains)
-        @test size(output.burnt_samples) == (n_its, n_chains, n_pars)
-        @test size(output.burnt_ld) == (n_its, n_chains)
-        @test size(output_mem.samples) == (n_its, n_chains, n_pars)
-        @test size(output_mem.ld) == (n_its, n_chains)
-        @test size(output_mem.burnt_samples) == (n_its, n_chains, n_pars)
-        @test size(output_mem.burnt_ld) == (n_its, n_chains)
-        @test !(:burnt_samples in keys(output_nob))
-        @test eltype(output.samples) == eltype(initial_state)
-        @test eltype(output.ld) == eltype(initial_state)
-    end
-
-    @testset "until converged" begin
-        #easy problem that uses all the updates
-        epoch_size = 1000
-        warmup_epochs = 2
-        output = composite_sampler(
-            ld, epoch_size, n_chains, true,
-            cat(initial_state, initial_state, initial_state, dims = 1),
-            sampler_scheme, R̂_stopping_criteria(1.5);
-            save_burnt = true, rng = rng, warmup_epochs = warmup_epochs, parallel = false,
-            diagnostic_checks = diagnostic_checks
-        )
-        output_nob = composite_sampler(
-            ld, epoch_size, n_chains, true,
-            cat(initial_state, initial_state, initial_state, dims = 1),
-            sampler_scheme, R̂_stopping_criteria(1.5);
-            save_burnt = false, rng = rng, warmup_epochs = warmup_epochs, parallel = false,
-            diagnostic_checks = diagnostic_checks
-        )
-        output_its = size(output.samples, 1)
-        output_its_burnt = size(output.burnt_samples, 1)
-        @test size(output.samples) == (output_its, n_chains, n_pars)
-        @test size(output.ld) == (output_its, n_chains)
-        @test size(output.burnt_samples) == (output_its_burnt, n_chains, n_pars)
-        @test size(output.burnt_ld) == (output_its_burnt, n_chains)
-        @test eltype(output.samples) == eltype(initial_state)
-        @test eltype(output.ld) == eltype(initial_state)
-        @test !(:burnt_samples in keys(output_nob))
-    end
-
-    @testset "sampler errors" begin
+        # Test error cases
         @test_throws ErrorException setup_sampler_scheme(
-            setup_de_update(ld, deterministic_γ = false),
-            setup_snooker_update(deterministic_γ = true),
-            setup_subspace_sampling(γ = 1.0),
-            w = [1.0, 1.0, 1.0, 1.0]
+            setup_de_update(),
+            setup_snooker_update(),
+            w = [0.5, 0.3, 0.2]  # Wrong number of weights
         )
+
         @test_throws ErrorException setup_sampler_scheme(
-            setup_de_update(ld, deterministic_γ = false),
-            setup_snooker_update(deterministic_γ = true),
-            setup_subspace_sampling(γ = 1.0),
-            w = [1.0, 1.0, -1.0]
+            setup_de_update(),
+            setup_snooker_update(),
+            w = [-0.1, 0.5]  # Negative weights
         )
     end
-    @testset "initial_state errors" begin
-        n_its = 10
-        n_burnin = 10
-        @test_throws ErrorException composite_sampler(
-            ld, n_its, n_chains, false, randn(rng, n_chains + 1, n_pars), sampler_scheme;
-            save_burnt = true, rng = rng, n_burnin = n_burnin, parallel = false
+
+    @testset "Sample using regular Composite (non-adaptive)" begin
+        rng = MersenneTwister(1234)
+        model = IsotropicNormalModel([-5.0, 5.0])
+
+        # DE + Snooker composite
+        de_sampler = setup_sampler_scheme(
+            setup_de_update(),
+            setup_snooker_update()
         )
-        @test_throws ErrorException composite_sampler(
-            ld, n_its, 3, false, randn(rng, 3, n_pars), sampler_scheme;
-            save_burnt = true, rng = rng, n_burnin = n_burnin, parallel = false
+
+        sample_result,
+        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model),
+            de_sampler; memory = false, adapt = false)
+
+        @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
+        @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
+        @test isa(initial_state, DEMetropolis.DifferentialEvolutionState)
+        @test isa(initial_state.adaptive_state, DEMetropolis.DifferentialEvolutionAdaptiveStatic)
+        @test length(initial_state.x) == LogDensityProblems.dimension(model) * 2
+        @test length(initial_state.x[1]) == LogDensityProblems.dimension(model)
+        @test length(initial_state.ld) == LogDensityProblems.dimension(model) * 2
+        @test all(isfinite, initial_state.ld)
+        @test all([all(isfinite, x) for x in initial_state.x])
+        @test isa(initial_state.x[1], Vector{Float64})
+
+        sample_result,
+        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
+
+        @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
+        @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
+        @test isa(initial_state, DEMetropolis.DifferentialEvolutionState)
+        @test isa(initial_state.adaptive_state, DEMetropolis.DifferentialEvolutionAdaptiveStatic)
+        @test length(initial_state.x) == LogDensityProblems.dimension(model) * 2
+        @test length(initial_state.x[1]) == LogDensityProblems.dimension(model)
+        @test length(initial_state.ld) == LogDensityProblems.dimension(model) * 2
+        @test all(isfinite, initial_state.ld)
+        @test all([all(isfinite, x) for x in initial_state.x])
+        @test isa(initial_state.x[1], Vector{Float64})
+
+        samples = sample(
+            rng,
+            AbstractMCMC.LogDensityModel(model),
+            de_sampler,
+            100;
+            progress = false,
+            adapt = false
         )
-        @test_throws ErrorException composite_sampler(
-            ld, n_its, 3, true, randn(rng, 3 + 2, n_pars), sampler_scheme;
-            save_burnt = true, rng = rng, n_burnin = n_burnin, parallel = false
+        @test length(samples) == 100
+        @test all(isa(x, DEMetropolis.DifferentialEvolutionSample) for x in samples)
+    end
+
+    @testset "Sample using memory Composite (non-adaptive)" begin
+        rng = MersenneTwister(1234)
+        model = IsotropicNormalModel([-5.0, 5.0])
+
+        # DE + Subspace + Snooker composite with weights
+        de_sampler = setup_sampler_scheme(
+            setup_de_update(),
+            setup_subspace_sampling(),
+            setup_snooker_update(),
+            w = [0.5, 0.3, 0.2]
         )
-        @test_throws ErrorException composite_sampler(
-            ld, n_its, n_chains, false, randn(rng, n_chains, n_pars + 1), sampler_scheme;
-            save_burnt = true, rng = rng, n_burnin = n_burnin, parallel = false
+
+        sample_result,
+        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model),
+            de_sampler; memory = true, adapt = false)
+
+        @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
+        @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
+        @test isa(initial_state, DEMetropolis.DifferentialEvolutionStateMemory)
+        @test isa(initial_state.adaptive_state, DEMetropolis.DifferentialEvolutionAdaptiveStatic)
+        @test length(initial_state.x) == LogDensityProblems.dimension(model) * 2
+        @test length(initial_state.x[1]) == LogDensityProblems.dimension(model)
+        @test length(initial_state.ld) == LogDensityProblems.dimension(model) * 2
+        @test all(isfinite, initial_state.ld)
+        @test all([all(isfinite, x) for x in initial_state.x])
+        @test isa(initial_state.x[1], Vector{Float64})
+
+        sample_result,
+        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
+
+        @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
+        @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
+        @test isa(initial_state, DEMetropolis.DifferentialEvolutionStateMemory)
+        @test isa(initial_state.adaptive_state, DEMetropolis.DifferentialEvolutionAdaptiveStatic)
+        @test length(initial_state.x) == LogDensityProblems.dimension(model) * 2
+        @test length(initial_state.x[1]) == LogDensityProblems.dimension(model)
+        @test length(initial_state.ld) == LogDensityProblems.dimension(model) * 2
+        @test all(isfinite, initial_state.ld)
+        @test all([all(isfinite, x) for x in initial_state.x])
+        @test isa(initial_state.x[1], Vector{Float64})
+
+        samples = sample(
+            rng,
+            AbstractMCMC.LogDensityModel(model),
+            de_sampler,
+            100;
+            progress = false,
+            adapt = false
         )
+        @test length(samples) == 100
+        @test all(isa(x, DEMetropolis.DifferentialEvolutionSample) for x in samples)
+    end
+
+    @testset "Sample using Composite with adaptive subspace" begin
+        rng = MersenneTwister(1234)
+        model = IsotropicNormalModel([-5.0, 5.0])
+
+        # Adaptive subspace + non-adaptive DE
+        de_sampler = setup_sampler_scheme(
+            setup_subspace_sampling(),
+            setup_de_update(),
+            w = [0.6, 0.4]
+        )
+
+        sample_result,
+        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model),
+            de_sampler; memory = true, adapt = true)
+
+        @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
+        @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
+        @test isa(initial_state, DEMetropolis.DifferentialEvolutionStateMemory)
+        @test isa(initial_state.adaptive_state, DEMetropolis.DifferentialEvolutionAdaptiveComposite)
+        @test length(initial_state.adaptive_state.adaptive_states) == 2
+        @test isa(initial_state.adaptive_state.adaptive_states[1],
+            DEMetropolis.DifferentialEvolutionAdaptiveSubspace)
+        @test isa(initial_state.adaptive_state.adaptive_states[2],
+            DEMetropolis.DifferentialEvolutionAdaptiveStatic)
+        @test length(initial_state.x) == LogDensityProblems.dimension(model) * 2
+        @test length(initial_state.x[1]) == LogDensityProblems.dimension(model)
+        @test length(initial_state.ld) == LogDensityProblems.dimension(model) * 2
+        @test all(isfinite, initial_state.ld)
+        @test all([all(isfinite, x) for x in initial_state.x])
+        @test isa(initial_state.x[1], Vector{Float64})
+
+        sample_result,
+        initial_state = AbstractMCMC.step_warmup(
+            rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
+
+        @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
+        @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
+        @test isa(initial_state, DEMetropolis.DifferentialEvolutionStateMemory)
+        @test isa(initial_state.adaptive_state, DEMetropolis.DifferentialEvolutionAdaptiveComposite)
+        @test length(initial_state.adaptive_state.adaptive_states) == 2
+        @test length(initial_state.x) == LogDensityProblems.dimension(model) * 2
+        @test length(initial_state.x[1]) == LogDensityProblems.dimension(model)
+        @test length(initial_state.ld) == LogDensityProblems.dimension(model) * 2
+        @test all(isfinite, initial_state.ld)
+        @test all([all(isfinite, x) for x in initial_state.x])
+        @test isa(initial_state.x[1], Vector{Float64})
+
+        samples = sample(
+            rng,
+            AbstractMCMC.LogDensityModel(model),
+            de_sampler,
+            100;
+            num_warmup = 100,
+            progress = false,
+            adapt = true
+        )
+        @test length(samples) == 100
+        @test all(isa(x, DEMetropolis.DifferentialEvolutionSample) for x in samples)
+    end
+
+    @testset "Sample using Composite with all non-adaptive" begin
+        rng = MersenneTwister(1234)
+        model = IsotropicNormalModel([-5.0, 5.0])
+
+        # All non-adaptive samplers should result in static adaptive state
+        de_sampler = setup_sampler_scheme(
+            setup_de_update(),
+            setup_snooker_update(),
+            w = [0.7, 0.3]
+        )
+
+        sample_result,
+        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model),
+            de_sampler; memory = true, adapt = true)
+
+        @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
+        @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
+        @test isa(initial_state, DEMetropolis.DifferentialEvolutionStateMemory)
+        @test isa(initial_state.adaptive_state, DEMetropolis.DifferentialEvolutionAdaptiveStatic)
+        @test length(initial_state.x) == LogDensityProblems.dimension(model) * 2
+        @test length(initial_state.x[1]) == LogDensityProblems.dimension(model)
+        @test length(initial_state.ld) == LogDensityProblems.dimension(model) * 2
+        @test all(isfinite, initial_state.ld)
+        @test all([all(isfinite, x) for x in initial_state.x])
+        @test isa(initial_state.x[1], Vector{Float64})
+
+        samples = sample(
+            rng,
+            AbstractMCMC.LogDensityModel(model),
+            de_sampler,
+            100;
+            num_warmup = 100,
+            progress = false,
+            adapt = true
+        )
+        @test length(samples) == 100
+        @test all(isa(x, DEMetropolis.DifferentialEvolutionSample) for x in samples)
+    end
+
+    @testset "Check composite adaptation works as intended" begin
+        rng = MersenneTwister(1234)
+        model = IsotropicNormalModel([-5.0, 5.0])
+        n_cr = 5
+        its = 100
+
+        # Create composite with adaptive subspace sampler
+        de_sampler = setup_sampler_scheme(
+            setup_subspace_sampling(n_cr = n_cr),
+            setup_de_update(),
+            w = [0.8, 0.2]
+        )
+
+        sample_result,
+        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; adapt = true)
+        states = Vector{typeof(initial_state)}(undef, its + 1)
+        states[1] = initial_state
+        for i in 2:(its + 1)
+            sample_result,
+            state = AbstractMCMC.step_warmup(
+                rng, AbstractMCMC.LogDensityModel(model), de_sampler, states[i - 1])
+            states[i] = state
+        end
+
+        # Check that we have composite adaptive states
+        @test all(isa(state.adaptive_state, DEMetropolis.DifferentialEvolutionAdaptiveComposite)
+        for state in states)
+        @test all(length(state.adaptive_state.adaptive_states) == 2 for state in states)
+
+        # Check that the subspace sampler (first component) is adapting
+        subspace_adaptive_states = [state.adaptive_state.adaptive_states[1]
+                                    for state in states]
+        @test all(isa(state, DEMetropolis.DifferentialEvolutionAdaptiveSubspace)
+        for state in subspace_adaptive_states)
+
+        # Attempts for subspace sampler
+        L_values = cat([state.L for state in subspace_adaptive_states]..., dims = 2)
+        @test any(L_values .> 0)
+        @test size(L_values, 1) == n_cr
+        @test all(diff(L_values, dims = 2) .≥ 0)
+
+        # Jump distances for subspace sampler
+        Δ_values = cat([state.Δ for state in subspace_adaptive_states]..., dims = 2)
+        @test size(Δ_values, 1) == n_cr
+        @test all(diff(Δ_values, dims = 2) .≥ 0)
+        @test all(Δ_values .≥ 0)
+
+        # Variance tracking for subspace sampler
+        var_counts = [state.var_count for state in subspace_adaptive_states]
+        @test all(diff(var_counts) .≥ 0)  # Should be non-decreasing
+
+        var_means = cat([state.var_mean for state in subspace_adaptive_states]..., dims = 2)
+        @test size(var_means, 1) == LogDensityProblems.dimension(model)
+
+        var_m2 = cat([state.var_m2 for state in subspace_adaptive_states]..., dims = 2)
+        @test size(var_m2, 1) == LogDensityProblems.dimension(model)
+        @test all(var_m2 .≥ 0)
+
+        # Check that the DE sampler (second component) remains static
+        de_adaptive_states = [state.adaptive_state.adaptive_states[2] for state in states]
+        @test all(isa(state, DEMetropolis.DifferentialEvolutionAdaptiveStatic)
+        for state in de_adaptive_states)
+
+        # Test switching to non-adaptive mode
+        states_noadapt = Vector{typeof(initial_state)}(undef, its + 1)
+        states_noadapt[1] = states[end]
+        for i in 2:(its + 1)
+            sample_result,
+            state = AbstractMCMC.step(
+                rng, AbstractMCMC.LogDensityModel(model), de_sampler, states_noadapt[i - 1])
+            states_noadapt[i] = state
+        end
+
+        # Check that adaptation parameters don't change in non-adaptive mode
+        subspace_states_noadapt = [state.adaptive_state.adaptive_states[1]
+                                   for state in states_noadapt]
+        L_values_noadapt = cat([state.L for state in subspace_states_noadapt]..., dims = 2)
+        @test L_values_noadapt[:, 1] == L_values_noadapt[:, end]
+        crs_noadapt = [state.cr_spl for state in subspace_states_noadapt]
+        @test crs_noadapt[1] == crs_noadapt[end]
+    end
+
+    @testset "Composite with single sampler behaves like individual sampler" begin
+        rng = MersenneTwister(1234)
+        model = IsotropicNormalModel([-5.0, 5.0])
+
+        # Test single DE sampler in composite
+        individual_sampler = setup_de_update()
+        composite_sampler = setup_sampler_scheme(setup_de_update())
+
+        # Compare initialization
+        _,
+        individual_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model),
+            individual_sampler; memory = false, adapt = false)
+        rng = MersenneTwister(1234)  # Reset RNG for fair comparison
+        _,
+        composite_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model),
+            composite_sampler; memory = false, adapt = false)
+
+        @test typeof(individual_state) == typeof(composite_state)
+        @test length(individual_state.x) == length(composite_state.x)
+        @test length(individual_state.ld) == length(composite_state.ld)
     end
 end

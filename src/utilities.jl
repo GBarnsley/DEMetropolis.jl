@@ -1,62 +1,136 @@
-function halve(x::Integer)
-    return Int(ceil(x / 2))
+#code for sample() outputs into something useful, see MCMCChains
+
+function samples_to_array(samples::Vector{DifferentialEvolutionSample{
+        V, VV}}) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
+    n_draws = length(samples)
+    n_chains = length(samples[1].x)
+    n_params = length(samples[1].x[1])
+
+    # Pre-allocate the 3D array
+    result = Array{T, 3}(undef, n_draws, n_chains, n_params)
+
+    @inbounds for (i, sample) in enumerate(samples)
+        for (j, chain) in enumerate(sample.x)
+            for (k, param) in enumerate(chain)
+                result[i, j, k] = param
+            end
+        end
+    end
+
+    return result
 end
 
-function setup_rngs(rng::AbstractRNG, n_chains::Int)
-    @static if VERSION >= v"1.7"
-        return [Random.Xoshiro(rand(rng, UInt)) for _ in 1:n_chains]
+function ld_to_array(samples::Vector{DifferentialEvolutionSample{
+        V, VV}}) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
+    n_draws = length(samples)
+    n_chains = length(samples[1].ld)
+
+    # Pre-allocate the 3D array
+    result = Array{T, 2}(undef, n_draws, n_chains)
+
+    @inbounds for (i, sample) in enumerate(samples)
+        for (j, ld) in enumerate(sample.ld)
+            result[i, j] = ld
+        end
+    end
+
+    return result
+end
+
+function process_outputs(
+        samples::Vector{DifferentialEvolutionSample{
+        V, VV}}
+) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
+    return DifferentialEvolutionOutput{T}(
+        samples_to_array(samples),
+        ld_to_array(samples)
+    )
+end
+
+#code for post-processing outputs from sample()
+function bundle_samples(
+        samples::Vector{DifferentialEvolutionSample{V, VV}},
+        model_wrapper::LogDensityModel,
+        sampler::AbstractDifferentialEvolutionSampler,
+        state::AbstractDifferentialEvolutionState,
+        ::Type{T};
+        save_final_state::Bool = false,
+        kwargs...
+) where {T, T2 <: Real, V <: AbstractVector{T2}, VV <: AbstractVector{V}}
+    samples_ = convert(T, samples)
+    if save_final_state
+        return (
+            samples_,
+            state
+        )
     else
-        return [Random.MersenneTwister(rand(rng, UInt)) for _ in 1:n_chains]
+        return samples_
     end
 end
 
-function population_to_samples(chains::chains_struct{T}, its::UnitRange{Int}) where {T <:
-                                                                                     Real}
-    samples = Array{T}(
-        undef, length(its), chains.n_chains, size(chains.X, 2))
-    for i in eachindex(its), j in 1:(chains.n_chains)
+function AbstractMCMC.chainsstack(chns::Vector{DifferentialEvolutionOutput{T}}) where {T <:
+                                                                                       Real}
+    DifferentialEvolutionOutput{T}(
+        cat([c.samples for c in chns]...; dims = 2),
+        cat((c.ld for c in chns)...; dims = 2)
+    )
+end
 
-        samples[i, j, :] = chains.X[j + ((its[i] - 1) * chains.n_chains) + chains.N₀, :]
-    end
+function AbstractMCMC.chainsstack(
+        chns::Vector{Tuple{DifferentialEvolutionOutput{T},
+        E}}
+) where {T <: Real, E <: AbstractDifferentialEvolutionState}
+    (
+        AbstractMCMC.chainsstack([c[1] for c in chns]),
+        [c[2] for c in chns]
+    )
+end
+
+function AbstractMCMC.chainsstack(
+        chns::Vector{Tuple{
+        C, E}}
+) where {C <: Chains, E <: AbstractDifferentialEvolutionState}
+    (
+        AbstractMCMC.chainsstack([c[1] for c in chns]),
+        [c[2] for c in chns]
+    )
+end
+
+function convert(
+        ::Type{T},
+        samples::Vector{DifferentialEvolutionSample{V, VV}}
+) where {T, T2 <: Real, V <: AbstractVector{T2}, VV <: AbstractVector{V}}
     return samples
 end
 
-function ld_to_samples(chains::chains_struct{T}, its::UnitRange{Int}) where {T <: Real}
-    lds = Array{T}(undef, length(its), chains.n_chains)
-    for i in eachindex(its), j in 1:(chains.n_chains)
+function convert(
+        ::Type{DifferentialEvolutionOutput},
+        samples::Vector{DifferentialEvolutionSample{V, VV}}
+) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
+    return process_outputs(samples)
+end
 
-        lds[i, j] = chains.ld[j + ((its[i] - 1) * chains.n_chains) + chains.N₀]
+function convert(
+        ::Type{Chains},
+        samples::Vector{DifferentialEvolutionSample{V, VV}}
+) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
+    output = process_outputs(samples)
+
+    new_ld = Array{T, 3}(undef, size(output.ld, 1), 1, size(output.ld, 2))
+    #can replace with insertdims(output.ld, dims = 2) in julia 1.12+
+    @inbounds for i in 1:size(output.ld, 1)
+        for j in 1:size(output.ld, 2)
+            new_ld[i, 1, j] = output.ld[i, j]
+        end
     end
-    return lds
-end
 
-function format_output(chains::chains_struct, sampler_scheme, sample_indices)
-    return (
-        sampler_scheme = sampler_scheme,
-        samples = population_to_samples(chains, sample_indices),
-        ld = ld_to_samples(chains, sample_indices)
+    array_out = cat(
+        permutedims(output.samples, (1, 3, 2)),
+        new_ld, dims = 2
     )
-end
 
-function format_output(chains::chains_struct, sampler_scheme, sample_indices, burnt_indices)
-    return (
-        sampler_scheme = sampler_scheme,
-        samples = population_to_samples(chains, sample_indices),
-        ld = ld_to_samples(chains, sample_indices),
-        burnt_samples = population_to_samples(chains, burnt_indices),
-        burnt_ld = ld_to_samples(chains, burnt_indices)
-    )
-end
+    chns = Chains(array_out)
+    chns = replacenames(chns, "param_$(size(output.samples, 3) + 1)" => "ld")
 
-function get_sampling_indices(min_it::Int, max_it::Int)
-    n_its = halve(max_it - min_it)
-    (max_it - n_its + 1):max_it
-end
-
-function partition_integer(I::Int, n::Int)
-    base = I ÷ n  # Base size of each group
-    remainder = I % n  # Remaining units to distribute
-
-    # Create n groups: first 'remainder' groups get (base + 1), the rest get 'base'
-    return vcat(fill(base + 1, remainder), fill(base, n - remainder))
+    return chns
 end

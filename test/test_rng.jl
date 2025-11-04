@@ -1,67 +1,43 @@
 @testset "test rng states" begin
-    #easy problem that uses all the updates
-    function ld_normal(x)
-        sum(-(x .* x) / 2)
-    end
-    n_pars = 2;
-    ld = TransformedLogDensities.TransformedLogDensity(as(Array, n_pars), ld_normal);
-    n_chains = 4;
-    rng = Random.MersenneTwister(1234);
-    initial_state = randn(rng, n_chains, n_pars);
+    model = IsotropicNormalModel([-5.0, 5.0])
+
+    # DE + Snooker composite
+    de_sampler = setup_sampler_scheme(
+        setup_de_update(),
+        setup_de_update(n_dims = LogDensityProblems.dimension(model)),
+        setup_snooker_update(deterministic_γ = false),
+        setup_snooker_update(deterministic_γ = true),
+        setup_subspace_sampling(),
+        setup_subspace_sampling(γ = 1.0),
+        setup_subspace_sampling(cr = DiscreteNonParametric([0.5, 1.0], [0.5, 0.5]))
+    )
 
     #should give the same result
-    n_its = 100
-    n_burnin = 100
+    n_its = 1000
+    n_warmup = 1000
     rng = Random.MersenneTwister(112)
-    output1 = composite_sampler(
-        ld, n_its,
-        n_chains,
-        false,
-        initial_state,
-        setup_sampler_scheme(
-            setup_de_update(ld, deterministic_γ = false),
-            setup_de_update(ld, deterministic_γ = true),
-            setup_snooker_update(deterministic_γ = false),
-            setup_snooker_update(deterministic_γ = true),
-            setup_subspace_sampling(),
-            setup_subspace_sampling(γ = 1.0)
-        );
-        save_burnt = true, rng = rng, n_burnin = n_burnin, parallel = false
-    )
-    rng = Random.MersenneTwister(112)
-    output2 = composite_sampler(
-        ld, n_its,
-        n_chains,
-        false,
-        initial_state,
-        setup_sampler_scheme(
-            setup_de_update(ld, deterministic_γ = false),
-            setup_de_update(ld, deterministic_γ = true),
-            setup_snooker_update(deterministic_γ = false),
-            setup_snooker_update(deterministic_γ = true),
-            setup_subspace_sampling(),
-            setup_subspace_sampling(γ = 1.0)
-        );
-        save_burnt = true, rng = rng, n_burnin = n_burnin, parallel = false
+    output1 = sample(
+        rng,
+        AbstractMCMC.LogDensityModel(model),
+        de_sampler,
+        n_its;
+        num_warmup = n_warmup,
+        progress = false
     )
 
-    @test isequal(output1.sampler_scheme.updates[1], output2.sampler_scheme.updates[1])
-    @test isequal(output1.sampler_scheme.updates[2], output2.sampler_scheme.updates[2])
-    @test isequal(output1.sampler_scheme.updates[3], output2.sampler_scheme.updates[3])
-    @test isequal(output1.sampler_scheme.updates[4], output2.sampler_scheme.updates[4])
-    #bug to report?
-    #@test isequal(output1.sampler_scheme, output2.sampler_scheme)
-    #@test isequal(output1.sampler_scheme.updates[5], output2.sampler_scheme.updates[5])
-    #@test isequal(output1.sampler_scheme.updates[6].adaptation, output2.sampler_scheme.updates[6].adaptation)
-    @test isequal(output1.sampler_scheme.updates[6].adaptation.L,
-        output2.sampler_scheme.updates[6].adaptation.L)
-    @test isequal(output1.sampler_scheme.updates[6].adaptation.Δ,
-        output2.sampler_scheme.updates[6].adaptation.Δ)
-    @test isequal(output1.sampler_scheme.updates[6].adaptation.crs,
-        output2.sampler_scheme.updates[6].adaptation.crs)
+    rng = Random.MersenneTwister(112)
+    output2 = sample(
+        rng,
+        AbstractMCMC.LogDensityModel(model),
+        de_sampler,
+        n_its;
+        num_warmup = n_warmup,
+        parallel = true,
+        progress = false
+    )
 
-    @test isequal(output1.samples, output2.samples)
-    @test isequal(output1.ld, output2.ld)
-    @test isequal(output1.burnt_samples, output2.burnt_samples)
-    @test isequal(output1.burnt_ld, output2.burnt_ld)
+    equality_x = [isequal(output1[i].x, output2[i].x) for i in 1:length(output1)]
+    equality_ld = [isequal(output1[i].ld, output2[i].ld) for i in 1:length(output1)]
+    @test all(equality_x)
+    @test all(equality_ld)
 end
