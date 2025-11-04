@@ -1,157 +1,207 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Customizing your sampler · Differential Evolution Metropolis</title><meta name="title" content="Customizing your sampler · Differential Evolution Metropolis"/><meta property="og:title" content="Customizing your sampler · Differential Evolution Metropolis"/><meta property="twitter:title" content="Customizing your sampler · Differential Evolution Metropolis"/><meta name="description" content="Documentation for Differential Evolution Metropolis."/><meta property="og:description" content="Documentation for Differential Evolution Metropolis."/><meta property="twitter:description" content="Documentation for Differential Evolution Metropolis."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">Differential Evolution Metropolis</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">DEMetropolis Documentation</a></li><li><a class="tocitem" href="../tutorial/">Sampling from multimodal distributions</a></li><li class="is-active"><a class="tocitem" href>Customizing your sampler</a><ul class="internal"><li><a class="tocitem" href="#Custom-Stopping-Criteria"><span>Custom Stopping Criteria</span></a></li><li><a class="tocitem" href="#Custom-Diagnostic-Checks"><span>Custom Diagnostic Checks</span></a></li><li><a class="tocitem" href="#Custom-Proposal-Distributions"><span>Custom Proposal Distributions</span></a></li><li><a class="tocitem" href="#Example:-Using-Custom-Components"><span>Example: Using Custom Components</span></a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Customizing your sampler</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Customizing your sampler</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/GBarnsley/DEMetropolis.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/GBarnsley/DEMetropolis.jl/blob/main/docs/src/custom.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Customizing-your-sampler"><a class="docs-heading-anchor" href="#Customizing-your-sampler">Customizing your sampler</a><a id="Customizing-your-sampler-1"></a><a class="docs-heading-anchor-permalink" href="#Customizing-your-sampler" title="Permalink"></a></h1><p>This document describes how to extend <code>DEMetropolis.jl</code> with your own custom components. You can define custom stopping criteria, diagnostic checks, and proposal distributions (updates).</p><h2 id="Custom-Stopping-Criteria"><a class="docs-heading-anchor" href="#Custom-Stopping-Criteria">Custom Stopping Criteria</a><a id="Custom-Stopping-Criteria-1"></a><a class="docs-heading-anchor-permalink" href="#Custom-Stopping-Criteria" title="Permalink"></a></h2><p>To create a custom stopping criterion, you need to define a new struct that is a subtype of <code>DEMetropolis.stopping_criteria_struct</code> and then implement the <code>DEMetropolis.stop_sampling</code> method for your new type.</p><p>The <code>stop_sampling</code> method has the following signature: <code>stop_sampling(stopping_criteria::YourCriteria, chains::chains_struct, sample_from::Int, last_iteration::Int)</code></p><ul><li><code>stopping_criteria</code>: An instance of your custom stopping criterion struct.</li><li><code>chains</code>: The <code>chains_struct</code> containing the state of all chains. You can use <code>DEMetropolis.population_to_samples</code> to extract samples.</li><li><code>sample_from</code>: The iteration number at which sampling (post-warmup) began.</li><li><code>last_iteration</code>: The total number of iterations completed so far (per chain).</li></ul><p>The function should return <code>true</code> if sampling should stop, and <code>false</code> otherwise.</p><p>Here is an example of a stopping criterion that stops sampling after a maximum number of iterations has been reached.</p><pre><code class="language-julia hljs">using DEMetropolis
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Customizing your sampler · Differential Evolution Metropolis</title><meta name="title" content="Customizing your sampler · Differential Evolution Metropolis"/><meta property="og:title" content="Customizing your sampler · Differential Evolution Metropolis"/><meta property="twitter:title" content="Customizing your sampler · Differential Evolution Metropolis"/><meta name="description" content="Documentation for Differential Evolution Metropolis."/><meta property="og:description" content="Documentation for Differential Evolution Metropolis."/><meta property="twitter:description" content="Documentation for Differential Evolution Metropolis."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">Differential Evolution Metropolis</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">DEMetropolis Documentation</a></li><li><a class="tocitem" href="../tutorial/">Sampling from multimodal distributions</a></li><li class="is-active"><a class="tocitem" href>Customizing your sampler</a><ul class="internal"><li><a class="tocitem" href="#Custom-Stopping-Criteria"><span>Custom Stopping Criteria</span></a></li><li><a class="tocitem" href="#Custom-Proposal-Distributions"><span>Custom Proposal Distributions</span></a></li><li><a class="tocitem" href="#Example:-Using-Custom-Components"><span>Example: Using Custom Components</span></a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Customizing your sampler</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Customizing your sampler</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/GBarnsley/DEMetropolis.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/GBarnsley/DEMetropolis.jl/blob/main/docs/src/custom.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Customizing-your-sampler"><a class="docs-heading-anchor" href="#Customizing-your-sampler">Customizing your sampler</a><a id="Customizing-your-sampler-1"></a><a class="docs-heading-anchor-permalink" href="#Customizing-your-sampler" title="Permalink"></a></h1><p>This document describes how to extend <code>DEMetropolis.jl</code> with your own custom components. You can define custom stopping criteria, diagnostic checks, and proposal distributions (updates).</p><h2 id="Custom-Stopping-Criteria"><a class="docs-heading-anchor" href="#Custom-Stopping-Criteria">Custom Stopping Criteria</a><a id="Custom-Stopping-Criteria-1"></a><a class="docs-heading-anchor-permalink" href="#Custom-Stopping-Criteria" title="Permalink"></a></h2><p>To create a custom stopping criterion, you need to define a function that follows the AbstractMCMC interface, similar to <a href="../#DEMetropolis.r̂_stopping_criteria"><code>r̂_stopping_criteria</code></a>. The function will be called during sampling to determine when to stop. See the <a href="https://turinglang.org/AbstractMCMC.jl/dev/api/#Sampling-a-single-chain">AbstractMCMC documentation</a> for details.</p><p>The stopping criterion function has the following signature:</p><pre><code class="language-julia hljs">function your_stopping_criteria(
+    rng::AbstractRNG,
+    model::AbstractModel, 
+    sampler::AbstractDifferentialEvolutionSampler,
+    samples::Vector{DifferentialEvolutionSample},
+    state::AbstractDifferentialEvolutionState,
+    iteration::Int;
+    kwargs...
+)</code></pre><ul><li><code>rng</code>: Random number generator (required by AbstractMCMC interface, usually unused)</li><li><code>model</code>: The model being sampled (required by interface, usually unused)  </li><li><code>sampler</code>: The differential evolution sampler (required by interface, usually unused)</li><li><code>samples</code>: Vector of all collected samples from all chains</li><li><code>state</code>: Current sampler state (required by interface, usually unused)</li><li><code>iteration</code>: Current iteration number</li><li><code>kwargs...</code>: Additional keyword arguments passed via <code>AbstractMCMC.sample</code></li></ul><p>The function should return <code>true</code> if sampling should stop, and <code>false</code> otherwise.</p><p>Here is an example of a very simple stopping criterion that stops sampling after a maximum number of iterations has been reached:</p><pre><code class="language-julia hljs">using DEMetropolis, AbstractMCMC
 
-# Define the struct for the stopping criterion
-struct MaxIterationsStopping &lt;: DEMetropolis.stopping_criteria_struct
-    max_iters::Int
-end
-
-# Implement the stop_sampling function
-function DEMetropolis.stop_sampling(criterion::MaxIterationsStopping, chains, sample_from, last_iteration)
-    if length(DEMetropolis.get_sampling_indices(sample_from, last_iteration)) &gt;= criterion.max_iters
-        println(&quot;Reached maximum iterations, stopping.&quot;)
+function max_iterations_stopping(
+    rng::AbstractRNG,
+    model::AbstractModel,
+    sampler::AbstractDifferentialEvolutionSampler, 
+    samples::Vector{DifferentialEvolutionSample{V, VV}},
+    state::AbstractDifferentialEvolutionState{T, V, VV, A},
+    iteration::Int;
+    max_iterations::Int = 10000,
+    kwargs...
+) where {T&lt;:Real, V&lt;:AbstractVector{T}, VV&lt;:AbstractVector{V}, A&lt;:AbstractDifferentialEvolutionAdaptiveState{T}}
+    if iteration &gt;= max_iterations
+        println(&quot;Reached maximum iterations ($max_iterations), stopping.&quot;)
         return true
     end
     return false
-end</code></pre><h2 id="Custom-Diagnostic-Checks"><a class="docs-heading-anchor" href="#Custom-Diagnostic-Checks">Custom Diagnostic Checks</a><a id="Custom-Diagnostic-Checks-1"></a><a class="docs-heading-anchor-permalink" href="#Custom-Diagnostic-Checks" title="Permalink"></a></h2><p>You can implement custom diagnostic checks that are run during the warmup/burn-in phase. This is useful for monitoring chain behavior and potentially correcting issues on the fly, like resetting outlier chains.</p><p>To create a custom diagnostic, define a struct that subtypes <code>DEMetropolis.diagnostic_check_struct</code> and implement <code>DEMetropolis.run_diagnostic_check!</code> for it.</p><p>The method signature is: <code>run_diagnostic_check!(chains, diagnostic_check::YourCheck, rngs, current_iteration::Int)</code></p><ul><li><code>chains</code>: The <code>chains_struct</code>, which can be modified within the function.</li><li><code>diagnostic_check</code>: An instance of your custom diagnostic struct.</li><li><code>rngs</code>: A vector of random number generators, one for each chain.</li><li><code>current_iteration</code>: The current warmup iteration number.</li></ul><p>Here is an example of a simple diagnostic that just prints a message. A more advanced check could, for example, calculate acceptance rates and reset chains that are not mixing well.</p><pre><code class="language-julia hljs">using DEMetropolis
-
-# Define the struct for the diagnostic check
-struct MyCustomDiagnostic &lt;: DEMetropolis.diagnostic_check_struct
-    bad_number::Float64
 end
 
-# Implement the run_diagnostic_check! function
-function DEMetropolis.run_diagnostic_check!(chains, check::MyCustomDiagnostic, rngs, current_iteration)
-    println(&quot;Running custom diagnostic at warmup iteration: &quot;, current_iteration)
-    # This is where you would add logic to inspect and modify chains
+# Usage with AbstractMCMC.sample
+using LogDensityProblems
 
-    # As an example we&#39;ll resample all chains that include a bad number (since these are floats it&#39;ll probably never happen)
-    X = DEMetropolis.population_to_samples(chains, DEMetropolis.get_sampling_indices(1, current_iteration))
-    
-    chains = 1:chains.n_chains;
+model = LogDensityModel(your_log_density)
+sampler = setup_de_update()
 
-    outliers = setdiff([findfirst(check.bad_number .== X[:, chain, :]) for chain in chains], [nothing]);
-    fine_chains = setdiff(chains, outliers);
+result = sample(
+    rng, 
+    model, 
+    sampler, 
+    max_iterations_stopping;
+    max_iterations = 5000,  # passed as keyword argument
+    n_chains = 4
+)</code></pre><h2 id="Custom-Proposal-Distributions"><a class="docs-heading-anchor" href="#Custom-Proposal-Distributions">Custom Proposal Distributions</a><a id="Custom-Proposal-Distributions-1"></a><a class="docs-heading-anchor-permalink" href="#Custom-Proposal-Distributions" title="Permalink"></a></h2><p>You can create your own proposal distributions by defining a new sampler type that subtypes <code>AbstractDifferentialEvolutionSampler</code> and implementing the <code>proposal</code> method.</p><p>The method signature for the proposal is:</p><pre><code class="language-julia hljs">function proposal(
+    rng::AbstractRNG, 
+    sampler::YourSampler, 
+    state::DEMetropolis.AbstractDifferentialEvolutionState, 
+    current_state::Int
+)</code></pre><ul><li><code>rng</code>: Random number generator for the current chain</li><li><code>sampler</code>: An instance of your custom sampler struct</li><li><code>state</code>: The current state containing all chain positions and log-densities</li><li><code>current_state</code>: The index of the chain to be updated</li></ul><p>The function should return a named tuple <code>(xₚ = proposed_position, offset = hastings_correction)</code> where:</p><ul><li><code>xₚ</code>: The proposed new position (vector)</li><li><code>offset</code>: Hastings ratio correction in log-space (typically 0.0 for symmetric proposals)</li></ul><p>Here is an example of a simple Metropolis-Hastings random walk update with a fixed step size:</p><pre><code class="language-julia hljs">using DEMetropolis, Distributions, Random
 
-    if length(outliers) &gt; 0
-        @warn string(length(outliers)) * &quot; outlier chains detected, setting to random chains&quot;
-
-        resampled = [rand(rngs[outlier], fine_chains) for outlier in outliers];
-
-        chains.ld[chains.current_position[outliers], :] .= chains.ld[chains.current_position[resampled], :];
-        chains.X[chains.current_position[outliers], :] .= chains.X[chains.current_position[resampled], :];
-    end
-end</code></pre><h2 id="Custom-Proposal-Distributions"><a class="docs-heading-anchor" href="#Custom-Proposal-Distributions">Custom Proposal Distributions</a><a id="Custom-Proposal-Distributions-1"></a><a class="docs-heading-anchor-permalink" href="#Custom-Proposal-Distributions" title="Permalink"></a></h2><p>The core of the samplers in <code>DEMetropolis.jl</code> are the update steps, which propose new parameter values. You can create your own proposal distributions by defining a new update type.</p><p>To do this, create a struct that subtypes <code>DEMetropolis.update_struct</code> and implement the <code>DEMetropolis.update!</code> method for it.</p><p>The method signature for the update is: <code>update!(update::YourUpdate, chains, ld, rng, chain::Int)</code></p><ul><li><code>update</code>: An instance of your custom update struct.</li><li><code>chains</code>: The <code>chains_struct</code>. Helper functions like <code>DEMetropolis.get_value</code> and <code>DEMetropolis.update_value!</code> are available to get the current state and to update it after the Metropolis-Hastings step.</li><li><code>ld</code>: The log-density function from <code>LogDensityProblems.jl</code>.</li><li><code>rng</code>: The random number generator for the current chain.</li><li><code>chain</code>: The index of the chain to be updated.</li></ul><p>If your proposal distribution requires adaptation (e.g., tuning a step size during warmup), you can also implement <code>DEMetropolis.adapt_update!(update::YourUpdate, chains)</code>.</p><p>Here is an example of a simple Metropolis-Hastings random walk update with a fixed step size.</p><pre><code class="language-julia hljs">using DEMetropolis, LogDensityProblems, Distributions, LinearAlgebra
-
-# Define the struct for the update
-struct MetropolisHastingsUpdate &lt;: DEMetropolis.update_struct
+# Define the struct for the sampler
+struct MetropolisHastingsUpdate &lt;: DEMetropolis.AbstractDifferentialEvolutionSampler
     proposal_distribution::MvNormal
 end
-# Implement the update! function
-function DEMetropolis.update!(update::MetropolisHastingsUpdate, chains, ld, rng, chain)
-    # Get the current state of the chain
-    x_current = DEMetropolis.get_value(chains, chain)
-    
-    # Propose a new point using a random walk
-    x_proposal = x_current .+ rand(rng, update.proposal_distribution);
-    
-    # Calculate the log-density of the proposed point
-    ld_proposal = LogDensityProblems.logdensity(ld, x_proposal)
-    
-    # The proposal is symmetric, so the Hastings factor is 0 in log-space. Other this could be included via offset = ...
-    # update_value! handles the acceptance/rejection step.
-    DEMetropolis.update_value!(chains, rng, chain, x_proposal, ld_proposal)
-end</code></pre><h3 id="Adaptive-Metropolis-Hastings-Update"><a class="docs-heading-anchor" href="#Adaptive-Metropolis-Hastings-Update">Adaptive Metropolis-Hastings Update</a><a id="Adaptive-Metropolis-Hastings-Update-1"></a><a class="docs-heading-anchor-permalink" href="#Adaptive-Metropolis-Hastings-Update" title="Permalink"></a></h3><p>For more complex problems, an adaptive proposal can be much more efficient. The following example shows how to create a Metropolis-Hastings update that adapts its proposal distribution during the warmup phase. It uses the covariance of the samples drawn so far to shape the proposal, which is a common technique in adaptive MCMC.</p><p>To achieve this, we will implement the <code>DEMetropolis.adapt_update!</code> method, which is called periodically during the sampling process.</p><pre><code class="language-julia hljs">using DEMetropolis, LogDensityProblems, Distributions, LinearAlgebra, Statistics
 
-# The struct needs to be mutable to allow the proposal distribution to be updated.
-mutable struct AdaptiveMetropolisUpdate &lt;: DEMetropolis.update_struct
-    proposal_distribution::MvNormal
-    # Parameters to control the adaptation
-    adapt_after::Int  # Start adapting after this many iterations
-    adapt_every::Int  # Adapt every N iterations
-    adapt_scale::Float64 # Scale factor for the covariance
-end
-
-# A constructor to set up the initial state
-function AdaptiveMetropolisUpdate(
-    n_pars::Int;
-    initial_std::Float64=0.1,
-    adapt_after::Int=200,
-    adapt_every::Int=100,
-    adapt_scale::Float64=2.38^2
+# Implement the proposal function
+function DEMetropolis.proposal(
+    rng::AbstractRNG,
+    sampler::MetropolisHastingsUpdate,
+    state::DEMetropolis.AbstractDifferentialEvolutionState,
+    current_state::Int
 )
-    # Start with a simple isotropic proposal
-    initial_cov = (initial_std^2) * I(n_pars)
-    proposal = MvNormal(zeros(n_pars), initial_cov)
-    return AdaptiveMetropolisUpdate(proposal, adapt_after, adapt_every, adapt_scale / n_pars)
+    # Get the current position of this chain
+    x_current = state.x[current_state]
+
+    # Propose a new point using a random walk
+    x_proposal = x_current .+ rand(rng, sampler.proposal_distribution)
+
+    # The proposal is symmetric, so no Hastings correction needed
+    return (xₚ = x_proposal, offset = 0.0)
+end</code></pre><h3 id="Adaptive-Proposals-with-step_warmup"><a class="docs-heading-anchor" href="#Adaptive-Proposals-with-step_warmup">Adaptive Proposals with step_warmup</a><a id="Adaptive-Proposals-with-step_warmup-1"></a><a class="docs-heading-anchor-permalink" href="#Adaptive-Proposals-with-step_warmup" title="Permalink"></a></h3><p>For proposals that require adaptation during warm-up, you need to implement the <code>step_warmup</code> as well. This is called during the warm-up phase. Unless you want your sampler to be always adaptive then you must implement <code>step</code>.</p><p>You&#39;ll also need to define adaptive state structures and methods. Here&#39;s an example of an adaptive Metropolis-Hastings sampler:</p><pre><code class="language-julia hljs">using AbstractMCMC, DEMetropolis
+# Define adaptive state
+struct AdaptiveMetropolisState{T&lt;:Real} &lt;:DEMetropolis.AbstractDifferentialEvolutionAdaptiveState{T}
+    proposal_cov::Matrix{T}
+    adaptation_count::Int
+    running_mean::Vector{T}
+    running_cov::Matrix{T}
 end
 
-# The update! method is the same as for the non-adaptive version
-function DEMetropolis.update!(update::AdaptiveMetropolisUpdate, chains, ld, rng, chain)
-    x_current = DEMetropolis.get_value(chains, chain)
-    # Propose a new point using the current proposal distribution
-    x_proposal = x_current .+ rand(rng, update.proposal_distribution)
-    ld_proposal = LogDensityProblems.logdensity(ld, x_proposal)
-    DEMetropolis.update_value!(chains, rng, chain, x_proposal, ld_proposal)
+# Define the adaptive sampler
+struct AdaptiveMetropolisUpdate{T&lt;:Real} &lt;: DEMetropolis.AbstractDifferentialEvolutionSampler
+    initial_cov::Matrix{T}
+    adapt_after::Int
+    adapt_every::Int
+    adapt_scale::T
 end
 
-# The adapt_update! method contains the adaptation logic
-function DEMetropolis.adapt_update!(update::AdaptiveMetropolisUpdate, chains)
-    # Only adapt during warmup, after a burn-in period, and at specified intervals
-    if !chains.warmup || chains.samples &lt; update.adapt_after || chains.samples % update.adapt_every != 0
-        return
+# Constructor
+function AdaptiveMetropolisUpdate(
+    n_params::Int;
+    initial_std::Float64 = 0.1,
+    adapt_after::Int = 200,
+    adapt_every::Int = 100,
+    adapt_scale::Float64 = 2.38^2
+)
+    initial_cov = (initial_std^2) * I(n_params)
+    return AdaptiveMetropolisUpdate{Float64}(initial_cov, adapt_after, adapt_every, adapt_scale / n_params)
+end
+
+# Initialize adaptive state
+function DEMetropolis.initialize_adaptive_state(sampler::AdaptiveMetropolisUpdate{T}, model_wrapper::AbstractMCMC.LogDensityModel, n_chains::Int) where {T}
+    n_params = dimension(model_wrapper.logdensity)
+    return AdaptiveMetropolisState{T}(
+        copy(sampler.initial_cov),
+        0,
+        zeros(T, n_params),
+        copy(sampler.initial_cov)
+    )
+end
+
+# Fix sampler (convert adaptive to non-adaptive)
+function DEMetropolis.fix_sampler(sampler::AdaptiveMetropolisUpdate{T}, adaptive_state::AdaptiveMetropolisState{T}) where {T}
+    return MetropolisHastingsUpdate(MvNormal(zeros(T, size(adaptive_state.proposal_cov, 1)), adaptive_state.proposal_cov))
+end
+
+# Proposal method (same as non-adaptive)
+function DEMetropolis.proposal(
+    rng::AbstractRNG,
+    sampler::AdaptiveMetropolisUpdate,
+    state::DEMetropolis.AbstractDifferentialEvolutionState,
+    current_state::Int
+)
+    x_current = state.x[current_state]
+    # Use current proposal covariance from adaptive state
+    proposal_dist = MvNormal(zeros(length(x_current)), state.adaptive_state.proposal_cov)
+    x_proposal = x_current .+ rand(rng, proposal_dist)
+    return (xₚ = x_proposal, offset = 0.0)
+end
+
+# Adaptive step during warm-up
+function step_warmup(
+    rng::AbstractRNG,
+    model_wrapper::AbstractMCMC.LogDensityModel,
+    sampler::AdaptiveMetropolisUpdate{T},
+    state::DEMetropolis.AbstractDifferentialEvolutionState{T, V, VV, AdaptiveMetropolisState{T}};
+    parallel::Bool = false,
+    kwargs...
+) where {T&lt;:Real, V&lt;:AbstractVector{T}, VV&lt;:AbstractVector{V}}
+
+    # Perform regular step
+    sample, new_state = step(rng, model_wrapper, sampler, state; parallel = parallel, kwargs...)
+
+    # Update adaptive parameters
+    adapt_state = new_state.adaptive_state
+    new_count = adapt_state.adaptation_count + 1
+
+    # Only adapt after burn-in period and at specified intervals
+    if new_count &gt; sampler.adapt_after &amp;&amp; new_count % sampler.adapt_every == 0
+
+        # Compute empirical covariance from current chain positions
+        positions = reduce(hcat, new_state.x)&#39;  # Convert to matrix
+        empirical_cov = cov(positions)
+
+        # Update proposal covariance with regularization
+        new_proposal_cov = sampler.adapt_scale * empirical_cov + 1e-6 * I
+
+        # Update adaptive state
+        new_adaptive_state = AdaptiveMetropolisState{T}(
+            new_proposal_cov,
+            new_count,
+            adapt_state.running_mean,  # Could update these too
+            adapt_state.running_cov
+        )
+
+        return sample, update_state(new_state; adaptive_state = new_adaptive_state)
+    else
+        # Just update the count
+        new_adaptive_state = AdaptiveMetropolisState{T}(
+            adapt_state.proposal_cov,
+            new_count,
+            adapt_state.running_mean,
+            adapt_state.running_cov
+        )
+        return sample, update_state(new_state; adaptive_state = new_adaptive_state)
     end
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">step_warmup (generic function with 1 method)</code></pre><h2 id="Example:-Using-Custom-Components"><a class="docs-heading-anchor" href="#Example:-Using-Custom-Components">Example: Using Custom Components</a><a id="Example:-Using-Custom-Components-1"></a><a class="docs-heading-anchor-permalink" href="#Example:-Using-Custom-Components" title="Permalink"></a></h2><p>Here is a complete example that shows how to use custom components with the new AbstractMCMC interface:</p><pre><code class="language-julia hljs">using Distributions, TransformedLogDensities, LinearAlgebra, TransformVariables, Plots
 
-    println(&quot;Adapting proposal at iteration &quot;, chains.samples)
+# Set up a simple log-density to sample from (a 2D standard normal distribution)
 
-    # Get all the warmup samples up to the current point
-    warmup_samples_3d = DEMetropolis.population_to_samples(chains, 1:(chains.samples-1))
-    
-    # Reshape to a 2D matrix (n_samples, n_params)
-    n_params = size(warmup_samples_3d, 3)
-    warmup_samples_2d = reshape(warmup_samples_3d, :, n_params)
+ld = TransformedLogDensity(as(Array, 2), x -&gt; -sum(x.^2) / 2)
+dimension(ld) = 2
+model = AbstractMCMC.LogDensityModel(ld)
 
-    # Calculate the covariance of the samples and regularize it
-    cov_matrix = cov(warmup_samples_2d)
-    regularized_cov = cov_matrix + 1e-6 * I
+# Create custom samplers
+simple_mh = MetropolisHastingsUpdate(MvNormal([0.0, 0.0], 0.1 * I))
+adaptive_mh = AdaptiveMetropolisUpdate(2; initial_std = 0.1)
 
-    # Update the proposal distribution
-    update.proposal_distribution = MvNormal(zeros(n_params), update.adapt_scale .* regularized_cov)
-end</code></pre><h2 id="Example:-Using-Custom-Components"><a class="docs-heading-anchor" href="#Example:-Using-Custom-Components">Example: Using Custom Components</a><a id="Example:-Using-Custom-Components-1"></a><a class="docs-heading-anchor-permalink" href="#Example:-Using-Custom-Components" title="Permalink"></a></h2><p>Here is a complete example that shows how to use all the custom components defined above with <code>composite_sampler</code>.</p><pre><code class="language-julia hljs">using DEMetropolis, LogDensityProblems, TransformVariables, Distributions, TransformedLogDensities
-
-# Set up and run the sampler
-
-# A simple log-density to sample from (a 2D standard normal distribution)
-ld = TransformedLogDensity(as(Array, 2), x -&gt; -sum(x.^2) / 2);
-
-# Use our custom Metropolis-Hastings update
+# Create a composite sampler scheme
 my_sampler_scheme = setup_sampler_scheme(
-    MetropolisHastingsUpdate(MvNormal([0.0, 0.0], I)), AdaptiveMetropolisUpdate(2)
-);
+    simple_mh,
+    adaptive_mh;
+    w = [0.3, 0.7]  # Use adaptive sampler 70% of the time
+)
 
-# Use our custom stopping criterion
-my_stopping_criterion = MaxIterationsStopping(2000);
-
-# Use our custom diagnostic check
-my_diagnostics = [MyCustomDiagnostic(-100.0)];
-
-# Set up initial state for the chains (10 chains for a 2-parameter model)
-# For memoryless sampling, the number of rows is the number of chains.
-initial_state = randn(10, 2);
-
-# Run the composite sampler with all our custom components
-# epoch_size is the number of samples per chain, per epoch
-output = composite_sampler(
-    ld,
-    1000, 
-    10,
-    false, # memoryless
-    initial_state,
+# Sample using AbstractMCMC.sample
+result = sample(
+    Random.default_rng(),
+    model,
     my_sampler_scheme,
-    my_stopping_criterion;
-    warmup_epochs = 5,
-    diagnostic_checks = my_diagnostics
-);
+    5000;
+    n_chains = 6,
+    num_warmup = 10000, #adaptive steps
+    memory = true,
+    parallel = false,
+    chain_type = DifferentialEvolutionOutput
+)
 
-println(&quot;Sampling finished. Total samples per chain: &quot;, size(output.samples, 1))
-println(&quot;Adapted Covariance: &quot;, output.sampler_scheme.updates[2].proposal_distribution.Σ)</code></pre><p>This will print the median and 90% credible interval for each parameter, giving you a summary of the posterior distribution.</p><p>For more details, see the <a href="../#DEMetropolis-Documentation">DEMetropolis Documentation</a> and the <a href="#Customizing-your-sampler">Customizing your sampler</a> section. For general Julia documentation and best practices, refer to the <a href="https://docs.julialang.org/en/v1/manual/documentation/">Julia documentation manual</a>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../tutorial/">« Sampling from multimodal distributions</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Thursday 2 October 2025 14:31">Thursday 2 October 2025</span>. Using Julia version 1.11.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plot(result.samples[:, :, 1])
+plot(result.samples[:, :, 2])</code></pre><img src="4df1f221.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../tutorial/">« Sampling from multimodal distributions</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.15.0 on <span class="colophon-date" title="Tuesday 4 November 2025 16:42">Tuesday 4 November 2025</span>. Using Julia version 1.12.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
