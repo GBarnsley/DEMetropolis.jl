@@ -104,13 +104,14 @@
         sample_result,
         initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; adapt = true)
         states = Vector{typeof(initial_state)}(undef, its + 1)
-        states[1] = initial_state
+        states[1] = deepcopy(initial_state)
         for i in 2:(its + 1)
             sample_result,
             state = AbstractMCMC.step_warmup(
                 rng, AbstractMCMC.LogDensityModel(model), de_sampler, states[i - 1])
-            states[i] = state
+            states[i] = deepcopy(state)
         end
+
         #attempts
         L_values = cat([state.adaptive_state.L for state in states]..., dims = 2)
         @test any(L_values .> 0)
@@ -123,7 +124,7 @@
         @test all(diff(Δ_values, dims = 2) .≥ 0)
         @test all(Δ_values .≥ 0)
         #var counts
-        var_counts = [state.adaptive_state.var_count for state in states]
+        var_counts = [state.adaptive_state.var_count for state in states[1:(end - 1)]]
         update_size = unique(diff(var_counts))
         @test length(update_size) == 1
         @test update_size[1] == length(initial_state.x)
@@ -140,7 +141,7 @@
         for i in 2:(its + 1)
             sample_result,
             state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, states_2[i - 1])
-            states_2[i] = state
+            states_2[i] = deepcopy(state)
         end
         L_values = cat([state.adaptive_state.L for state in states_2]..., dims = 2)
         @test L_values[:, 1] == L_values[:, end]
@@ -153,7 +154,7 @@
             sample_result,
             state = AbstractMCMC.step(
                 rng, AbstractMCMC.LogDensityModel(model), de_sampler, states_noadapt[i - 1])
-            states_noadapt[i] = state
+            states_noadapt[i] = deepcopy(state)
         end
         L_values = cat([state.adaptive_state.L for state in states_noadapt]..., dims = 2)
         @test L_values[:, 1] == L_values[:, end]
@@ -167,7 +168,7 @@
             sample_result,
             state = AbstractMCMC.step_warmup(rng, AbstractMCMC.LogDensityModel(model),
                 new_sampler, states_noadapt[i - 1])
-            states_noadapt[i] = state
+            states_noadapt[i] = deepcopy(state)
         end
         @test isa(states_noadapt[end], DEMetropolis.DifferentialEvolutionStateMemory)
 

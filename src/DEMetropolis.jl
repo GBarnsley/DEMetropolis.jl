@@ -74,4 +74,15 @@ include("utilities.jl")
 include("convergence.jl")
 include("templates.jl")
 
+
+#test = DifferentialEvolutionState(
+#    [[10, 1.0, 5.0], [10, 1.0, 5.0]],
+#    [0.0, 1.0],
+#    DifferentialEvolutionAdaptiveStatic{Float64}(),
+#    DifferentialEvolutionStaticTemperatureLadder{Float64}()
+#)
+#
+#using BenchmarkTools
+#@benchmark update_state(test)
+
 end

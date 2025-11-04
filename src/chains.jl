@@ -10,6 +10,12 @@ struct DifferentialEvolutionState{
     x::VV
     "log density at current position"
     ld::V
+    "preallocated next position"
+    xₚ::VV
+    "preallocated next log densities"
+    ldₚ::V
+    "random states"
+    rngs::Vector{<:AbstractRNG}
     "struct for holding the status of the adaptive scheme"
     adaptive_state::A
     "temperature ladder"
@@ -25,6 +31,12 @@ struct DifferentialEvolutionStateMemory{
     x::VV
     "log density at current position"
     ld::V
+    "preallocated next position"
+    xₚ::VV
+    "preallocated next log densities"
+    ldₚ::V
+    "random states"
+    rngs::Vector{<:AbstractRNG}
     "memory of past positions"
     mem_x::VV
     "struct for holding the status of the adaptive scheme"
@@ -40,62 +52,64 @@ struct DifferentialEvolutionSample{V <: AbstractVector{<:Real}, VV <: AbstractVe
     ld::V
 end
 
-function create_sample(x::VV,
-        ld::V,
+function create_sample(
         state::AbstractDifferentialEvolutionState{T, A, L}) where {
         T <: Real, A <: AbstractDifferentialEvolutionAdaptiveState{T},
-        L <: AbstractDifferentialEvolutionTemperatureLadder{T},
-        V <: AbstractVector{T}, VV <: AbstractVector{V}
+        L <: AbstractDifferentialEvolutionTemperatureLadder{T}
 }
     DifferentialEvolutionSample(
-        x[state.temperature_ladder.cold_chains], ld[state.temperature_ladder.cold_chains]
+        copy.(state.xₚ[state.temperature_ladder.cold_chains]),
+        copy(state.ldₚ[state.temperature_ladder.cold_chains])
     )
 end
 
-function create_sample(x::VV,
-        ld::V,
-        state::AbstractDifferentialEvolutionState{
+function create_sample(
+    state::AbstractDifferentialEvolutionState{
             T, A, DifferentialEvolutionNullTemperatureLadder{T}}) where {
-        T <: Real, A <: AbstractDifferentialEvolutionAdaptiveState{T},
-        V <: AbstractVector{T}, VV <: AbstractVector{V}
+        T <: Real, A <: AbstractDifferentialEvolutionAdaptiveState{T}
 }
     DifferentialEvolutionSample(
-        x, ld
+        copy.(state.xₚ), copy(state.ldₚ)
     )
 end
 
-function pick_chains(rng::AbstractRNG, state::DifferentialEvolutionState, current_chain::Int, n_chains::Int)
+function pick_chains(state::DifferentialEvolutionState, current_chain::Int, n_chains::Int)
     #sample up to the current position
-    indices = StatsBase.sample(rng, 1:(length(state.x) - 1), n_chains, replace = false)
+    indices = StatsBase.sample(state.rngs[current_chain], 1:(length(state.x) - 1), n_chains, replace = false)
     indices[indices .>= current_chain] .+= 1
     return state.x[indices]
 end
 
-function pick_chains(rng::AbstractRNG, state::DifferentialEvolutionStateMemory,
-        current_chain::Int, n_chains::Int)
+function pick_chains(state::DifferentialEvolutionStateMemory, current_chain::Int, n_chains::Int)
     #sample up to the current position
-    return StatsBase.sample(rng, state.mem_x, n_chains, replace = false)
+    return StatsBase.sample(state.rngs[current_chain], state.mem_x, n_chains, replace = false)
 end
 
 function update_state(
         state::DifferentialEvolutionState{T, A, L, V, VV};
         adaptive_state::AbstractDifferentialEvolutionAdaptiveState{T} = state.adaptive_state,
         temperature_ladder::AbstractDifferentialEvolutionTemperatureLadder{T} = update_ladder!!(state.temperature_ladder),
-        xₚ::VV = state.x,
-        ldₚ::V = state.ld,
+        rngs::Vector{<:AbstractRNG} = state.rngs,
+        x::VV = state.x,
+        ld::V = state.ld,
+        xₚ::VV = state.xₚ,
+        ldₚ::V = state.ldₚ,
         kwargs...
 ) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V},
         A <: AbstractDifferentialEvolutionAdaptiveState{T},
         L <: AbstractDifferentialEvolutionTemperatureLadder{T}}
-    return DifferentialEvolutionState(xₚ, ldₚ, adaptive_state, temperature_ladder)
+    return DifferentialEvolutionState(x, ld, xₚ, ldₚ, rngs, adaptive_state, temperature_ladder)
 end
 
 function update_state(
         state::DifferentialEvolutionStateMemory{T, A, L, V, VV};
         adaptive_state::AbstractDifferentialEvolutionAdaptiveState{T} = state.adaptive_state,
         temperature_ladder::AbstractDifferentialEvolutionTemperatureLadder{T} = update_ladder!!(state.temperature_ladder),
+        rngs::Vector{<:AbstractRNG} = state.rngs,
         x::VV = state.x,
         ld::V = state.ld,
+        xₚ::VV = state.xₚ,
+        ldₚ::V = state.ldₚ,
         update_memory::Bool = false,
         kwargs...
 ) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V},
@@ -103,23 +117,23 @@ function update_state(
         L <: AbstractDifferentialEvolutionTemperatureLadder{T}}
     if update_memory
         return DifferentialEvolutionStateMemory(
-            x, ld, cat(state.mem_x, x; dims = 1), adaptive_state, temperature_ladder)
+            x, ld, xₚ, ldₚ, rngs, cat(state.mem_x, x; dims = 1), adaptive_state, temperature_ladder)
     else
         return DifferentialEvolutionStateMemory(
-            x, ld, state.mem_x, adaptive_state, temperature_ladder)
+            x, ld, xₚ, ldₚ, rngs, state.mem_x, adaptive_state, temperature_ladder)
     end
 end
 
-function update_chain!(model, rng, xₚ, ldₚ, x, ld, offset, i, temperature)
+function update_chain!(model, state, offset, i)
     if isinf(offset) & (sign(offset) == -1.0)
-        xₚ[i] = x[i]
-        ldₚ[i] = ld[i]
+        copyto!(state.xₚ[i], state.x[i])
+        state.ldₚ[i] = state.ld[i]
         return false
     else
-        ldₚ[i] = logdensity(model, xₚ[i])
-        if log(rand(rng)) * temperature > (ldₚ[i] - ld[i] + offset)
-            xₚ[i] = x[i]
-            ldₚ[i] = ld[i]
+        state.ldₚ[i] = logdensity(model, state.xₚ[i])
+        if log(rand(state.rngs[i])) * get_temperature(state.temperature_ladder, i) > (state.ldₚ[i] - state.ld[i] + offset)
+            copyto!(state.xₚ[i], state.x[i])
+            state.ldₚ[i] = state.ld[i]
             return false
         else
             return true
@@ -169,37 +183,32 @@ function step(
         update_memory::Bool = true,
         kwargs...
 ) where {T <: Real}
+    # Derive per-chain RNGs deterministically from the provided rng for this step.
+    # Keep this here so `step` depends only on `rng` and `state`, and can be called in isolation.
+    for i in eachindex(state.rngs)
+        state.rngs[i] = Random.seed!(copy(rng), rand(rng, UInt))
+    end
     # Extract the wrapped model which implements LogDensityProblems.jl.
     model = model_wrapper.logdensity
     # Extract the current states
     x = state.x
-    ld = state.ld
-    adaptive_state = state.adaptive_state
 
     # loop through chains running the update
-    xₚ = similar(x)
-    ldₚ = similar(ld)
     if parallel
-        rngs = [Random.seed!(copy(rng), rand(rng, UInt)) for i in eachindex(x)]
-        @inbounds Threads.@threads for i in eachindex(x)
-            prop = proposal(rngs[i], sampler, state, i)
-            xₚ[i] = prop.xₚ
-            update_chain!(model, rngs[i], xₚ, ldₚ, x, ld, prop.offset, i,
-                get_temperature(state.temperature_ladder, i))
+        @inbounds Threads.@threads :static for i in eachindex(x)
+            offset, = proposal!(state, sampler, i)
+            update_chain!(model, state, offset, i)
         end
     else
         @inbounds for i in eachindex(x)
-            chain_rng = Random.seed!(copy(rng), rand(rng, UInt)) #so its identical to parallel
-            prop = proposal(chain_rng, sampler, state, i)
-            xₚ[i] = prop.xₚ
-            update_chain!(model, chain_rng, xₚ, ldₚ, x, ld, prop.offset,
-                i, get_temperature(state.temperature_ladder, i))
+            offset, = proposal!(state, sampler, i)
+            update_chain!(model, state, offset, i)
         end
     end
 
-    return create_sample(xₚ, ldₚ, state),
-    update_state(state; adaptive_state = adaptive_state, x = xₚ,
-        ld = ldₚ, update_memory = update_memory)
+    return create_sample(state),
+    update_state(state; x = state.xₚ, xₚ = state.x,
+        ld = state.ldₚ, ldₚ = state.ld, update_memory = update_memory)
 end
 
 #previously adapted step
@@ -264,14 +273,14 @@ See also [`fix_sampler`](@ref).
 function fix_sampler_state(sampler::AbstractDifferentialEvolutionSampler,
         state::DifferentialEvolutionState{T}) where {T <: Real}
     return fix_sampler(sampler, state.adaptive_state),
-    DifferentialEvolutionState(state.x, state.ld, DifferentialEvolutionAdaptiveStatic{T}(),
+    DifferentialEvolutionState(state.x, state.ld, state.xₚ, state.ldₚ, state.rngs, DifferentialEvolutionAdaptiveStatic{T}(),
         state.temperature_ladder)
 end
 
 function fix_sampler_state(sampler::AbstractDifferentialEvolutionSampler,
         state::DifferentialEvolutionStateMemory{T}) where {T <: Real}
     return fix_sampler(sampler, state.adaptive_state),
-    DifferentialEvolutionStateMemory(state.x, state.ld, state.mem_x,
+    DifferentialEvolutionStateMemory(state.x, state.ld, state.xₚ, state.ldₚ, state.rngs, state.mem_x,
         DifferentialEvolutionAdaptiveStatic{T}(), state.temperature_ladder)
 end
 
@@ -286,8 +295,7 @@ function step(
     fixed_sampler, fixed_state = fix_sampler_state(sampler, state)
     sample, new_state = step(rng, model_wrapper, fixed_sampler, fixed_state; kwargs...)
 
-    return sample,
-    update_state(state; x = new_state.x, ld = new_state.ld, update_memory = update_memory,
+    return sample, update_state(state; x = new_state.x, ld = new_state.ld, xₚ = new_state.xₚ, ldₚ = new_state.ldₚ, update_memory = update_memory,
         temperature_ladder = new_state.temperature_ladder)
 end
 
@@ -456,8 +464,11 @@ function step(
 
     temperature_ladder_struct = setup_temperature_struct(temperature_ladder)
 
+    # Initialize per-chain RNGs deterministically from the provided rng.
+    rngs = [Random.seed!(copy(rng), rand(rng, UInt)) for _ in 1:length(x)]
+
     if memory
-        mem_x = copy(x)
+        mem_x = copy.(x)
         if !isnothing(extra_memory)
             append!(mem_x, extra_memory)
         end
@@ -470,10 +481,10 @@ function step(
             mem_x = mem_x[(end - N₀ + 1):end]
         end
         state = DifferentialEvolutionStateMemory(
-            x, ld, mem_x, adaptive_state, temperature_ladder_struct)
+            x, ld, copy.(x), copy(ld), rngs, mem_x, adaptive_state, temperature_ladder_struct)
     else
-        state = DifferentialEvolutionState(x, ld, adaptive_state, temperature_ladder_struct)
+        state = DifferentialEvolutionState(x, ld, copy.(x), copy(ld), rngs, adaptive_state, temperature_ladder_struct)
     end
 
-    return create_sample(x, ld, state), state
+    return create_sample(state), state
 end
