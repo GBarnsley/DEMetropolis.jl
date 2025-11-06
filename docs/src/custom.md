@@ -72,21 +72,20 @@ You can create your own proposal distributions by defining a new sampler type th
 
 The method signature for the proposal is:
 ```julia
-function proposal(
-    rng::AbstractRNG, 
-    sampler::YourSampler, 
+function proposal!(
     state::DEMetropolis.AbstractDifferentialEvolutionState, 
+    sampler::YourSampler, 
     current_state::Int
 )
 ```
 
-- `rng`: Random number generator for the current chain
+- `state`: The current state containing all chain positions, log-densities, and chain specific rngs
 - `sampler`: An instance of your custom sampler struct
-- `state`: The current state containing all chain positions and log-densities
 - `current_state`: The index of the chain to be updated
 
-The function should return a named tuple `(xₚ = proposed_position, offset = hastings_correction)` where:
-- `xₚ`: The proposed new position (vector)
+
+The function should modify `state.xₚ[current_state] = proposed_position` and return a named tuple with at least `(offset = hastings_correction)` where:
+- `proposed_position`: The proposed new position (vector)
 - `offset`: Hastings ratio correction in log-space (typically 0.0 for symmetric proposals)
 
 Here is an example of a simple Metropolis-Hastings random walk update with a fixed step size:
@@ -100,20 +99,19 @@ struct MetropolisHastingsUpdate <: DEMetropolis.AbstractDifferentialEvolutionSam
 end
 
 # Implement the proposal function
-function DEMetropolis.proposal(
-    rng::AbstractRNG, 
-    sampler::MetropolisHastingsUpdate, 
+function DEMetropolis.proposal!(
     state::DEMetropolis.AbstractDifferentialEvolutionState,
+    sampler::MetropolisHastingsUpdate,
     current_state::Int
 )
     # Get the current position of this chain
     x_current = state.x[current_state]
     
     # Propose a new point using a random walk
-    x_proposal = x_current .+ rand(rng, sampler.proposal_distribution)
+    state.xₚ = x_current .+ rand(state.rngs[current_state], sampler.proposal_distribution)
     
     # The proposal is symmetric, so no Hastings correction needed
-    return (xₚ = x_proposal, offset = 0.0)
+    return (offset = 0.0)
 end
 ```
 
@@ -170,10 +168,9 @@ function DEMetropolis.fix_sampler(sampler::AdaptiveMetropolisUpdate{T}, adaptive
 end
 
 # Proposal method (same as non-adaptive)
-function DEMetropolis.proposal(
-    rng::AbstractRNG,
-    sampler::AdaptiveMetropolisUpdate,
+function DEMetropolis.proposal!(
     state::DEMetropolis.AbstractDifferentialEvolutionState,
+    sampler::AdaptiveMetropolisUpdate,
     current_state::Int
 )
     x_current = state.x[current_state]
@@ -188,10 +185,10 @@ function step_warmup(
     rng::AbstractRNG,
     model_wrapper::AbstractMCMC.LogDensityModel,
     sampler::AdaptiveMetropolisUpdate{T},
-    state::DEMetropolis.AbstractDifferentialEvolutionState{T, V, VV, AdaptiveMetropolisState{T}};
+    state::DEMetropolis.AbstractDifferentialEvolutionState{T, AdaptiveMetropolisState{T}};
     parallel::Bool = false,
     kwargs...
-) where {T<:Real, V<:AbstractVector{T}, VV<:AbstractVector{V}}
+) where {T<:Real}
     
     # Perform regular step
     sample, new_state = step(rng, model_wrapper, sampler, state; parallel = parallel, kwargs...)

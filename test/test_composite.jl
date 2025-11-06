@@ -43,7 +43,7 @@
     end
 
     @testset "Sample using regular Composite (non-adaptive)" begin
-        rng = MersenneTwister(1234)
+        rng = backwards_compat_rng(1234)
         model = IsotropicNormalModel([-5.0, 5.0])
 
         # DE + Snooker composite
@@ -94,7 +94,7 @@
     end
 
     @testset "Sample using memory Composite (non-adaptive)" begin
-        rng = MersenneTwister(1234)
+        rng = backwards_compat_rng(1234)
         model = IsotropicNormalModel([-5.0, 5.0])
 
         # DE + Subspace + Snooker composite with weights
@@ -147,7 +147,7 @@
     end
 
     @testset "Sample using Composite with adaptive subspace" begin
-        rng = MersenneTwister(1234)
+        rng = backwards_compat_rng(1234)
         model = IsotropicNormalModel([-5.0, 5.0])
 
         # Adaptive subspace + non-adaptive DE
@@ -207,7 +207,7 @@
     end
 
     @testset "Sample using Composite with all non-adaptive" begin
-        rng = MersenneTwister(1234)
+        rng = backwards_compat_rng(1234)
         model = IsotropicNormalModel([-5.0, 5.0])
 
         # All non-adaptive samplers should result in static adaptive state
@@ -246,7 +246,7 @@
     end
 
     @testset "Check composite adaptation works as intended" begin
-        rng = MersenneTwister(1234)
+        rng = backwards_compat_rng(1234)
         model = IsotropicNormalModel([-5.0, 5.0])
         n_cr = 5
         its = 100
@@ -328,7 +328,7 @@
     end
 
     @testset "Composite with single sampler behaves like individual sampler" begin
-        rng = MersenneTwister(1234)
+        rng = backwards_compat_rng(1234)
         model = IsotropicNormalModel([-5.0, 5.0])
 
         # Test single DE sampler in composite
@@ -339,7 +339,7 @@
         _,
         individual_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model),
             individual_sampler; memory = false, adapt = false)
-        rng = MersenneTwister(1234)  # Reset RNG for fair comparison
+        rng = backwards_compat_rng(1234)  # Reset RNG for fair comparison
         _,
         composite_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model),
             composite_sampler; memory = false, adapt = false)

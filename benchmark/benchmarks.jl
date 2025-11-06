@@ -31,7 +31,7 @@ subspace_update = setup_subspace_sampling()
 updates = (de_update, snooker_update, subspace_update)
 names = ("de_update", "snooker_update", "subspace_update")
 
-rng = MersenneTwister(1234)
+rng = Xoshiro(1234)
 
 #initial steps
 __,

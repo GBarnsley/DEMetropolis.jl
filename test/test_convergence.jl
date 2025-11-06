@@ -1,5 +1,5 @@
 @testset "Rhat Convergence" begin
-    rng = MersenneTwister(1234)
+    rng = backwards_compat_rng(1234)
 
     de_sampler = setup_de_update()
 
