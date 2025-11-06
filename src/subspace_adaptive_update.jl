@@ -1,4 +1,4 @@
-mutable struct DifferentialEvolutionAdaptiveSubspace{T <: Real} <:
+struct DifferentialEvolutionAdaptiveSubspace{T <: Real} <:
        AbstractDifferentialEvolutionAdaptiveState{T}
     "attempts for each crossover probability"
     L::Vector{Int}
@@ -12,30 +12,32 @@ mutable struct DifferentialEvolutionAdaptiveSubspace{T <: Real} <:
     var_mean::Vector{T}
     "running M2 for variance calculation (Welford's algorithm)"
     var_m2::Vector{T}
-    "preallocated delta for variance calculation"
-    delta::Vector{T}
-    "preallocated variance vector"
-    variance::Vector{T}
 end
 
 # Helper function to update running variance using Welford's algorithm
-function calculate_running_variance!(adaptive_state::DifferentialEvolutionAdaptiveSubspace{T},
+function calculate_running_variance(adaptive_state::DifferentialEvolutionAdaptiveSubspace,
         new_values::Vector{V}) where {T <: Real, V <: Vector{T}}
+    new_count = copy(adaptive_state.var_count)
+    new_mean = copy(adaptive_state.var_mean)
+    new_m2 = copy(adaptive_state.var_m2)
     @inbounds for new_value in new_values
-        adaptive_state.var_count += 1
-        adaptive_state.delta .= new_value .- adaptive_state.var_mean
-        adaptive_state.var_mean .+= adaptive_state.delta ./ adaptive_state.var_count
-        adaptive_state.var_m2 .+= adaptive_state.delta .* (new_value .- adaptive_state.var_mean)
+        new_count += 1
+        delta = new_value .- new_mean
+        new_mean .+= delta ./ new_count
+        delta2 = new_value .- new_mean
+        new_m2 .+= delta .* delta2
     end
-    return nothing
+    return new_count, new_mean, new_m2
 end
 
 # Helper function to get current variance
-function calculate_current_variance!(adaptive_state::DifferentialEvolutionAdaptiveSubspace)
-    if adaptive_state.var_count ≥ 10
-        adaptive_state.variance .= adaptive_state.var_m2 ./ adaptive_state.var_count
+function get_current_variance(adaptive_state::DifferentialEvolutionAdaptiveSubspace{T}) where {T <:
+                                                                                               Real}
+    if adaptive_state.var_count < 2
+        return ones(T, length(adaptive_state.var_m2))  # Use 1.0 as default when insufficient data
+    else
+        return adaptive_state.var_m2 ./ adaptive_state.var_count
     end
-    return nothing
 end
 
 #update the sampler with the adapted cr
@@ -113,75 +115,81 @@ function step_warmup(
         parallel::Bool = false,
         kwargs...
 ) where {T <: Real}
-    # Derive per-chain RNGs deterministically from the provided rng for this step.
-    for i in eachindex(state.rngs)
-        state.rngs[i] = Random.seed!(copy(rng), rand(rng, UInt))
-    end
+
     # Extract the wrapped model which implements LogDensityProblems.jl.
     model = model_wrapper.logdensity
     # Extract the current state
     x = state.x
+    ld = state.ld
     adaptive_state = state.adaptive_state
 
-    calculate_current_variance!(adaptive_state)
+    variance = get_current_variance(adaptive_state)
+
+    L = copy(adaptive_state.L)
+    Δ = copy(adaptive_state.Δ)
 
     # loop through chains running the update
-    fixed_sampler = fix_sampler(sampler, adaptive_state)
-
+    xₚ = similar(x)
+    ldₚ = similar(ld)
     if parallel
         # thread safe updating
         Δ_update = zeros(T, length(x))
         cr_update = Vector{Int}(undef, length(x))
+        rngs = [Random.seed!(copy(rng), rand(rng, UInt)) for i in eachindex(x)]
 
-        @inbounds Threads.@threads :static for i in eachindex(x)
-            prop = proposal!(state, fixed_sampler, i)
-            accepted = update_chain!(model, state, prop.offset, i)
+        @inbounds Threads.@threads for i in eachindex(x)
+            prop = proposal(rngs[i], fix_sampler(sampler, adaptive_state), state, i)
+            xₚ[i] = prop.xₚ
+            accepted = update_chain!(model, rngs[i], xₚ, ldₚ, x, ld, prop.offset, i,
+                get_temperature(state.temperature_ladder, i))
             cr_update[i] = findfirst(prop.cr .== adaptive_state.cr_spl.support)
             if accepted
                 Δ_update[i] += sum(
-                    (state.x[i] .- state.xₚ[i]) .* (state.x[i] .- state.xₚ[i]) ./ adaptive_state.variance
+                    (x[i] .- xₚ[i]) .* (x[i] .- xₚ[i]) ./ variance
                 )
             end
         end
         for i in eachindex(x)
-            adaptive_state.L[cr_update[i]] += 1
-            adaptive_state.Δ[cr_update[i]] += Δ_update[i]
+            L[cr_update[i]] += 1
+            Δ[cr_update[i]] += Δ_update[i]
         end
     else
         @inbounds for i in eachindex(x)
-            prop = proposal!(state, fixed_sampler, i)
-            accepted = update_chain!(model, state, prop.offset, i)
+            chain_rng = Random.seed!(copy(rng), rand(rng, UInt)) #so its identical to parallel
+            prop = proposal(chain_rng, fix_sampler(sampler, adaptive_state), state, i)
+            xₚ[i] = prop.xₚ
+            accepted = update_chain!(model, chain_rng, xₚ, ldₚ, x, ld, prop.offset,
+                i, get_temperature(state.temperature_ladder, i))
 
             cr_update = findfirst(prop.cr .== adaptive_state.cr_spl.support)
-            adaptive_state.L[cr_update] += 1
+            L[cr_update] += 1
             if accepted
-                adaptive_state.Δ[cr_update] += sum(
-                    (state.x[i] .- state.xₚ[i]) .* (state.x[i] .- state.xₚ[i]) ./ adaptive_state.variance
+                Δ[cr_update] += sum(
+                    (x[i] .- xₚ[i]) .* (x[i] .- xₚ[i]) ./ variance
                 )
             end
         end
     end
 
     #update variance
-    calculate_running_variance!(adaptive_state, state.xₚ)
-    if all(adaptive_state.L .> 0) && all(adaptive_state.Δ .> 0)
-        adaptive_state.cr_spl = Distributions.sampler(
-            DiscreteNonParametric(adaptive_state.cr_spl.support, sum_to_one!(
-                sum(adaptive_state.L) .* (adaptive_state.Δ ./ adaptive_state.L) ./ sum(adaptive_state.Δ)
-            ))
-        )
+    var_count, var_mean, var_m2 = calculate_running_variance(adaptive_state, xₚ)
+    if (sum(L .== 0) == 0) && (sum(Δ .== 0) == 0)
+        p = sum(L) .* (Δ ./ L) ./ sum(Δ)
+        # correct (need to check this is right)
+        p ./= sum(p)
+        cr_spl = Distributions.sampler(DiscreteNonParametric(adaptive_state.cr_spl.support, p))
+    else
+        cr_spl = adaptive_state.cr_spl
     end
 
-    return create_sample(state), update_state(
+    return create_sample(xₚ, ldₚ, state),
+    update_state(
         state;
+        adaptive_state = DifferentialEvolutionAdaptiveSubspace{T}(
+            L, Δ, cr_spl, var_count, var_mean, var_m2),
         update_memory = update_memory,
-        x = state.xₚ, ld = state.ldₚ, xₚ = state.x, ldₚ = state.ld,
+        x = xₚ, ld = ldₚ
     )
-end
-
-function sum_to_one!(v::Vector{T}) where {T <: Real}
-    v ./= sum(v)
-    return v
 end
 
 function initialize_adaptive_state(sampler::AbstractDifferentialEvolutionSubspaceSampler,
@@ -210,9 +218,7 @@ function initialize_adaptive_state(sampler::AbstractDifferentialEvolutionSubspac
         var_count = 0
         var_mean = zeros(T, d)
         var_m2 = zeros(T, d)
-        delta = zeros(T, d)
-        variance = ones(T, d)
         return DifferentialEvolutionAdaptiveSubspace{T}(
-            L, Δ, cr_spl, var_count, var_mean, var_m2, delta, variance)
+            L, Δ, cr_spl, var_count, var_mean, var_m2)
     end
 end

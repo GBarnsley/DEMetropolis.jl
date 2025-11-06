@@ -3,15 +3,6 @@ using Test
 using LogDensityProblems, Random, Distributions, AbstractMCMC, MCMCChains
 using Aqua
 
-function backwards_compat_rng(seed)
-    if VERSION < v"1.7"
-        rng = Random.MersenneTwister(seed)
-    else
-        rng = Random.Xoshiro(seed)
-    end
-    return rng
-end
-
 @testset "DEMetropolis.jl" begin
     @testset "Aqua" begin
         Aqua.test_all(DEMetropolis)
