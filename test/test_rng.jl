@@ -33,7 +33,7 @@
     n_warmup = 0
     seed = 112
     output1 = sample(
-        Random.MersenneTwister(seed),
+        backwards_compat_rng(seed),
         AbstractMCMC.LogDensityModel(model),
         de_sampler,
         n_its;
@@ -43,7 +43,7 @@
     )
 
     output2 = sample(
-        Random.MersenneTwister(seed),
+        backwards_compat_rng(seed),
         AbstractMCMC.LogDensityModel(model),
         de_sampler,
         n_its;

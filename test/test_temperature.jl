@@ -4,7 +4,7 @@
     n_dims = 2
 
     @testset "Parallel Tempering Basic Functionality" begin
-        rng = Random.MersenneTwister(1234)
+        rng = backwards_compat_rng(1234)
 
         # Test basic parallel tempering with DE sampler
         @testset "DE with Parallel Tempering" begin
@@ -62,7 +62,7 @@
     end
 
     @testset "Simulated Annealing Functionality" begin
-        rng = Random.MersenneTwister(5678)
+        rng = backwards_compat_rng(5678)
 
         @testset "DE with Simulated Annealing" begin
             # Test basic annealing functionality - should complete successfully
@@ -109,7 +109,7 @@
     end
 
     @testset "Combined Parallel Tempering and Simulated Annealing" begin
-        rng = Random.MersenneTwister(9999)
+        rng = backwards_compat_rng(9999)
 
         # Test combining both features - should complete successfully
         result = DREAMz(ld, 30;
@@ -127,7 +127,7 @@
     end
 
     @testset "Parameter Edge Cases and Validation" begin
-        rng = Random.MersenneTwister(1111)
+        rng = backwards_compat_rng(1111)
 
         @testset "Zero Hot Chains" begin
             # Should work normally without parallel tempering
@@ -179,7 +179,7 @@
     end
 
     @testset "Temperature Integration with Memory" begin
-        rng = Random.MersenneTwister(2222)
+        rng = backwards_compat_rng(2222)
 
         # Test warning when using hot chains with memory
         @test_logs (:warn, r"Memory-based samplers.*hot chains") deMCzs(ld, 50;
@@ -192,7 +192,7 @@
     end
 
     @testset "Temperature with Different Samplers" begin
-        rng = Random.MersenneTwister(3333)
+        rng = backwards_compat_rng(3333)
 
         # Test parallel tempering works with different update types
         @testset "Subspace Sampling with Temperature" begin
@@ -221,7 +221,7 @@
     end
 
     @testset "Performance and Parallel Execution" begin
-        rng = Random.MersenneTwister(4444)
+        rng = backwards_compat_rng(4444)
 
         # Test parallel execution with temperature
         result = DREAMz(ld, 30;

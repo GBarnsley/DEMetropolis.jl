@@ -1,6 +1,6 @@
 @testset "Adaptive Subspace Update" begin
     @testset "Sample using regular Subspace" begin
-        rng = MersenneTwister(1234)
+        rng = backwards_compat_rng(1234)
         model = IsotropicNormalModel([-5.0, 5.0])
 
         de_sampler = setup_subspace_sampling()
@@ -48,7 +48,7 @@
     end
 
     @testset "Sample using memory Subspace" begin
-        rng = MersenneTwister(1234)
+        rng = backwards_compat_rng(1234)
         model = IsotropicNormalModel([-5.0, 5.0])
 
         de_sampler = setup_subspace_sampling()
@@ -95,7 +95,7 @@
     end
 
     @testset "check adaption works as intended" begin
-        rng = MersenneTwister(1234)
+        rng = backwards_compat_rng(1234)
         model = IsotropicNormalModel([-5.0, 5.0])
         n_cr = 5
         its = 1000
@@ -185,7 +185,7 @@
         @test isa(states_noadapt[end], DEMetropolis.DifferentialEvolutionStateMemory)
     end
     @testset "warnings" begin
-        rng = MersenneTwister(1234)
+        rng = backwards_compat_rng(1234)
         model = IsotropicNormalModel([-5.0, 5.0])
 
         # Test warning when sampler has fixed crossover probability (n_cr = 0)

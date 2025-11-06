@@ -81,8 +81,8 @@ function pick_chains(state::DifferentialEvolutionState, current_chain::Int, n_ch
 end
 
 function pick_chains(state::DifferentialEvolutionStateMemory, current_chain::Int, n_chains::Int)
-    #sample up to the current position
-    return StatsBase.sample(state.rngs[current_chain], state.mem_x, n_chains, replace = false)
+    #sample up to the current position, with replacement, its faster and the proposals can handle it
+    return rand(state.rngs[current_chain], state.mem_x, n_chains)
 end
 
 function update_state(
@@ -186,7 +186,7 @@ function step(
     # Derive per-chain RNGs deterministically from the provided rng for this step.
     # Keep this here so `step` depends only on `rng` and `state`, and can be called in isolation.
     for i in eachindex(state.rngs)
-        state.rngs[i] = Random.seed!(copy(rng), rand(rng, UInt))
+        Random.seed!(state.rngs[i], rand(rng, UInt))
     end
     # Extract the wrapped model which implements LogDensityProblems.jl.
     model = model_wrapper.logdensity

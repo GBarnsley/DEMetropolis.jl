@@ -56,7 +56,7 @@
     end
 
     @testset "Sample using regular Subspace" begin
-        rng = MersenneTwister(1234)
+        rng = backwards_compat_rng(1234)
         model = IsotropicNormalModel([-5.0, 5.0])
 
         de_sampler = setup_subspace_sampling(
@@ -102,7 +102,7 @@
     end
 
     @testset "Sample which will likely fail to pick a dimension atleast once" begin
-        rng = MersenneTwister(1234)
+        rng = backwards_compat_rng(1234)
         model = IsotropicNormalModel([-5.0, 5.0])
 
         de_sampler = setup_subspace_sampling(cr = 0.1)
@@ -123,7 +123,7 @@
     end
 
     @testset "Sample using memory Subspace" begin
-        rng = MersenneTwister(1234)
+        rng = backwards_compat_rng(1234)
         model = IsotropicNormalModel([-5.0, 5.0])
 
         de_sampler = setup_subspace_sampling(
