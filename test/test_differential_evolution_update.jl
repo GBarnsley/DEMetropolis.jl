@@ -55,7 +55,7 @@
     end
 
     @testset "Sample using regular deMC" begin
-        rng = MersenneTwister(1234)
+        rng = backwards_compat_rng(1234)
         model = IsotropicNormalModel([-5.0, 5.0])
 
         de_sampler = setup_de_update()
@@ -98,7 +98,7 @@
     end
 
     @testset "Sample using memory deMC" begin
-        rng = MersenneTwister(1234)
+        rng = backwards_compat_rng(1234)
         model = IsotropicNormalModel([-5.0, 5.0])
 
         de_sampler = setup_de_update(

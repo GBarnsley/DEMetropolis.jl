@@ -60,21 +60,19 @@ function setup_snooker_update(;
     return DifferentialEvolutionSnookerSampler(sampler(γ))
 end
 
-function proposal(rng::AbstractRNG, sampler::DifferentialEvolutionSnookerSampler,
-        state::AbstractDifferentialEvolutionState, current_state::Int)
+function proposal!(state::AbstractDifferentialEvolutionState,
+    sampler::DifferentialEvolutionSnookerSampler, current_state::Int)
     # Propose a new position.
-    x₁, x₂, xₐ = pick_chains(rng, state, current_state, 3)
+    x₁, x₂, xₐ = pick_chains(state, current_state, 3)
 
     if xₐ == state.x[current_state] || x₁ == x₂
-        xₚ = x₁
-        offset = -Inf
+        state.xₚ[current_state] .= x₁
+        return (offset = -Inf)
     else
         e = normalize(xₐ .- state.x[current_state])
-        xₚ = state.x[current_state] .+ rand(rng, sampler.γ_spl) .* dot(x₁ .- x₂, e) .* e
+        state.xₚ[current_state] .= state.x[current_state] .+ rand(state.rngs[current_state], sampler.γ_spl) .* dot(x₁ .- x₂, e) .* e
 
-        offset = (length(state.x[current_state]) - 1) *
-                 (log(norm(xₐ .- xₚ)) - log(norm(xₐ .- state.x[current_state])))
+        return (offset = (length(state.x[current_state]) - 1) *
+                 (log(norm(xₐ .- state.xₚ[current_state])) - log(norm(xₐ .- state.x[current_state]))))
     end
-
-    return (xₚ = xₚ, offset = offset)
 end

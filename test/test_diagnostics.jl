@@ -6,7 +6,7 @@
     n_pars = 2;
     ld = TransformedLogDensities.TransformedLogDensity(as(Array, n_pars), ld_banana);
     n_chains = 4;
-    rng = Random.MersenneTwister(1234);
+    rng = Random.backwards_compat_rng(1234);
     initial_state = randn(rng, n_chains, n_pars);
     sampler_scheme = setup_sampler_scheme(
         setup_subspace_sampling()
