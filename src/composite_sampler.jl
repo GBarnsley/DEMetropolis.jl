@@ -60,7 +60,7 @@ function step(
         rng::AbstractRNG,
         model_wrapper::LogDensityModel,
         sampler::DifferentialEvolutionCompositeSampler,
-        state::AbstractDifferentialEvolutionState{
+        state::DifferentialEvolutionState{
             T, DifferentialEvolutionAdaptiveStatic{T}};
         kwargs...
 ) where {T <: Real}
@@ -80,7 +80,7 @@ function step(
         rng::AbstractRNG,
         model_wrapper::LogDensityModel,
         sampler::DifferentialEvolutionCompositeSampler,
-        state::AbstractDifferentialEvolutionState{
+        state::DifferentialEvolutionState{
             T, DifferentialEvolutionAdaptiveComposite{T}};
         kwargs...
 ) where {T <: Real}
@@ -122,7 +122,7 @@ function step_warmup(
         rng::AbstractRNG,
         model_wrapper::LogDensityModel,
         sampler::DifferentialEvolutionCompositeSampler,
-        state::AbstractDifferentialEvolutionState{
+        state::DifferentialEvolutionState{
             T, DifferentialEvolutionAdaptiveComposite{T}};
         update_memory::Bool = true,
         kwargs...

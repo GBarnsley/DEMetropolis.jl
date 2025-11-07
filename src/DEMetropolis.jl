@@ -25,11 +25,35 @@ import MCMCDiagnosticTools: rhat
 
 abstract type AbstractDifferentialEvolutionSampler <: AbstractSampler end
 
-abstract type AbstractDifferentialEvolutionState{T, A, L, V, VV} end
-
 abstract type AbstractDifferentialEvolutionAdaptiveState{T} end
 
+abstract type AbstractDifferentialEvolutionMemory{T} end
+
 abstract type AbstractDifferentialEvolutionTemperatureLadder{T} end
+
+struct DifferentialEvolutionState{
+    T <: Real, A <: AbstractDifferentialEvolutionAdaptiveState{T},
+    L <: AbstractDifferentialEvolutionTemperatureLadder{T},
+    M <: AbstractDifferentialEvolutionMemory{T},
+    V <: AbstractVector{T}, VV <: AbstractVector{V}
+}
+    "current position"
+    x::VV
+    "log density at current position"
+    ld::V
+    "preallocated next position"
+    xₚ::VV
+    "preallocated next log densities"
+    ldₚ::V
+    "random states"
+    rngs::Vector{<:AbstractRNG}
+    "struct for holding the status of the adaptive scheme"
+    adaptive_state::A
+    "temperature ladder"
+    temperature_ladder::L
+    "memory structure"
+    memory::M
+end
 
 """
     DifferentialEvolutionOutput{T <: Real}
@@ -64,6 +88,7 @@ struct DifferentialEvolutionOutput{T <: Real}
 end
 
 include("temperature.jl")
+include("memory.jl")
 include("chains.jl")
 include("differential_evolution_update.jl")
 include("snooker_update.jl")

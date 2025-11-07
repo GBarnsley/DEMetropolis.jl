@@ -2,6 +2,10 @@ using DEMetropolis
 using Test
 using LogDensityProblems, Random, Distributions, AbstractMCMC, MCMCChains
 using Aqua
+using Logging
+
+# Disable all @info messages globally
+disable_logging(Logging.Info)
 
 function backwards_compat_rng(seed)
     if VERSION < v"1.7"

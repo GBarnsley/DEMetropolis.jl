@@ -123,32 +123,32 @@ function create_cr_dist(n_cr::Int)
     DiscreteNonParametric(collect(1:n_cr) ./ n_cr, repeat([1 / n_cr], n_cr))
 end
 
-function proposal!(state::AbstractDifferentialEvolutionState,
-    sampler::AbstractDifferentialEvolutionSubspaceSampler, current_state::Int)
+function proposal!(state::DifferentialEvolutionState,
+        sampler::AbstractDifferentialEvolutionSubspaceSampler, current_state::Int)
+    rng = state.rngs[current_state]
     x = state.x[current_state]
     xₚ = state.xₚ[current_state]
 
-    copyto!(xₚ, x)
+    copyto!(xₚ, x) #try the range methods?
 
     #determine how many dimensions to update
-    cr = rand(state.rngs[current_state], sampler.cr_spl)
-    to_update = rand(state.rngs[current_state], length(x)) .< cr
+    cr = rand(rng, sampler.cr_spl)
+    to_update = rand(rng, length(x)) .< cr
     d = sum(to_update)
 
     if d == 0
         #just pick one
-        to_update = zeros(Bool, length(x))
-        to_update[rand(state.rngs[current_state], axes(to_update, 1))] = true
+        to_update[rand(rng, eachindex(to_update))] = true
         d = 1
     end
 
-    δ = rand(state.rngs[current_state], sampler.δ_spl)
+    δ = rand(rng, sampler.δ_spl)
 
     #set modified to 0
     xₚ[to_update] .= zero(eltype(x))
 
     #generate candidate
-    for _ in 1:δ
+    @inbounds for _ in 1:δ
         #pick to random chains find the difference and add to the candidate
         x₁, x₂ = pick_chains(state, current_state, 2)
         xₚ[to_update] .+= x₁[to_update] .- x₂[to_update]
@@ -156,8 +156,8 @@ function proposal!(state::AbstractDifferentialEvolutionState,
 
     #add the other parts of the equation
     xₚ[to_update] .= x[to_update] .+ (
-        (1 .+ rand(state.rngs[current_state], sampler.e_spl, d)) .* get_γ(state.rngs[current_state], sampler, δ, d) .* xₚ[to_update]
-    ) .+ rand(state.rngs[current_state], sampler.ϵ_spl, d)
+        (1 .+ rand(rng, sampler.e_spl, d)) .* get_γ(rng, sampler, δ, d) .* xₚ[to_update]
+    ) .+ rand(rng, sampler.ϵ_spl, d)
 
     return (offset = zero(eltype(xₚ)), cr = cr)
 end

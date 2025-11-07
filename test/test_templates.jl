@@ -27,11 +27,12 @@
 
         # Test with save_final_state = true
         result_with_state = deMC(
-            ld, 50, memory = false, chain_type = DifferentialEvolutionOutput, save_final_state = true)
+            ld, 50, memory = false, chain_type = DifferentialEvolutionOutput,
+            save_final_state = true)
         @test isa(result_with_state, Tuple)
         @test length(result_with_state) == 2
         @test isa(result_with_state[1], DifferentialEvolutionOutput)  # processed samples
-        @test isa(result_with_state[2], DEMetropolis.AbstractDifferentialEvolutionState)  # final state
+        @test isa(result_with_state[2], DEMetropolis.DifferentialEvolutionState)  # final state
 
         # Test with burn-in and Chains output
         result_chains_burnin = deMC(ld, 50, memory = false, chain_type = Chains,
@@ -81,7 +82,7 @@
         )
         @test size(meta_array[1].samples) == (n_samples + n_burnin, n_total_chains, n_dims)
         @test size(meta_array[1].ld) == (n_samples + n_burnin, n_total_chains)
-        @test isa(meta_array[2], Vector{<:DEMetropolis.AbstractDifferentialEvolutionState})
+        @test isa(meta_array[2], Vector{<:DEMetropolis.DifferentialEvolutionState})
 
         meta_chain = sample(
             ld, setup_subspace_sampling(), MCMCSerial(), n_samples + n_burnin, n_meta_chains;
@@ -94,7 +95,7 @@
             chain_type = Chains, num_warmup = n_burnin, save_final_state = true
         )
         @test size(meta_chain[1]) == (n_samples, n_dims + 1, n_total_chains)
-        @test isa(meta_chain[2], Vector{<:DEMetropolis.AbstractDifferentialEvolutionState})
+        @test isa(meta_chain[2], Vector{<:DEMetropolis.DifferentialEvolutionState})
     end
 
     @testset "non memory runs" begin
@@ -106,6 +107,10 @@
         deMC(ld, 100, memory = true)
         deMCzs(ld, 1000; thin = 2, memory = true, epoch_limit = 3)
         DREAMz(ld, 1000; thin = 2, memory = true, epoch_limit = 3)
+    end
+    @testset "thin memory" begin
+        deMC(ld, 100; memory = true, memory_thin_interval = 5)
+        deMCzs(ld, 1000; thin = 2, memory = true, epoch_limit = 3, memory_thin_interval = 5)
     end
     @testset "parameter simplifying" begin
         deMC(ld, 100, memory = false, γ₁ = 0.5, γ₂ = 0.5)
@@ -128,20 +133,25 @@
     end
     @testset "initial_state building" begin
         n_dims = LogDensityProblems.dimension(ld.logdensity)
-        deMC(ld, 100, initial_state = [randn(n_dims) for _ in 1:(n_dims * 2)])
-        @test_logs (:warn,) deMC(ld, 100, initial_state = [randn(n_dims)
-                                                           for _ in 2:(n_dims * 2)])
-        @test_logs (:warn,) deMC(
+
+        disable_logging(Logging.Debug)
+        @test_logs match_mode=:any (:info,
+            "   Initial position is smaller than the requested (or required) n_chains (including hot chains). Expanding initial position.") deMC(
+            ld, 100, initial_state = [randn(n_dims)
+                                      for _ in 2:(n_dims * 2)])
+        @test_logs match_mode=:any (:info,
+            "   Initial position is larger than requested number of chains. Shrinking initial position appending the rest to initial memory.") deMC(
             ld, 100, initial_state = [randn(n_dims) for _ in 0:(n_dims * 2)], memory = true)
         @test_throws ErrorException deMC(ld, 100, initial_state = [randn(n_dims - 1)
                                                                    for _ in 1:(n_dims * 2)])
 
-        deMC(ld, 100, initial_state = [randn(n_dims) for _ in 1:10],
-            n_chains = 5, memory = false)
         @test_throws ErrorException deMC(
             ld, 100, initial_state = [randn(n_dims) for _ in 1:10],
             n_chains = 5, memory = false, n_hot_chains = 2)
-        @test_logs (:warn,) deMC(
+        @test_logs match_mode=:any (
+            :info, "   Initial memory size greater than N₀, truncating memory.") deMC(
             ld, 100, initial_state = [randn(n_dims) for _ in 0:10], N₀ = 5, memory = true)
+
+        disable_logging(Logging.Info)
     end
 end

@@ -52,7 +52,7 @@ function bundle_samples(
         samples::Vector{DifferentialEvolutionSample{V, VV}},
         model_wrapper::LogDensityModel,
         sampler::AbstractDifferentialEvolutionSampler,
-        state::AbstractDifferentialEvolutionState,
+        state::DifferentialEvolutionState,
         ::Type{T};
         save_final_state::Bool = false,
         kwargs...
@@ -79,7 +79,7 @@ end
 function AbstractMCMC.chainsstack(
         chns::Vector{Tuple{DifferentialEvolutionOutput{T},
         E}}
-) where {T <: Real, E <: AbstractDifferentialEvolutionState}
+) where {T <: Real, E <: DifferentialEvolutionState}
     (
         AbstractMCMC.chainsstack([c[1] for c in chns]),
         [c[2] for c in chns]
@@ -89,7 +89,7 @@ end
 function AbstractMCMC.chainsstack(
         chns::Vector{Tuple{
         C, E}}
-) where {C <: Chains, E <: AbstractDifferentialEvolutionState}
+) where {C <: Chains, E <: DifferentialEvolutionState}
     (
         AbstractMCMC.chainsstack([c[1] for c in chns]),
         [c[2] for c in chns]

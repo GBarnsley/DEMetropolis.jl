@@ -13,7 +13,7 @@ function your_stopping_criteria(
     model::AbstractModel, 
     sampler::AbstractDifferentialEvolutionSampler,
     samples::Vector{DifferentialEvolutionSample},
-    state::AbstractDifferentialEvolutionState,
+    state::DifferentialEvolutionState,
     iteration::Int;
     kwargs...
 )
@@ -39,7 +39,7 @@ function max_iterations_stopping(
     model::AbstractModel,
     sampler::AbstractDifferentialEvolutionSampler, 
     samples::Vector{DifferentialEvolutionSample{V, VV}},
-    state::AbstractDifferentialEvolutionState{T, V, VV, A},
+    state::DifferentialEvolutionState{T, V, VV, A},
     iteration::Int;
     max_iterations::Int = 10000,
     kwargs...
@@ -73,7 +73,7 @@ You can create your own proposal distributions by defining a new sampler type th
 The method signature for the proposal is:
 ```julia
 function proposal!(
-    state::DEMetropolis.AbstractDifferentialEvolutionState, 
+    state::DEMetropolis.DifferentialEvolutionState, 
     sampler::YourSampler, 
     current_state::Int
 )
@@ -100,15 +100,15 @@ end
 
 # Implement the proposal function
 function DEMetropolis.proposal!(
-    state::DEMetropolis.AbstractDifferentialEvolutionState,
+    state::DEMetropolis.DifferentialEvolutionState,
     sampler::MetropolisHastingsUpdate,
     current_state::Int
 )
     # Get the current position of this chain
     x_current = state.x[current_state]
     
-    # Propose a new point using a random walk
-    state.xₚ = x_current .+ rand(state.rngs[current_state], sampler.proposal_distribution)
+    # Propose a new point (stored in state) using a random walk
+    state.xₚ[current_state] .= x_current .+ rand(state.rngs[current_state], sampler.proposal_distribution)
     
     # The proposal is symmetric, so no Hastings correction needed
     return (offset = 0.0)
@@ -169,15 +169,14 @@ end
 
 # Proposal method (same as non-adaptive)
 function DEMetropolis.proposal!(
-    state::DEMetropolis.AbstractDifferentialEvolutionState,
+    state::DEMetropolis.DifferentialEvolutionState,
     sampler::AdaptiveMetropolisUpdate,
     current_state::Int
 )
     x_current = state.x[current_state]
     # Use current proposal covariance from adaptive state
-    proposal_dist = MvNormal(zeros(length(x_current)), state.adaptive_state.proposal_cov)
-    x_proposal = x_current .+ rand(rng, proposal_dist)
-    return (xₚ = x_proposal, offset = 0.0)
+    state.xₚ[current_state] .= rand(rng, MvNormal(x_current, state.adaptive_state.proposal_cov))
+    return (offset = 0.0)
 end
 
 # Adaptive step during warm-up
@@ -185,7 +184,7 @@ function step_warmup(
     rng::AbstractRNG,
     model_wrapper::AbstractMCMC.LogDensityModel,
     sampler::AdaptiveMetropolisUpdate{T},
-    state::DEMetropolis.AbstractDifferentialEvolutionState{T, AdaptiveMetropolisState{T}};
+    state::DEMetropolis.DifferentialEvolutionState{T, AdaptiveMetropolisState{T}};
     parallel::Bool = false,
     kwargs...
 ) where {T<:Real}

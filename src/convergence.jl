@@ -35,12 +35,12 @@ using DEMetropolis, AbstractMCMC, Random, Distributions
 # Create a simple model
 model_wrapper(θ) = logpdf(MvNormal([0.0, 0.0], I), θ)
 
-# Setup sampler 
+# Setup sampler
 sampler = deMCzs()
 
 # Use with adaptive stopping criterion
 rng = Random.default_rng()
-chains = sample(rng, model_wrapper, sampler, r̂_stopping_criteria; 
+chains = sample(rng, model_wrapper, sampler, r̂_stopping_criteria;
                n_chains=4, check_every=500, maximum_R̂=1.1)
 ```
 
@@ -51,7 +51,7 @@ function r̂_stopping_criteria(
         model::AbstractModel,
         sampler::AbstractDifferentialEvolutionSampler,
         samples::Vector{DifferentialEvolutionSample{V, VV}},
-        state::AbstractDifferentialEvolutionState{T, A, L, V, VV},
+        state::DifferentialEvolutionState{T, A, L, M, V, VV},
         iteration::Int;
         check_every::Int = 1000,
         maximum_R̂::T = 1.2,
@@ -60,6 +60,7 @@ function r̂_stopping_criteria(
         kwargs...
 ) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V},
         A <: AbstractDifferentialEvolutionAdaptiveState{T},
+        M <: AbstractDifferentialEvolutionMemory{T},
         L <: AbstractDifferentialEvolutionTemperatureLadder{T}}
     if iteration % check_every != 0 || iteration < minimum_iterations
         return false

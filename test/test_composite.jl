@@ -111,7 +111,7 @@
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
-        @test isa(initial_state, DEMetropolis.DifferentialEvolutionStateMemory)
+        @test isa(initial_state, DEMetropolis.DifferentialEvolutionState)
         @test isa(initial_state.adaptive_state, DEMetropolis.DifferentialEvolutionAdaptiveStatic)
         @test length(initial_state.x) == LogDensityProblems.dimension(model) * 2
         @test length(initial_state.x[1]) == LogDensityProblems.dimension(model)
@@ -125,7 +125,7 @@
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
-        @test isa(initial_state, DEMetropolis.DifferentialEvolutionStateMemory)
+        @test isa(initial_state, DEMetropolis.DifferentialEvolutionState)
         @test isa(initial_state.adaptive_state, DEMetropolis.DifferentialEvolutionAdaptiveStatic)
         @test length(initial_state.x) == LogDensityProblems.dimension(model) * 2
         @test length(initial_state.x[1]) == LogDensityProblems.dimension(model)
@@ -163,7 +163,7 @@
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
-        @test isa(initial_state, DEMetropolis.DifferentialEvolutionStateMemory)
+        @test isa(initial_state, DEMetropolis.DifferentialEvolutionState)
         @test isa(initial_state.adaptive_state, DEMetropolis.DifferentialEvolutionAdaptiveComposite)
         @test length(initial_state.adaptive_state.adaptive_states) == 2
         @test isa(initial_state.adaptive_state.adaptive_states[1],
@@ -183,7 +183,7 @@
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
-        @test isa(initial_state, DEMetropolis.DifferentialEvolutionStateMemory)
+        @test isa(initial_state, DEMetropolis.DifferentialEvolutionState)
         @test isa(initial_state.adaptive_state, DEMetropolis.DifferentialEvolutionAdaptiveComposite)
         @test length(initial_state.adaptive_state.adaptive_states) == 2
         @test length(initial_state.x) == LogDensityProblems.dimension(model) * 2
@@ -223,7 +223,7 @@
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
-        @test isa(initial_state, DEMetropolis.DifferentialEvolutionStateMemory)
+        @test isa(initial_state, DEMetropolis.DifferentialEvolutionState)
         @test isa(initial_state.adaptive_state, DEMetropolis.DifferentialEvolutionAdaptiveStatic)
         @test length(initial_state.x) == LogDensityProblems.dimension(model) * 2
         @test length(initial_state.x[1]) == LogDensityProblems.dimension(model)
