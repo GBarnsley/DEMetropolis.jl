@@ -4,7 +4,7 @@
     model::AbstractModel, 
     sampler::AbstractDifferentialEvolutionSampler,
     samples::Vector{DifferentialEvolutionSample},
-    state::DifferentialEvolutionState,
+    state::AbstractDifferentialEvolutionState,
     iteration::Int;
     kwargs...
 )</code></pre><ul><li><code>rng</code>: Random number generator (required by AbstractMCMC interface, usually unused)</li><li><code>model</code>: The model being sampled (required by interface, usually unused)  </li><li><code>sampler</code>: The differential evolution sampler (required by interface, usually unused)</li><li><code>samples</code>: Vector of all collected samples from all chains</li><li><code>state</code>: Current sampler state (required by interface, usually unused)</li><li><code>iteration</code>: Current iteration number</li><li><code>kwargs...</code>: Additional keyword arguments passed via <code>AbstractMCMC.sample</code></li></ul><p>The function should return <code>true</code> if sampling should stop, and <code>false</code> otherwise.</p><p>Here is an example of a very simple stopping criterion that stops sampling after a maximum number of iterations has been reached:</p><pre><code class="language-julia hljs">using DEMetropolis, AbstractMCMC
@@ -14,7 +14,7 @@ function max_iterations_stopping(
     model::AbstractModel,
     sampler::AbstractDifferentialEvolutionSampler, 
     samples::Vector{DifferentialEvolutionSample{V, VV}},
-    state::DifferentialEvolutionState{T, V, VV, A},
+    state::AbstractDifferentialEvolutionState{T, V, VV, A},
     iteration::Int;
     max_iterations::Int = 10000,
     kwargs...
@@ -39,11 +39,12 @@ result = sample(
     max_iterations_stopping;
     max_iterations = 5000,  # passed as keyword argument
     n_chains = 4
-)</code></pre><h2 id="Custom-Proposal-Distributions"><a class="docs-heading-anchor" href="#Custom-Proposal-Distributions">Custom Proposal Distributions</a><a id="Custom-Proposal-Distributions-1"></a><a class="docs-heading-anchor-permalink" href="#Custom-Proposal-Distributions" title="Permalink"></a></h2><p>You can create your own proposal distributions by defining a new sampler type that subtypes <code>AbstractDifferentialEvolutionSampler</code> and implementing the <code>proposal</code> method.</p><p>The method signature for the proposal is:</p><pre><code class="language-julia hljs">function proposal!(
-    state::DEMetropolis.DifferentialEvolutionState, 
+)</code></pre><h2 id="Custom-Proposal-Distributions"><a class="docs-heading-anchor" href="#Custom-Proposal-Distributions">Custom Proposal Distributions</a><a id="Custom-Proposal-Distributions-1"></a><a class="docs-heading-anchor-permalink" href="#Custom-Proposal-Distributions" title="Permalink"></a></h2><p>You can create your own proposal distributions by defining a new sampler type that subtypes <code>AbstractDifferentialEvolutionSampler</code> and implementing the <code>proposal</code> method.</p><p>The method signature for the proposal is:</p><pre><code class="language-julia hljs">function proposal(
+    rng::AbstractRNG, 
     sampler::YourSampler, 
+    state::DEMetropolis.AbstractDifferentialEvolutionState, 
     current_state::Int
-)</code></pre><ul><li><code>state</code>: The current state containing all chain positions, log-densities, and chain specific rngs</li><li><code>sampler</code>: An instance of your custom sampler struct</li><li><code>current_state</code>: The index of the chain to be updated</li></ul><p>The function should modify <code>state.xₚ[current_state] = proposed_position</code> and return a named tuple with at least <code>(offset = hastings_correction)</code> where:</p><ul><li><code>proposed_position</code>: The proposed new position (vector)</li><li><code>offset</code>: Hastings ratio correction in log-space (typically 0.0 for symmetric proposals)</li></ul><p>Here is an example of a simple Metropolis-Hastings random walk update with a fixed step size:</p><pre><code class="language-julia hljs">using DEMetropolis, Distributions, Random
+)</code></pre><ul><li><code>rng</code>: Random number generator for the current chain</li><li><code>sampler</code>: An instance of your custom sampler struct</li><li><code>state</code>: The current state containing all chain positions and log-densities</li><li><code>current_state</code>: The index of the chain to be updated</li></ul><p>The function should return a named tuple <code>(xₚ = proposed_position, offset = hastings_correction)</code> where:</p><ul><li><code>xₚ</code>: The proposed new position (vector)</li><li><code>offset</code>: Hastings ratio correction in log-space (typically 0.0 for symmetric proposals)</li></ul><p>Here is an example of a simple Metropolis-Hastings random walk update with a fixed step size:</p><pre><code class="language-julia hljs">using DEMetropolis, Distributions, Random
 
 # Define the struct for the sampler
 struct MetropolisHastingsUpdate &lt;: DEMetropolis.AbstractDifferentialEvolutionSampler
@@ -51,19 +52,20 @@ struct MetropolisHastingsUpdate &lt;: DEMetropolis.AbstractDifferentialEvolution
 end
 
 # Implement the proposal function
-function DEMetropolis.proposal!(
-    state::DEMetropolis.DifferentialEvolutionState,
+function DEMetropolis.proposal(
+    rng::AbstractRNG,
     sampler::MetropolisHastingsUpdate,
+    state::DEMetropolis.AbstractDifferentialEvolutionState,
     current_state::Int
 )
     # Get the current position of this chain
     x_current = state.x[current_state]
 
-    # Propose a new point (stored in state) using a random walk
-    state.xₚ[current_state] .= x_current .+ rand(state.rngs[current_state], sampler.proposal_distribution)
+    # Propose a new point using a random walk
+    x_proposal = x_current .+ rand(rng, sampler.proposal_distribution)
 
     # The proposal is symmetric, so no Hastings correction needed
-    return (offset = 0.0)
+    return (xₚ = x_proposal, offset = 0.0)
 end</code></pre><h3 id="Adaptive-Proposals-with-step_warmup"><a class="docs-heading-anchor" href="#Adaptive-Proposals-with-step_warmup">Adaptive Proposals with step_warmup</a><a id="Adaptive-Proposals-with-step_warmup-1"></a><a class="docs-heading-anchor-permalink" href="#Adaptive-Proposals-with-step_warmup" title="Permalink"></a></h3><p>For proposals that require adaptation during warm-up, you need to implement the <code>step_warmup</code> as well. This is called during the warm-up phase. Unless you want your sampler to be always adaptive then you must implement <code>step</code>.</p><p>You&#39;ll also need to define adaptive state structures and methods. Here&#39;s an example of an adaptive Metropolis-Hastings sampler:</p><pre><code class="language-julia hljs">using AbstractMCMC, DEMetropolis
 # Define adaptive state
 struct AdaptiveMetropolisState{T&lt;:Real} &lt;:DEMetropolis.AbstractDifferentialEvolutionAdaptiveState{T}
@@ -110,15 +112,17 @@ function DEMetropolis.fix_sampler(sampler::AdaptiveMetropolisUpdate{T}, adaptive
 end
 
 # Proposal method (same as non-adaptive)
-function DEMetropolis.proposal!(
-    state::DEMetropolis.DifferentialEvolutionState,
+function DEMetropolis.proposal(
+    rng::AbstractRNG,
     sampler::AdaptiveMetropolisUpdate,
+    state::DEMetropolis.AbstractDifferentialEvolutionState,
     current_state::Int
 )
     x_current = state.x[current_state]
     # Use current proposal covariance from adaptive state
-    state.xₚ[current_state] .= rand(rng, MvNormal(x_current, state.adaptive_state.proposal_cov))
-    return (offset = 0.0)
+    proposal_dist = MvNormal(zeros(length(x_current)), state.adaptive_state.proposal_cov)
+    x_proposal = x_current .+ rand(rng, proposal_dist)
+    return (xₚ = x_proposal, offset = 0.0)
 end
 
 # Adaptive step during warm-up
@@ -126,10 +130,10 @@ function step_warmup(
     rng::AbstractRNG,
     model_wrapper::AbstractMCMC.LogDensityModel,
     sampler::AdaptiveMetropolisUpdate{T},
-    state::DEMetropolis.DifferentialEvolutionState{T, AdaptiveMetropolisState{T}};
+    state::DEMetropolis.AbstractDifferentialEvolutionState{T, V, VV, AdaptiveMetropolisState{T}};
     parallel::Bool = false,
     kwargs...
-) where {T&lt;:Real}
+) where {T&lt;:Real, V&lt;:AbstractVector{T}, VV&lt;:AbstractVector{V}}
 
     # Perform regular step
     sample, new_state = step(rng, model_wrapper, sampler, state; parallel = parallel, kwargs...)
@@ -200,4 +204,4 @@ result = sample(
 )
 
 plot(result.samples[:, :, 1])
-plot(result.samples[:, :, 2])</code></pre><img src="db5a8455.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../tutorial/">« Sampling from multimodal distributions</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.15.0 on <span class="colophon-date" title="Monday 10 November 2025 17:04">Monday 10 November 2025</span>. Using Julia version 1.12.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+plot(result.samples[:, :, 2])</code></pre><img src="507342ad.svg" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../tutorial/">« Sampling from multimodal distributions</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.15.0 on <span class="colophon-date" title="Monday 10 November 2025 17:07">Monday 10 November 2025</span>. Using Julia version 1.12.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
