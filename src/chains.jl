@@ -436,8 +436,8 @@ function step(
         x = [randn(rng, dimension(model)) for _ in 1:n_true_chains]
     else
         push!(log, "DEMetropolis: adjusting provided initial positions...")
-        current_N = size(initial_position, 1)
-        current_pars = size(initial_position[1], 1)
+        current_N = length(initial_position)
+        current_pars = length(initial_position[1])
         if current_pars != dimension(model)
             print_log(log)
             error("   Number of parameters in initial position must be equal to the number of parameters in the log density")

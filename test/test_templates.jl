@@ -112,6 +112,9 @@
         deMC(ld, 100; memory = true, memory_thin_interval = 5)
         deMCzs(ld, 1000; thin = 2, memory = true, epoch_limit = 3, memory_thin_interval = 5)
     end
+    @testset "non-refill memory" begin
+        deMC(ld, 100; memory = true, memory_size = 50, memory_refill = false)
+    end
     @testset "parameter simplifying" begin
         deMC(ld, 100, memory = false, γ₁ = 0.5, γ₂ = 0.5)
         deMCzs(ld, 1000; thin = 2, memory = false, p_snooker = 0.0, epoch_limit = 3)
@@ -139,6 +142,12 @@
             "   Initial position is smaller than the requested (or required) n_chains (including hot chains). Expanding initial position.") deMC(
             ld, 100, initial_state = [randn(n_dims)
                                       for _ in 2:(n_dims * 2)])
+        @test_logs match_mode=:any (:info,
+            "   Done!") deMC(
+            ld, 100, initial_state = [randn(n_dims) for _ in 1:(n_dims * 2)], n_chains = n_dims * 2, memory = false)
+        @test_logs match_mode=:any (:info,
+            "   Assuming initial position size is n_chains. Ignoring extra positions.") deMC(
+            ld, 100, initial_state = [randn(n_dims) for _ in 1:(n_dims * 2)], n_chains = n_dims * 2 - 1, n_hot_chains = 0, memory = false)
         @test_logs match_mode=:any (:info,
             "   Initial position is larger than requested number of chains. Shrinking initial position appending the rest to initial memory.") deMC(
             ld, 100, initial_state = [randn(n_dims) for _ in 0:(n_dims * 2)], memory = true)
