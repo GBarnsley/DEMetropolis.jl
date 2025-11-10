@@ -60,12 +60,14 @@
         model = IsotropicNormalModel([-5.0, 5.0])
 
         de_sampler = setup_subspace_sampling(
-            cr = DiscreteNonParametric((1:5) ./ 5, repeat([1/5], 5))
+            cr = DiscreteNonParametric((1:5) ./ 5, repeat([1 / 5], 5))
         )
 
         sample_result,
-        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model),
-            de_sampler; memory = false, adapt = false)
+            initial_state = AbstractMCMC.step(
+            rng, AbstractMCMC.LogDensityModel(model),
+            de_sampler; memory = false, adapt = false
+        )
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
@@ -78,7 +80,7 @@
         @test isa(initial_state.x[1], Vector{Float64})
 
         sample_result,
-        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
+            initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
@@ -108,8 +110,10 @@
         de_sampler = setup_subspace_sampling(cr = 0.1)
 
         sample_result,
-        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model),
-            de_sampler; memory = false, adapt = false)
+            initial_state = AbstractMCMC.step(
+            rng, AbstractMCMC.LogDensityModel(model),
+            de_sampler; memory = false, adapt = false
+        )
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
@@ -127,17 +131,19 @@
         model = IsotropicNormalModel([-5.0, 5.0])
 
         de_sampler = setup_subspace_sampling(
-            cr = DiscreteNonParametric((1:5) ./ 5, repeat([1/5], 5)),
+            cr = DiscreteNonParametric((1:5) ./ 5, repeat([1 / 5], 5)),
             γ = 1.0
         )
 
         sample_result,
-        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model),
-            de_sampler; memory = true, adapt = false)
+            initial_state = AbstractMCMC.step(
+            rng, AbstractMCMC.LogDensityModel(model),
+            de_sampler; memory = true, adapt = false
+        )
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
-        @test isa(initial_state, DEMetropolis.DifferentialEvolutionStateMemory)
+        @test isa(initial_state, DEMetropolis.DifferentialEvolutionState)
         @test length(initial_state.x) == LogDensityProblems.dimension(model) * 2
         @test length(initial_state.x[1]) == LogDensityProblems.dimension(model)
         @test length(initial_state.ld) == LogDensityProblems.dimension(model) * 2
@@ -146,11 +152,11 @@
         @test isa(initial_state.x[1], Vector{Float64})
 
         sample_result,
-        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
+            initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
-        @test isa(initial_state, DEMetropolis.DifferentialEvolutionStateMemory)
+        @test isa(initial_state, DEMetropolis.DifferentialEvolutionState)
         @test length(initial_state.x) == LogDensityProblems.dimension(model) * 2
         @test length(initial_state.x[1]) == LogDensityProblems.dimension(model)
         @test length(initial_state.ld) == LogDensityProblems.dimension(model) * 2

@@ -3,14 +3,14 @@
     function ld_banana(x)
         logpdf(Normal(0, 1), x[1]) + logpdf(Normal(x[1], 0.5), x[2])
     end
-    n_pars = 2;
-    ld = TransformedLogDensities.TransformedLogDensity(as(Array, n_pars), ld_banana);
-    n_chains = 4;
-    rng = Random.backwards_compat_rng(1234);
-    initial_state = randn(rng, n_chains, n_pars);
+    n_pars = 2
+    ld = TransformedLogDensities.TransformedLogDensity(as(Array, n_pars), ld_banana)
+    n_chains = 4
+    rng = Random.backwards_compat_rng(1234)
+    initial_state = randn(rng, n_chains, n_pars)
     sampler_scheme = setup_sampler_scheme(
         setup_subspace_sampling()
-    );
+    )
 
     n_its = 1000
     n_burnin = 10000
@@ -18,8 +18,8 @@
 
     @testset "ld_check" begin
         diagnostic_checks = [
-            ld_check() #strict so we definitely get some outliers
-        ];
+            ld_check(), #strict so we definitely get some outliers
+        ]
         output = composite_sampler(
             ld, n_its, n_chains, false, initial_state, sampler_scheme;
             save_burnt = false, rng = rng, n_burnin = n_burnin, parallel = false,
@@ -34,8 +34,8 @@
 
     @testset "ld_check" begin
         diagnostic_checks = [
-            acceptance_check(0.25, 0.5) #strict so we definitely get some outliers
-        ];
+            acceptance_check(0.25, 0.5), #strict so we definitely get some outliers
+        ]
         output = composite_sampler(
             ld, n_its, n_chains, false, initial_state, sampler_scheme;
             save_burnt = false, rng = rng, n_burnin = n_burnin, parallel = false,

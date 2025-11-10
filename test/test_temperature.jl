@@ -8,7 +8,8 @@
 
         # Test basic parallel tempering with DE sampler
         @testset "DE with Parallel Tempering" begin
-            result = deMC(ld, 100;
+            result = deMC(
+                ld, 100;
                 n_chains = 3,
                 n_hot_chains = 2,
                 max_temp_pt = 5.0,
@@ -23,7 +24,8 @@
             @test size(result.ld, 2) == 3
 
             # Test with memory
-            result_mem = deMC(ld, 50;
+            result_mem = deMC(
+                ld, 50;
                 n_chains = 3,
                 n_hot_chains = 2,
                 memory = true,
@@ -33,7 +35,8 @@
         end
 
         @testset "deMCzs with Parallel Tempering" begin
-            result = deMCzs(ld, 100;
+            result = deMCzs(
+                ld, 100;
                 n_chains = 3,
                 n_hot_chains = 2,
                 epoch_limit = 2,
@@ -47,7 +50,8 @@
         end
 
         @testset "DREAMz with Parallel Tempering" begin
-            result = DREAMz(ld, 100;
+            result = DREAMz(
+                ld, 100;
                 n_chains = 3,
                 n_hot_chains = 2,
                 epoch_limit = 2,
@@ -66,7 +70,8 @@
 
         @testset "DE with Simulated Annealing" begin
             # Test basic annealing functionality - should complete successfully
-            result = deMC(ld, 50;
+            result = deMC(
+                ld, 50;
                 n_burnin = 25,
                 annealing = true,
                 max_temp_sa = 3.0,
@@ -80,7 +85,8 @@
         end
 
         @testset "deMCzs with Simulated Annealing" begin
-            result = deMCzs(ld, 50;
+            result = deMCzs(
+                ld, 50;
                 warmup_epochs = 2,
                 epoch_limit = 2,
                 annealing = true,
@@ -94,7 +100,8 @@
         end
 
         @testset "DREAMz with Simulated Annealing" begin
-            result = DREAMz(ld, 50;
+            result = DREAMz(
+                ld, 50;
                 warmup_epochs = 2,
                 epoch_limit = 2,
                 annealing = true,
@@ -112,7 +119,8 @@
         rng = backwards_compat_rng(9999)
 
         # Test combining both features - should complete successfully
-        result = DREAMz(ld, 30;
+        result = DREAMz(
+            ld, 30;
             n_chains = 3,
             n_hot_chains = 2,
             annealing = true,
@@ -131,7 +139,8 @@
 
         @testset "Zero Hot Chains" begin
             # Should work normally without parallel tempering
-            result = deMC(ld, 50;
+            result = deMC(
+                ld, 50;
                 n_hot_chains = 0,
                 max_temp_pt = 5.0,
                 rng = rng
@@ -141,7 +150,8 @@
 
         @testset "Different Temperature Spacing" begin
             # Test very close temperature spacing
-            result_close = deMC(ld, 30;
+            result_close = deMC(
+                ld, 30;
                 n_chains = 2,
                 n_hot_chains = 2,
                 α = 0.3,  # Very close spacing
@@ -152,7 +162,8 @@
             @test isa(result_close, DifferentialEvolutionOutput)
 
             # Test wide temperature spacing
-            result_wide = deMC(ld, 30;
+            result_wide = deMC(
+                ld, 30;
                 n_chains = 2,
                 n_hot_chains = 2,
                 α = 2.0,  # Wide spacing
@@ -166,7 +177,8 @@
         @testset "Custom Temperature Ladder" begin
             # Test providing custom temperature ladder
             custom_ladder = [[1.0, 1.0, 3.0, 6.0]]
-            result = deMC(ld, 30;
+            result = deMC(
+                ld, 30;
                 n_chains = 2,
                 n_hot_chains = 2,
                 temperature_ladder = custom_ladder,
@@ -182,7 +194,8 @@
         rng = backwards_compat_rng(2222)
 
         # Test warning when using hot chains with memory
-        @test_logs (:warn, r"Memory-based samplers.*hot chains") deMCzs(ld, 50;
+        @test_logs (:warn, r"Memory-based samplers.*hot chains") deMCzs(
+            ld, 50;
             n_chains = 2,
             n_hot_chains = 3,
             memory = true,
@@ -196,7 +209,8 @@
 
         # Test parallel tempering works with different update types
         @testset "Subspace Sampling with Temperature" begin
-            result = DREAMz(ld, 50;
+            result = DREAMz(
+                ld, 50;
                 n_chains = 2,
                 n_hot_chains = 2,
                 n_cr = 2,
@@ -208,7 +222,8 @@
         end
 
         @testset "Snooker Updates with Temperature" begin
-            result = deMCzs(ld, 50;
+            result = deMCzs(
+                ld, 50;
                 n_chains = 2,
                 n_hot_chains = 2,
                 p_snooker = 0.3,
@@ -224,7 +239,8 @@
         rng = backwards_compat_rng(4444)
 
         # Test parallel execution with temperature
-        result = DREAMz(ld, 30;
+        result = DREAMz(
+            ld, 30;
             n_chains = 2,
             n_hot_chains = 2,
             parallel = true,

@@ -27,7 +27,7 @@
             n_chains = 3,
             progress = false,
             maximum_iterations = max_its,
-            maximum_R̂ = 1.00
+            maximum_R̂ = 1.0
         )
         @test length(samples) == (max_its - 1)
         @test all(isa(x, DEMetropolis.DifferentialEvolutionSample) for x in samples)

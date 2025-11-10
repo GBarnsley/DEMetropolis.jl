@@ -1,12 +1,15 @@
 function create_temperature_ladder(
         n_cold_chains::Int, n_hot_chains::Int, α::T, max_temp_pt::T,
-        max_temp_sa::T, annealing_steps::Int) where {T <: Real}
+        max_temp_sa::T, annealing_steps::Int
+    ) where {T <: Real}
     cold_chains = ones(T, n_cold_chains)
     if n_hot_chains == 0
         final_temperature = cold_chains
     else
-        final_temperature = [cold_chains...,
-            ((collect(0:(1 / (n_hot_chains)):1) .^ α) .* (max_temp_pt - 1) .+ 1)[2:end]...]
+        final_temperature = [
+            cold_chains...,
+            ((collect(0:(1 / (n_hot_chains)):1) .^ α) .* (max_temp_pt - 1) .+ 1)[2:end]...,
+        ]
     end
 
     if annealing_steps > 0
@@ -41,25 +44,27 @@ function setup_temperature_struct(ladder::Vector{Vector{T}}) where {T <: Real}
 end
 
 function get_temperature(ladder::AbstractDifferentialEvolutionTemperatureLadder, current_chain::Int)
-    ladder.temperature[current_chain]
+    return ladder.temperature[current_chain]
 end
 
 function update_ladder!!(ladder::AbstractDifferentialEvolutionTemperatureLadder)
-    ladder
+    return ladder
 end
 
 struct DifferentialEvolutionNullTemperatureLadder{T <: Real} <:
-       AbstractDifferentialEvolutionTemperatureLadder{T}
+    AbstractDifferentialEvolutionTemperatureLadder{T}
 end
 
-function get_temperature(ladder::DifferentialEvolutionNullTemperatureLadder{T},
-        current_chain::Int) where {T <: Real}
-    one(T)
+function get_temperature(
+        ladder::DifferentialEvolutionNullTemperatureLadder{T},
+        current_chain::Int
+    ) where {T <: Real}
+    return one(T)
 end
 
 #for parallel tempering
 struct DifferentialEvolutionStaticTemperatureLadder{T <: Real} <:
-       AbstractDifferentialEvolutionTemperatureLadder{T}
+    AbstractDifferentialEvolutionTemperatureLadder{T}
     "temperature for each chain"
     temperature::Vector{T}
     "indicator for cold chains"
@@ -68,7 +73,7 @@ end
 
 #for annealing
 struct DifferentialEvolutionAnnealingTemperatureLadder{T <: Real} <:
-       AbstractDifferentialEvolutionTemperatureLadder{T}
+    AbstractDifferentialEvolutionTemperatureLadder{T}
     "temperature for each chain"
     temperature::Vector{T}
     "view of the temperature ladder"
@@ -77,8 +82,10 @@ struct DifferentialEvolutionAnnealingTemperatureLadder{T <: Real} <:
     cold_chains::Vector{Int}
 end
 
-function update_ladder!!(ladder::DifferentialEvolutionAnnealingTemperatureLadder{T}) where {T <:
-                                                                                            Real}
+function update_ladder!!(ladder::DifferentialEvolutionAnnealingTemperatureLadder{T}) where {
+        T <:
+        Real,
+    }
     n_steps = length(ladder.temperature_ladder)
     if n_steps == 1
         if length(ladder.cold_chains) == length(ladder.temperature)

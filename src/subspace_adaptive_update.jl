@@ -1,5 +1,5 @@
 mutable struct DifferentialEvolutionAdaptiveSubspace{T <: Real} <:
-       AbstractDifferentialEvolutionAdaptiveState{T}
+    AbstractDifferentialEvolutionAdaptiveState{T}
     "attempts for each crossover probability"
     L::Vector{Int}
     "squared normalised jumping distance for each crossover probability for each crossover probability"
@@ -19,13 +19,16 @@ mutable struct DifferentialEvolutionAdaptiveSubspace{T <: Real} <:
 end
 
 # Helper function to update running variance using Welford's algorithm
-function calculate_running_variance!(adaptive_state::DifferentialEvolutionAdaptiveSubspace{T},
-        new_values::Vector{V}) where {T <: Real, V <: Vector{T}}
+function calculate_running_variance!(
+        adaptive_state::DifferentialEvolutionAdaptiveSubspace{T},
+        new_values::Vector{V}
+    ) where {T <: Real, V <: Vector{T}}
     @inbounds for new_value in new_values
         adaptive_state.var_count += 1
         adaptive_state.delta .= new_value .- adaptive_state.var_mean
         adaptive_state.var_mean .+= adaptive_state.delta ./ adaptive_state.var_count
-        adaptive_state.var_m2 .+= adaptive_state.delta .* (new_value .- adaptive_state.var_mean)
+        adaptive_state.var_m2 .+= adaptive_state.delta .*
+            (new_value .- adaptive_state.var_mean)
     end
     return nothing
 end
@@ -40,9 +43,11 @@ end
 
 #update the sampler with the adapted cr
 
-function fix_sampler(sampler::DifferentialEvolutionSubspaceSampler,
-        adaptive_state::DifferentialEvolutionAdaptiveSubspace)
-    DifferentialEvolutionSubspaceSampler(
+function fix_sampler(
+        sampler::DifferentialEvolutionSubspaceSampler,
+        adaptive_state::DifferentialEvolutionAdaptiveSubspace
+    )
+    return DifferentialEvolutionSubspaceSampler(
         adaptive_state.cr_spl,
         sampler.n_cr,
         sampler.δ_spl,
@@ -51,9 +56,11 @@ function fix_sampler(sampler::DifferentialEvolutionSubspaceSampler,
     )
 end
 
-function fix_sampler(sampler::DifferentialEvolutionSubspaceSamplerFixedGamma,
-        adaptive_state::DifferentialEvolutionAdaptiveSubspace)
-    DifferentialEvolutionSubspaceSamplerFixedGamma(
+function fix_sampler(
+        sampler::DifferentialEvolutionSubspaceSamplerFixedGamma,
+        adaptive_state::DifferentialEvolutionAdaptiveSubspace
+    )
+    return DifferentialEvolutionSubspaceSamplerFixedGamma(
         adaptive_state.cr_spl,
         sampler.n_cr,
         sampler.δ_spl,
@@ -107,12 +114,13 @@ function step_warmup(
         rng::AbstractRNG,
         model_wrapper::LogDensityModel,
         sampler::AbstractDifferentialEvolutionSubspaceSampler,
-        state::AbstractDifferentialEvolutionState{
-            T, DifferentialEvolutionAdaptiveSubspace{T}};
+        state::DifferentialEvolutionState{
+            T, DifferentialEvolutionAdaptiveSubspace{T},
+        };
         update_memory::Bool = true,
         parallel::Bool = false,
         kwargs...
-) where {T <: Real}
+    ) where {T <: Real}
     # Derive per-chain RNGs deterministically from the provided rng for this step.
     for i in eachindex(state.rngs)
         state.rngs[i] = Random.seed!(copy(rng), rand(rng, UInt))
@@ -133,13 +141,14 @@ function step_warmup(
         Δ_update = zeros(T, length(x))
         cr_update = Vector{Int}(undef, length(x))
 
-        @inbounds Threads.@threads :static for i in eachindex(x)
+        @inbounds Threads.@threads for i in eachindex(x)
             prop = proposal!(state, fixed_sampler, i)
             accepted = update_chain!(model, state, prop.offset, i)
             cr_update[i] = findfirst(prop.cr .== adaptive_state.cr_spl.support)
             if accepted
                 Δ_update[i] += sum(
-                    (state.x[i] .- state.xₚ[i]) .* (state.x[i] .- state.xₚ[i]) ./ adaptive_state.variance
+                    (state.x[i] .- state.xₚ[i]) .* (state.x[i] .- state.xₚ[i]) ./
+                        adaptive_state.variance
                 )
             end
         end
@@ -156,7 +165,8 @@ function step_warmup(
             adaptive_state.L[cr_update] += 1
             if accepted
                 adaptive_state.Δ[cr_update] += sum(
-                    (state.x[i] .- state.xₚ[i]) .* (state.x[i] .- state.xₚ[i]) ./ adaptive_state.variance
+                    (state.x[i] .- state.xₚ[i]) .* (state.x[i] .- state.xₚ[i]) ./
+                        adaptive_state.variance
                 )
             end
         end
@@ -166,17 +176,22 @@ function step_warmup(
     calculate_running_variance!(adaptive_state, state.xₚ)
     if all(adaptive_state.L .> 0) && all(adaptive_state.Δ .> 0)
         adaptive_state.cr_spl = Distributions.sampler(
-            DiscreteNonParametric(adaptive_state.cr_spl.support, sum_to_one!(
-                sum(adaptive_state.L) .* (adaptive_state.Δ ./ adaptive_state.L) ./ sum(adaptive_state.Δ)
-            ))
+            DiscreteNonParametric(
+                adaptive_state.cr_spl.support,
+                sum_to_one!(
+                    sum(adaptive_state.L) .* (adaptive_state.Δ ./ adaptive_state.L) ./
+                        sum(adaptive_state.Δ)
+                )
+            )
         )
     end
 
-    return create_sample(state), update_state(
-        state;
-        update_memory = update_memory,
-        x = state.xₚ, ld = state.ldₚ, xₚ = state.x, ldₚ = state.ld,
-    )
+    return create_sample(state),
+        update_state(
+            state;
+            update_memory = update_memory,
+            x = state.xₚ, ld = state.ldₚ, xₚ = state.x, ldₚ = state.ld
+        )
 end
 
 function sum_to_one!(v::Vector{T}) where {T <: Real}
@@ -184,8 +199,10 @@ function sum_to_one!(v::Vector{T}) where {T <: Real}
     return v
 end
 
-function initialize_adaptive_state(sampler::AbstractDifferentialEvolutionSubspaceSampler,
-        model_wrapper::LogDensityModel, n_chains::Int)
+function initialize_adaptive_state(
+        sampler::AbstractDifferentialEvolutionSubspaceSampler,
+        model_wrapper::LogDensityModel, n_chains::Int
+    )
     n_cr = sampler.n_cr
     T = Float64
     d = dimension(model_wrapper.logdensity)
@@ -213,6 +230,7 @@ function initialize_adaptive_state(sampler::AbstractDifferentialEvolutionSubspac
         delta = zeros(T, d)
         variance = ones(T, d)
         return DifferentialEvolutionAdaptiveSubspace{T}(
-            L, Δ, cr_spl, var_count, var_mean, var_m2, delta, variance)
+            L, Δ, cr_spl, var_count, var_mean, var_m2, delta, variance
+        )
     end
 end
