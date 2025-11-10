@@ -189,7 +189,7 @@
                 state = AbstractMCMC.step_warmup(
                 rng, AbstractMCMC.LogDensityModel(model), de_sampler, states_noadapt[i - 1]
             )
-            states_noadapt[i] = state
+            states_noadapt[i] = deepcopy(state)
         end
         @test isa(states_noadapt[end], DEMetropolis.DifferentialEvolutionState)
     end
