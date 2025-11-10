@@ -73,10 +73,10 @@ function deMC(
         γ₁::Union{Nothing, T} = nothing,
         γ₂::T = 1.0,
         p_γ₂::T = 0.1,
-        β::ContinuousUnivariateDistribution = Uniform(-1e-4, 1e-4),
+        β::ContinuousUnivariateDistribution = Uniform(-1.0e-4, 1.0e-4),
         chain_type = DifferentialEvolutionOutput,
         kwargs...
-) where {T <: Real}
+    ) where {T <: Real}
 
     #build sampler scheme
     if γ₁ != γ₂
@@ -188,11 +188,11 @@ function deMCzs(
         γ::Union{Nothing, T} = nothing,
         γₛ::Union{Nothing, T} = nothing,
         p_snooker::Union{Nothing, T} = 0.1,
-        β::Distributions.Uniform{T} = Distributions.Uniform(-1e-4, 1e-4),
+        β::Distributions.Uniform{T} = Distributions.Uniform(-1.0e-4, 1.0e-4),
         chain_type = DifferentialEvolutionOutput,
         thin::Int = 1,
         kwargs...
-) where {T <: Real}
+    ) where {T <: Real}
 
     #build sampler scheme
     if p_snooker == 0
@@ -220,7 +220,7 @@ function deMCzs(
         memory_refill = memory_refill,
         minimum_iterations = save_burnt ? n_burnin + 1 : 0,
         maximum_iterations = save_burnt ? (check_every * epoch_limit) + n_burnin :
-                             (check_every * epoch_limit),
+            (check_every * epoch_limit),
         num_warmup = n_burnin,
         initial_position = initial_state,
         thinning = thin,
@@ -313,13 +313,13 @@ function DREAMz(
         n_cr::Int = 3,
         cr₁::Union{Nothing, T} = nothing,
         cr₂::Union{Nothing, T} = nothing,
-        ϵ::Distributions.Uniform{T} = Distributions.Uniform(-1e-4, 1e-4),
-        e::Distributions.Normal{T} = Distributions.Normal(0.0, 1e-2),
+        ϵ::Distributions.Uniform{T} = Distributions.Uniform(-1.0e-4, 1.0e-4),
+        e::Distributions.Normal{T} = Distributions.Normal(0.0, 1.0e-2),
         δ::Distributions.DiscreteUniform = Distributions.DiscreteUniform(1, 3),
         chain_type = DifferentialEvolutionOutput,
         thin::Int = 1,
         kwargs...
-) where {T <: Real}
+    ) where {T <: Real}
 
     #build sampler scheme
     if p_γ₂ == 0
@@ -347,7 +347,7 @@ function DREAMz(
         memory_refill = memory_refill,
         minimum_iterations = save_burnt ? n_burnin + 1 : 0,
         maximum_iterations = save_burnt ? (check_every * epoch_limit) + n_burnin :
-                             (check_every * epoch_limit),
+            (check_every * epoch_limit),
         num_warmup = n_burnin,
         initial_position = initial_state,
         thinning = thin,

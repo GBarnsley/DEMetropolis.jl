@@ -1,5 +1,5 @@
 abstract type AbstractDifferentialEvolutionSubspaceSampler <:
-              AbstractDifferentialEvolutionSampler end
+AbstractDifferentialEvolutionSampler end
 
 struct DifferentialEvolutionSubspaceSampler <: AbstractDifferentialEvolutionSubspaceSampler
     cr_spl::Sampleable{Univariate, <:Union{Continuous, Discrete}}
@@ -10,7 +10,7 @@ struct DifferentialEvolutionSubspaceSampler <: AbstractDifferentialEvolutionSubs
 end
 
 struct DifferentialEvolutionSubspaceSamplerFixedGamma{T <: Real} <:
-       AbstractDifferentialEvolutionSubspaceSampler
+    AbstractDifferentialEvolutionSubspaceSampler
     cr_spl::Sampleable{Univariate, <:Union{Continuous, Discrete}}
     n_cr::Int
     δ_spl::Sampleable{Univariate, Discrete}
@@ -62,11 +62,12 @@ function setup_subspace_sampling(;
         cr::Union{Real, UnivariateDistribution, Nothing} = nothing,
         n_cr::Int = 3,
         δ::Union{Integer, DiscreteUnivariateDistribution} = DiscreteUniform(
-            1, 3),
-        ϵ::ContinuousUnivariateDistribution = Uniform(-1e-4, 1e-4),
-        e::ContinuousUnivariateDistribution = Normal(0.0, 1e-2),
+            1, 3
+        ),
+        ϵ::ContinuousUnivariateDistribution = Uniform(-1.0e-4, 1.0e-4),
+        e::ContinuousUnivariateDistribution = Normal(0.0, 1.0e-2),
         check_args::Bool = true
-)
+    )
     if isa(δ, Integer)
         δ = Dirac(δ)
     end
@@ -94,7 +95,7 @@ function setup_subspace_sampling(;
         noise_checks(e, "e")
     end
 
-    if isnothing(γ)
+    return if isnothing(γ)
         DifferentialEvolutionSubspaceSampler(
             sampler(cr),
             n_cr,
@@ -120,11 +121,13 @@ function setup_subspace_sampling(;
 end
 
 function create_cr_dist(n_cr::Int)
-    DiscreteNonParametric(collect(1:n_cr) ./ n_cr, repeat([1 / n_cr], n_cr))
+    return DiscreteNonParametric(collect(1:n_cr) ./ n_cr, repeat([1 / n_cr], n_cr))
 end
 
-function proposal!(state::DifferentialEvolutionState,
-        sampler::AbstractDifferentialEvolutionSubspaceSampler, current_state::Int)
+function proposal!(
+        state::DifferentialEvolutionState,
+        sampler::AbstractDifferentialEvolutionSubspaceSampler, current_state::Int
+    )
     rng = state.rngs[current_state]
     x = state.x[current_state]
     xₚ = state.xₚ[current_state]
@@ -163,11 +166,12 @@ function proposal!(state::DifferentialEvolutionState,
 end
 
 function get_γ(rng::AbstractRNG, sampler::DifferentialEvolutionSubspaceSampler, δ::Int, d::Int)
-    2.38 / sqrt(2 * δ * d)
+    return 2.38 / sqrt(2 * δ * d)
 end
 
 function get_γ(
         rng::AbstractRNG, sampler::DifferentialEvolutionSubspaceSamplerFixedGamma{T},
-        δ::Int, d::Int) where {T <: Real}
-    sampler.γ
+        δ::Int, d::Int
+    ) where {T <: Real}
+    return sampler.γ
 end

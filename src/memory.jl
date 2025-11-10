@@ -4,18 +4,21 @@ end
 
 #abstract memory-full type
 abstract type AbstractDifferentialEvolutionMemoryFormat{
-    T, VV <: AbstractVector{<:AbstractVector{T}}} <:
-              AbstractDifferentialEvolutionMemory{T} end
+    T, VV <: AbstractVector{<:AbstractVector{T}},
+} <:
+AbstractDifferentialEvolutionMemory{T} end
 
 #full memory no changes
 struct DifferentialEvolutionMemoryFull{T, VV <: AbstractVector{<:AbstractVector{T}}} <:
-       AbstractDifferentialEvolutionMemoryFormat{T, VV}
+    AbstractDifferentialEvolutionMemoryFormat{T, VV}
     mem_x::VV
 end
 
-function update_memory!!(memory::DifferentialEvolutionMemoryFull{T, VV},
-        x::VV) where {T <: Real, VV <: AbstractVector{<:AbstractVector{T}}}
-    memory
+function update_memory!!(
+        memory::DifferentialEvolutionMemoryFull{T, VV},
+        x::VV
+    ) where {T <: Real, VV <: AbstractVector{<:AbstractVector{T}}}
+    return memory
 end
 
 #abstract type for methods of filling memory
@@ -23,13 +26,15 @@ abstract type AbstractDifferentialEvolutionMemoryFillMethod end
 
 #full memory, refreshing from the start
 struct DifferentialEvolutionMemoryRefill{T, VV <: AbstractVector{<:AbstractVector{T}}} <:
-       AbstractDifferentialEvolutionMemoryFormat{T, VV}
+    AbstractDifferentialEvolutionMemoryFormat{T, VV}
     mem_x::VV
     fill::AbstractDifferentialEvolutionMemoryFillMethod
 end
 
-function update_memory!!(memory::DifferentialEvolutionMemoryRefill{T, VV},
-        x::VV) where {T <: Real, VV <: AbstractVector{<:AbstractVector{T}}}
+function update_memory!!(
+        memory::DifferentialEvolutionMemoryRefill{T, VV},
+        x::VV
+    ) where {T <: Real, VV <: AbstractVector{<:AbstractVector{T}}}
     if update_position!(memory.fill)
         @inbounds for i in 1:memory.fill.n_chains
             memory.mem_x[memory.fill.position - i + 1] .= x[i]
@@ -43,14 +48,16 @@ end
 
 #non-full memory, filling up to a max size
 struct DifferentialEvolutionMemoryFill{T, VV <: AbstractVector{<:AbstractVector{T}}} <:
-       AbstractDifferentialEvolutionMemoryFormat{T, VV}
+    AbstractDifferentialEvolutionMemoryFormat{T, VV}
     mem_x::VV
     fill::AbstractDifferentialEvolutionMemoryFillMethod
     refill::Bool
 end
 
-function update_memory!!(memory::DifferentialEvolutionMemoryFill{T, VV},
-        x::VV) where {T <: Real, VV <: AbstractVector{<:AbstractVector{T}}}
+function update_memory!!(
+        memory::DifferentialEvolutionMemoryFill{T, VV},
+        x::VV
+    ) where {T <: Real, VV <: AbstractVector{<:AbstractVector{T}}}
     if update_position!(memory.fill)
         @inbounds for i in 1:memory.fill.n_chains
             memory.mem_x[memory.fill.position - i + 1] .= x[i]
@@ -69,7 +76,7 @@ function update_memory!!(memory::DifferentialEvolutionMemoryFill{T, VV},
 end
 
 mutable struct DifferentialEvolutionMemoryFillEvery <:
-               AbstractDifferentialEvolutionMemoryFillMethod
+    AbstractDifferentialEvolutionMemoryFillMethod
     position::Int
     n_chains::Int
 end
@@ -80,7 +87,7 @@ function update_position!(method::DifferentialEvolutionMemoryFillEvery)
 end
 
 mutable struct DifferentialEvolutionMemoryFillThin <:
-               AbstractDifferentialEvolutionMemoryFillMethod
+    AbstractDifferentialEvolutionMemoryFillMethod
     position::Int
     n_chains::Int
     count::Int

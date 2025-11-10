@@ -1,4 +1,3 @@
-
 using AbstractMCMC, .DEMetropolis, Distributions, LogDensityProblems, Random
 #simple ld
 struct IsotropicNormalModel{M <: AbstractVector{<:Real}}
@@ -12,7 +11,7 @@ function LogDensityProblems.logdensity(model::IsotropicNormalModel, x::AbstractV
     return - sum(abs2, x .- model.mean) / 2
 end
 function LogDensityProblems.capabilities(model::IsotropicNormalModel)
-    LogDensityProblems.LogDensityOrder{0}()
+    return LogDensityProblems.LogDensityOrder{0}()
 end
 am_model = AbstractMCMC.LogDensityModel(IsotropicNormalModel(zeros(5)))
 
@@ -32,18 +31,22 @@ rng = Xoshiro(1234)
 
 #initial step
 __,
-initial_state = AbstractMCMC.step(rng, am_model, update; memory = memory,
-    initial_position = initial_position, n_chains = n_chains);
+    initial_state = AbstractMCMC.step(
+    rng, am_model, update; memory = memory,
+    initial_position = initial_position, n_chains = n_chains
+);
 
 function run_steps!(n, rng, am_model, update, initial_state)
     state = deepcopy(initial_state)
     for q in 1:n
         __, state = AbstractMCMC.step_warmup(rng, am_model, update, state)
     end
+    return
 end
 
 @profview run_steps!(500, rng, am_model, update, initial_state)
 @profview_allocs run_steps!(1000, rng, am_model, update, initial_state) sample_rate = 0.1
 
-@benchmark AbstractMCMC.step_warmup(rng, $am_model, $update, state) setup=(
-    rng = copy($rng); state = deepcopy($initial_state))
+@benchmark AbstractMCMC.step_warmup(rng, $am_model, $update, state) setup = (
+    rng = copy($rng); state = deepcopy($initial_state)
+)

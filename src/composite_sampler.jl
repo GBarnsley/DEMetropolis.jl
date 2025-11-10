@@ -32,19 +32,22 @@ sampler3 = setup_sampler_scheme(setup_de_update(), setup_snooker_update(); w = [
 
 See also [`setup_de_update`](@ref), [`setup_snooker_update`](@ref), [`setup_subspace_sampling`](@ref).
 """
-function setup_sampler_scheme(updates::AbstractDifferentialEvolutionSampler...;
-        w::Vector{Float64} = ones(length(updates)))
+function setup_sampler_scheme(
+        updates::AbstractDifferentialEvolutionSampler...;
+        w::Vector{Float64} = ones(length(updates))
+    )
     return DifferentialEvolutionCompositeSampler(collect(updates), w)
 end
 
 struct DifferentialEvolutionCompositeSampler{
-    T <: Real, A <: AbstractDifferentialEvolutionSampler} <:
-       AbstractDifferentialEvolutionSampler
+        T <: Real, A <: AbstractDifferentialEvolutionSampler,
+    } <:
+    AbstractDifferentialEvolutionSampler
     updates::Vector{A}
     update_weights::Vector{T} #should this be a non-parameteric type?
     function DifferentialEvolutionCompositeSampler(
             updates::Vector{A}, update_weights::Vector{T}
-    ) where {T <: Real, A <: AbstractDifferentialEvolutionSampler}
+        ) where {T <: Real, A <: AbstractDifferentialEvolutionSampler}
         if length(update_weights) != length(updates)
             error("Number of update weights must be equal to the number of updates")
         end
@@ -61,9 +64,10 @@ function step(
         model_wrapper::LogDensityModel,
         sampler::DifferentialEvolutionCompositeSampler,
         state::DifferentialEvolutionState{
-            T, DifferentialEvolutionAdaptiveStatic{T}};
+            T, DifferentialEvolutionAdaptiveStatic{T},
+        };
         kwargs...
-) where {T <: Real}
+    ) where {T <: Real}
     sampler_id = wsample(rng, 1:length(sampler.updates), sampler.update_weights)
 
     return step(rng, model_wrapper, sampler.updates[sampler_id], state; kwargs...)
@@ -71,7 +75,7 @@ end
 
 #if there are adaptive states, we need to keep track of them
 struct DifferentialEvolutionAdaptiveComposite{T <: Real} <:
-       AbstractDifferentialEvolutionAdaptiveState{T}
+    AbstractDifferentialEvolutionAdaptiveState{T}
     adaptive_states::Vector{AbstractDifferentialEvolutionAdaptiveState{T}}
 end
 
@@ -81,9 +85,10 @@ function step(
         model_wrapper::LogDensityModel,
         sampler::DifferentialEvolutionCompositeSampler,
         state::DifferentialEvolutionState{
-            T, DifferentialEvolutionAdaptiveComposite{T}};
+            T, DifferentialEvolutionAdaptiveComposite{T},
+        };
         kwargs...
-) where {T <: Real}
+    ) where {T <: Real}
     sampler_id = wsample(rng, 1:length(sampler.updates), sampler.update_weights)
 
     fixed_sampler = fix_sampler(sampler.updates[sampler_id], state.adaptive_state.adaptive_states[sampler_id])
@@ -123,35 +128,41 @@ function step_warmup(
         model_wrapper::LogDensityModel,
         sampler::DifferentialEvolutionCompositeSampler,
         state::DifferentialEvolutionState{
-            T, DifferentialEvolutionAdaptiveComposite{T}};
+            T, DifferentialEvolutionAdaptiveComposite{T},
+        };
         update_memory::Bool = true,
         kwargs...
-) where {T <: Real}
+    ) where {T <: Real}
     sampler_id = wsample(rng, 1:length(sampler.updates), sampler.update_weights)
 
     fixed_sampler = fix_sampler(sampler.updates[sampler_id], state.adaptive_state.adaptive_states[sampler_id])
 
     fixed_state = update_state(
         state; adaptive_state = state.adaptive_state.adaptive_states[sampler_id],
-        temperature_ladder = state.temperature_ladder)
+        temperature_ladder = state.temperature_ladder
+    )
 
     sample,
-    substate = step_warmup(rng, model_wrapper, fixed_sampler, fixed_state; kwargs...)
+        substate = step_warmup(rng, model_wrapper, fixed_sampler, fixed_state; kwargs...)
 
     state.adaptive_state.adaptive_states[sampler_id] = substate.adaptive_state
 
     return sample,
-    update_state(
-        state;
-        update_memory = update_memory, x = substate.x, ld = substate.ld, xₚ = substate.xₚ, ldₚ = substate.ldₚ,
-        temperature_ladder = substate.temperature_ladder
-    )
+        update_state(
+            state;
+            update_memory = update_memory, x = substate.x, ld = substate.ld, xₚ = substate.xₚ, ldₚ = substate.ldₚ,
+            temperature_ladder = substate.temperature_ladder
+        )
 end
 
-function initialize_adaptive_state(sampler::DifferentialEvolutionCompositeSampler,
-        model_wrapper::LogDensityModel, n_chains::Int)
-    adaptive_states = [initialize_adaptive_state(s, model_wrapper, n_chains)
-                       for s in sampler.updates]
+function initialize_adaptive_state(
+        sampler::DifferentialEvolutionCompositeSampler,
+        model_wrapper::LogDensityModel, n_chains::Int
+    )
+    adaptive_states = [
+        initialize_adaptive_state(s, model_wrapper, n_chains)
+            for s in sampler.updates
+    ]
     T = Float64
 
     if all(s -> s isa DifferentialEvolutionAdaptiveStatic, adaptive_states)

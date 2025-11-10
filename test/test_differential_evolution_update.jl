@@ -2,25 +2,25 @@
     @testset "deMC setup" begin
         double_dist = setup_de_update(
             γ = truncated(Normal(0.8, 1.2), lower = 0.0),
-            β = Uniform(-1e-4, 1e-4)
+            β = Uniform(-1.0e-4, 1.0e-4)
         )
         @test isa(double_dist.γ_spl, Truncated{Normal{Float64}})
         @test isa(double_dist.β_spl, Uniform)
         @test double_dist == setup_de_update(
             γ = truncated(Normal(0.8, 1.2), lower = 0.0),
-            β = Uniform(-1e-4, 1e-4),
+            β = Uniform(-1.0e-4, 1.0e-4),
             n_dims = 10
         )
 
         single_dist = setup_de_update(
             γ = 0.5,
-            β = Normal(0.0, 1e-4)
+            β = Normal(0.0, 1.0e-4)
         )
         @test isa(single_dist.γ_spl, Dirac)
         @test isa(single_dist.β_spl, Distributions.Normal)
         @test single_dist == setup_de_update(
             γ = 0.5,
-            β = Normal(0.0, 1e-4),
+            β = Normal(0.0, 1.0e-4),
             n_dims = 10
         )
         det = setup_de_update(
@@ -61,7 +61,7 @@
         de_sampler = setup_de_update()
 
         sample_result,
-        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; memory = false)
+            initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; memory = false)
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
@@ -74,7 +74,7 @@
         @test isa(initial_state.x[1], Vector{Float64})
 
         sample_result,
-        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
+            initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
@@ -106,7 +106,7 @@
         )
 
         sample_result,
-        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; memory = true);
+            initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; memory = true)
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
@@ -119,7 +119,7 @@
         @test isa(initial_state.x[1], Vector{Float64})
 
         sample_result,
-        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
+            initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2

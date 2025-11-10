@@ -116,12 +116,16 @@
         )
 
         equality_x = vcat(
-            [[isequal(output1[j][i].x, output2[j][i].x) for i in 1:length(output1)]
-             for j in 1:n_chains]...
+            [
+                [isequal(output1[j][i].x, output2[j][i].x) for i in 1:length(output1)]
+                    for j in 1:n_chains
+            ]...
         )
         equality_ld = vcat(
-            [[isequal(output1[j][i].ld, output2[j][i].ld) for i in 1:length(output1)]
-             for j in 1:n_chains]...
+            [
+                [isequal(output1[j][i].ld, output2[j][i].ld) for i in 1:length(output1)]
+                    for j in 1:n_chains
+            ]...
         )
         @test all(equality_x)
         @test all(equality_ld)
@@ -170,12 +174,16 @@
         )
 
         equality_x = vcat(
-            [[isequal(output1[j][i].x, output2[j][i].x) for i in 1:length(output1)]
-             for j in 1:n_chains]...
+            [
+                [isequal(output1[j][i].x, output2[j][i].x) for i in 1:length(output1)]
+                    for j in 1:n_chains
+            ]...
         )
         equality_ld = vcat(
-            [[isequal(output1[j][i].ld, output2[j][i].ld) for i in 1:length(output1)]
-             for j in 1:n_chains]...
+            [
+                [isequal(output1[j][i].ld, output2[j][i].ld) for i in 1:length(output1)]
+                    for j in 1:n_chains
+            ]...
         )
         @test all(equality_x)
         @test all(equality_ld)

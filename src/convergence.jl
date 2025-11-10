@@ -58,10 +58,12 @@ function r̂_stopping_criteria(
         maximum_iterations::Int = 100000,
         minimum_iterations::Int = 0,
         kwargs...
-) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V},
+    ) where {
+        T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V},
         A <: AbstractDifferentialEvolutionAdaptiveState{T},
         M <: AbstractDifferentialEvolutionMemory{T},
-        L <: AbstractDifferentialEvolutionTemperatureLadder{T}}
+        L <: AbstractDifferentialEvolutionTemperatureLadder{T},
+    }
     if iteration % check_every != 0 || iteration < minimum_iterations
         return false
     elseif iteration >= maximum_iterations

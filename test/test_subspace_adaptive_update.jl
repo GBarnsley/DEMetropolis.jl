@@ -6,8 +6,10 @@
         de_sampler = setup_subspace_sampling()
 
         sample_result,
-        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model),
-            de_sampler; memory = false, adapt = true)
+            initial_state = AbstractMCMC.step(
+            rng, AbstractMCMC.LogDensityModel(model),
+            de_sampler; memory = false, adapt = true
+        )
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
@@ -21,7 +23,7 @@
         @test isa(initial_state.x[1], Vector{Float64})
 
         sample_result,
-        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
+            initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
@@ -54,8 +56,10 @@
         de_sampler = setup_subspace_sampling()
 
         sample_result,
-        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model),
-            de_sampler; memory = true, adapt = true)
+            initial_state = AbstractMCMC.step(
+            rng, AbstractMCMC.LogDensityModel(model),
+            de_sampler; memory = true, adapt = true
+        )
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
@@ -69,7 +73,7 @@
         @test isa(initial_state.x[1], Vector{Float64})
 
         sample_result,
-        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
+            initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, initial_state)
 
         @test isa(sample_result, DEMetropolis.DifferentialEvolutionSample)
         @test length(sample_result.x) == LogDensityProblems.dimension(model) * 2
@@ -102,13 +106,14 @@
         de_sampler = setup_subspace_sampling(n_cr = n_cr)
 
         sample_result,
-        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; adapt = true)
+            initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; adapt = true)
         states = Vector{DEMetropolis.DifferentialEvolutionState}(undef, its + 1)
         states[1] = deepcopy(initial_state)
         for i in 2:(its + 1)
             sample_result,
-            state = AbstractMCMC.step_warmup(
-                rng, AbstractMCMC.LogDensityModel(model), de_sampler, states[i - 1])
+                state = AbstractMCMC.step_warmup(
+                rng, AbstractMCMC.LogDensityModel(model), de_sampler, states[i - 1]
+            )
             states[i] = deepcopy(state)
         end
 
@@ -140,7 +145,7 @@
         states_2[1] = states[end]
         for i in 2:(its + 1)
             sample_result,
-            state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, states_2[i - 1])
+                state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler, states_2[i - 1])
             states_2[i] = deepcopy(state)
         end
         L_values = cat([state.adaptive_state.L for state in states_2]..., dims = 2)
@@ -152,8 +157,9 @@
         states_noadapt[1] = initial_state
         for i in 2:(its + 1)
             sample_result,
-            state = AbstractMCMC.step(
-                rng, AbstractMCMC.LogDensityModel(model), de_sampler, states_noadapt[i - 1])
+                state = AbstractMCMC.step(
+                rng, AbstractMCMC.LogDensityModel(model), de_sampler, states_noadapt[i - 1]
+            )
             states_noadapt[i] = deepcopy(state)
         end
         L_values = cat([state.adaptive_state.L for state in states_noadapt]..., dims = 2)
@@ -166,20 +172,23 @@
         states_noadapt[1] = initial_state2
         for i in 2:(its + 1)
             sample_result,
-            state = AbstractMCMC.step_warmup(rng, AbstractMCMC.LogDensityModel(model),
-                new_sampler, states_noadapt[i - 1])
+                state = AbstractMCMC.step_warmup(
+                rng, AbstractMCMC.LogDensityModel(model),
+                new_sampler, states_noadapt[i - 1]
+            )
             states_noadapt[i] = deepcopy(state)
         end
         @test isa(states_noadapt[end], DEMetropolis.DifferentialEvolutionState)
 
         sample_result,
-        initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; adapt = false)
+            initial_state = AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler; adapt = false)
         states_noadapt = Vector{DEMetropolis.DifferentialEvolutionState}(undef, its + 1)
         states_noadapt[1] = initial_state
         for i in 2:(its + 1)
             sample_result,
-            state = AbstractMCMC.step_warmup(
-                rng, AbstractMCMC.LogDensityModel(model), de_sampler, states_noadapt[i - 1])
+                state = AbstractMCMC.step_warmup(
+                rng, AbstractMCMC.LogDensityModel(model), de_sampler, states_noadapt[i - 1]
+            )
             states_noadapt[i] = state
         end
         @test isa(states_noadapt[end], DEMetropolis.DifferentialEvolutionState)
@@ -190,7 +199,8 @@
 
         # Test warning when sampler has fixed crossover probability (n_cr = 0)
         @test_logs (
-            :warn, "sampler already has a fixed crossover probability, cannot adapt.") begin
+            :warn, "sampler already has a fixed crossover probability, cannot adapt.",
+        ) begin
             de_sampler_fixed = setup_subspace_sampling(cr = 0.5)  # Fixed cr means n_cr = 0
             AbstractMCMC.step(rng, AbstractMCMC.LogDensityModel(model), de_sampler_fixed; adapt = true)
         end

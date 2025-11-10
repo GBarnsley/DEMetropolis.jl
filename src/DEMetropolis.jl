@@ -5,10 +5,10 @@ export r̂_stopping_criteria, DifferentialEvolutionOutput
 export deMC, deMCzs, DREAMz
 
 import Distributions: UnivariateDistribution, DiscreteUnivariateDistribution,
-                      ContinuousUnivariateDistribution, DiscreteNonParametricSampler
+    ContinuousUnivariateDistribution, DiscreteNonParametricSampler
 import Distributions: Sampleable, Discrete, Continuous, Univariate, sampler, params
 import Distributions: Dirac, Uniform, DiscreteUniform, Normal, Categorical, AliasTable,
-                      DiscreteNonParametric
+    DiscreteNonParametric
 import Distributions
 
 import LogDensityProblems: logdensity, dimension
@@ -18,7 +18,7 @@ import LinearAlgebra: norm, normalize, dot
 import Random: AbstractRNG, default_rng
 import Random
 import AbstractMCMC: LogDensityModel, AbstractSampler, step, step_warmup, AbstractModel,
-                     sample, bundle_samples
+    sample, bundle_samples
 import AbstractMCMC
 import MCMCChains: Chains, replacenames
 import MCMCDiagnosticTools: rhat
@@ -32,11 +32,11 @@ abstract type AbstractDifferentialEvolutionMemory{T} end
 abstract type AbstractDifferentialEvolutionTemperatureLadder{T} end
 
 struct DifferentialEvolutionState{
-    T <: Real, A <: AbstractDifferentialEvolutionAdaptiveState{T},
-    L <: AbstractDifferentialEvolutionTemperatureLadder{T},
-    M <: AbstractDifferentialEvolutionMemory{T},
-    V <: AbstractVector{T}, VV <: AbstractVector{V}
-}
+        T <: Real, A <: AbstractDifferentialEvolutionAdaptiveState{T},
+        L <: AbstractDifferentialEvolutionTemperatureLadder{T},
+        M <: AbstractDifferentialEvolutionMemory{T},
+        V <: AbstractVector{T}, VV <: AbstractVector{V},
+    }
     "current position"
     x::VV
     "log density at current position"
