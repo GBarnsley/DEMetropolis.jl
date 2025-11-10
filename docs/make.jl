@@ -10,7 +10,7 @@ makedocs(
     pages = [
         "index.md",
         "tutorial.md",
-        "custom.md"
+        "custom.md",
     ],
     modules = [DEMetropolis]
 )

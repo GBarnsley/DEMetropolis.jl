@@ -38,10 +38,10 @@ See also [`setup_snooker_update`](@ref), [`setup_subspace_sampling`](@ref), [`se
 """
 function setup_de_update(;
         γ::Union{Nothing, UnivariateDistribution, Real} = nothing,
-        β::ContinuousUnivariateDistribution = Uniform(-1e-4, 1e-4),
+        β::ContinuousUnivariateDistribution = Uniform(-1.0e-4, 1.0e-4),
         n_dims::Int = 0,
         check_args::Bool = true
-)
+    )
     if isnothing(γ)
         if n_dims > 0
             γ = Dirac(2.38 / sqrt(2 * n_dims))
@@ -65,24 +65,31 @@ function setup_de_update(;
 end
 
 function noise_checks(dist, name)
-    if !(Distributions.mode(dist) ≈ 0.0)
+    return if !(Distributions.mode(dist) ≈ 0.0)
         error("Distribution of $name should be centred around 0")
     elseif Distributions.median(dist) != Distributions.mode(dist)
         error("Distribution of $name should be uni-model and symmetric")
     end
 end
 
-function proposal(rng::AbstractRNG, sampler::DifferentialEvolutionSampler,
-        state::AbstractDifferentialEvolutionState, current_state::Int)
+function proposal!(
+        state::DifferentialEvolutionState,
+        sampler::DifferentialEvolutionSampler, current_state::Int
+    )
     # Propose a new position.
-    x₁, x₂ = pick_chains(rng, state, current_state, 2)
+    x₁, x₂ = pick_chains(state, current_state, 2)
     if x₁ == x₂
-        return (xₚ = x₁, offset = -Inf)
+        state.xₚ[current_state] .= x₁
+        return (offset = -Inf)
     else
-        return (
-            xₚ = state.x[current_state] .+ (rand(rng, sampler.γ_spl) .* (x₁ - x₂)) .+
-                 rand(rng, sampler.β_spl, length(state.x[current_state])),
-            offset = zero(eltype(x₁))
+        state.xₚ[current_state] .= state.x[current_state] .+
+            (
+            rand(state.rngs[current_state], sampler.γ_spl) .*
+                (x₁ - x₂)
+        ) .+
+            rand(
+            state.rngs[current_state], sampler.β_spl, length(state.x[current_state])
         )
+        return (offset = zero(eltype(x₁)))
     end
 end

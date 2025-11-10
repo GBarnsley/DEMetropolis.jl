@@ -1,7 +1,12 @@
 #code for sample() outputs into something useful, see MCMCChains
 
-function samples_to_array(samples::Vector{DifferentialEvolutionSample{
-        V, VV}}) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
+function samples_to_array(
+        samples::Vector{
+            DifferentialEvolutionSample{
+                V, VV,
+            },
+        }
+    ) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
     n_draws = length(samples)
     n_chains = length(samples[1].x)
     n_params = length(samples[1].x[1])
@@ -20,8 +25,13 @@ function samples_to_array(samples::Vector{DifferentialEvolutionSample{
     return result
 end
 
-function ld_to_array(samples::Vector{DifferentialEvolutionSample{
-        V, VV}}) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
+function ld_to_array(
+        samples::Vector{
+            DifferentialEvolutionSample{
+                V, VV,
+            },
+        }
+    ) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
     n_draws = length(samples)
     n_chains = length(samples[1].ld)
 
@@ -38,9 +48,12 @@ function ld_to_array(samples::Vector{DifferentialEvolutionSample{
 end
 
 function process_outputs(
-        samples::Vector{DifferentialEvolutionSample{
-        V, VV}}
-) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
+        samples::Vector{
+            DifferentialEvolutionSample{
+                V, VV,
+            },
+        }
+    ) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
     return DifferentialEvolutionOutput{T}(
         samples_to_array(samples),
         ld_to_array(samples)
@@ -52,68 +65,77 @@ function bundle_samples(
         samples::Vector{DifferentialEvolutionSample{V, VV}},
         model_wrapper::LogDensityModel,
         sampler::AbstractDifferentialEvolutionSampler,
-        state::AbstractDifferentialEvolutionState,
+        state::DifferentialEvolutionState,
         ::Type{T};
         save_final_state::Bool = false,
         kwargs...
-) where {T, T2 <: Real, V <: AbstractVector{T2}, VV <: AbstractVector{V}}
+    ) where {T, T2 <: Real, V <: AbstractVector{T2}, VV <: AbstractVector{V}}
     samples_ = convert(T, samples)
     if save_final_state
         return (
             samples_,
-            state
+            state,
         )
     else
         return samples_
     end
 end
 
-function AbstractMCMC.chainsstack(chns::Vector{DifferentialEvolutionOutput{T}}) where {T <:
-                                                                                       Real}
-    DifferentialEvolutionOutput{T}(
+function AbstractMCMC.chainsstack(chns::Vector{DifferentialEvolutionOutput{T}}) where {
+        T <:
+        Real,
+    }
+    return DifferentialEvolutionOutput{T}(
         cat([c.samples for c in chns]...; dims = 2),
         cat((c.ld for c in chns)...; dims = 2)
     )
 end
 
 function AbstractMCMC.chainsstack(
-        chns::Vector{Tuple{DifferentialEvolutionOutput{T},
-        E}}
-) where {T <: Real, E <: AbstractDifferentialEvolutionState}
-    (
+        chns::Vector{
+            Tuple{
+                DifferentialEvolutionOutput{T},
+                E,
+            },
+        }
+    ) where {T <: Real, E <: DifferentialEvolutionState}
+    return (
         AbstractMCMC.chainsstack([c[1] for c in chns]),
-        [c[2] for c in chns]
+        [c[2] for c in chns],
     )
 end
 
 function AbstractMCMC.chainsstack(
-        chns::Vector{Tuple{
-        C, E}}
-) where {C <: Chains, E <: AbstractDifferentialEvolutionState}
-    (
+        chns::Vector{
+            Tuple{
+                C, E,
+            },
+        }
+    ) where {C <: Chains, E <: DifferentialEvolutionState}
+    return (
         AbstractMCMC.chainsstack([c[1] for c in chns]),
-        [c[2] for c in chns]
+        [c[2] for c in chns],
     )
 end
 
 function convert(
         ::Type{T},
         samples::Vector{DifferentialEvolutionSample{V, VV}}
-) where {T, T2 <: Real, V <: AbstractVector{T2}, VV <: AbstractVector{V}}
+    ) where {T, T2 <: Real, V <: AbstractVector{T2}, VV <: AbstractVector{V}}
     return samples
 end
 
 function convert(
         ::Type{DifferentialEvolutionOutput},
         samples::Vector{DifferentialEvolutionSample{V, VV}}
-) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
+    ) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
     return process_outputs(samples)
 end
 
 function convert(
         ::Type{Chains},
         samples::Vector{DifferentialEvolutionSample{V, VV}}
-) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
+    ) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
     output = process_outputs(samples)
 
     new_ld = Array{T, 3}(undef, size(output.ld, 1), 1, size(output.ld, 2))

@@ -1,5 +1,5 @@
 abstract type AbstractDifferentialEvolutionSubspaceSampler <:
-              AbstractDifferentialEvolutionSampler end
+AbstractDifferentialEvolutionSampler end
 
 struct DifferentialEvolutionSubspaceSampler <: AbstractDifferentialEvolutionSubspaceSampler
     cr_spl::Sampleable{Univariate, <:Union{Continuous, Discrete}}
@@ -10,7 +10,7 @@ struct DifferentialEvolutionSubspaceSampler <: AbstractDifferentialEvolutionSubs
 end
 
 struct DifferentialEvolutionSubspaceSamplerFixedGamma{T <: Real} <:
-       AbstractDifferentialEvolutionSubspaceSampler
+    AbstractDifferentialEvolutionSubspaceSampler
     cr_spl::Sampleable{Univariate, <:Union{Continuous, Discrete}}
     n_cr::Int
     δ_spl::Sampleable{Univariate, Discrete}
@@ -62,11 +62,12 @@ function setup_subspace_sampling(;
         cr::Union{Real, UnivariateDistribution, Nothing} = nothing,
         n_cr::Int = 3,
         δ::Union{Integer, DiscreteUnivariateDistribution} = DiscreteUniform(
-            1, 3),
-        ϵ::ContinuousUnivariateDistribution = Uniform(-1e-4, 1e-4),
-        e::ContinuousUnivariateDistribution = Normal(0.0, 1e-2),
+            1, 3
+        ),
+        ϵ::ContinuousUnivariateDistribution = Uniform(-1.0e-4, 1.0e-4),
+        e::ContinuousUnivariateDistribution = Normal(0.0, 1.0e-2),
         check_args::Bool = true
-)
+    )
     if isa(δ, Integer)
         δ = Dirac(δ)
     end
@@ -94,7 +95,7 @@ function setup_subspace_sampling(;
         noise_checks(e, "e")
     end
 
-    if isnothing(γ)
+    return if isnothing(γ)
         DifferentialEvolutionSubspaceSampler(
             sampler(cr),
             n_cr,
@@ -120,12 +121,18 @@ function setup_subspace_sampling(;
 end
 
 function create_cr_dist(n_cr::Int)
-    DiscreteNonParametric(collect(1:n_cr) ./ n_cr, repeat([1 / n_cr], n_cr))
+    return DiscreteNonParametric(collect(1:n_cr) ./ n_cr, repeat([1 / n_cr], n_cr))
 end
 
-function proposal(rng::AbstractRNG, sampler::AbstractDifferentialEvolutionSubspaceSampler,
-        state::AbstractDifferentialEvolutionState, current_state::Int)
+function proposal!(
+        state::DifferentialEvolutionState,
+        sampler::AbstractDifferentialEvolutionSubspaceSampler, current_state::Int
+    )
+    rng = state.rngs[current_state]
     x = state.x[current_state]
+    xₚ = state.xₚ[current_state]
+
+    copyto!(xₚ, x) #try the range methods?
 
     #determine how many dimensions to update
     cr = rand(rng, sampler.cr_spl)
@@ -134,35 +141,37 @@ function proposal(rng::AbstractRNG, sampler::AbstractDifferentialEvolutionSubspa
 
     if d == 0
         #just pick one
-        to_update = zeros(Bool, length(x))
-        to_update[rand(rng, axes(to_update, 1))] = true
+        to_update[rand(rng, eachindex(to_update))] = true
         d = 1
     end
 
     δ = rand(rng, sampler.δ_spl)
 
+    #set modified to 0
+    xₚ[to_update] .= zero(eltype(x))
+
     #generate candidate
-    z = zeros(eltype(x), length(x))
-    for _ in 1:δ
+    @inbounds for _ in 1:δ
         #pick to random chains find the difference and add to the candidate
-        x₁, x₂ = pick_chains(rng, state, current_state, 2)
-        z[to_update] .+= x₁[to_update] .- x₂[to_update]
+        x₁, x₂ = pick_chains(state, current_state, 2)
+        xₚ[to_update] .+= x₁[to_update] .- x₂[to_update]
     end
 
     #add the other parts of the equation
-    z[to_update] .= x[to_update] .+ (
-        (1 .+ rand(rng, sampler.e_spl, d)) .* get_γ(rng, sampler, δ, d) .* z[to_update]
+    xₚ[to_update] .= x[to_update] .+ (
+        (1 .+ rand(rng, sampler.e_spl, d)) .* get_γ(rng, sampler, δ, d) .* xₚ[to_update]
     ) .+ rand(rng, sampler.ϵ_spl, d)
 
-    return (xₚ = z, offset = zero(eltype(z)), cr = cr)
+    return (offset = zero(eltype(xₚ)), cr = cr)
 end
 
 function get_γ(rng::AbstractRNG, sampler::DifferentialEvolutionSubspaceSampler, δ::Int, d::Int)
-    2.38 / sqrt(2 * δ * d)
+    return 2.38 / sqrt(2 * δ * d)
 end
 
 function get_γ(
         rng::AbstractRNG, sampler::DifferentialEvolutionSubspaceSamplerFixedGamma{T},
-        δ::Int, d::Int) where {T <: Real}
-    sampler.γ
+        δ::Int, d::Int
+    ) where {T <: Real}
+    return sampler.γ
 end
