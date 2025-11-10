@@ -139,7 +139,7 @@
                 ]
             )
         )
-        @test_logs @test_logs (:warn,) deMC(ld_wide, 1000; thin = 2, n_chains = 4)
+        @test_logs (:warn,) deMC(ld_wide, 1000; thin = 2, n_chains = 4)
     end
     @testset "parallel" begin
         DREAMz(ld, 1000; thin = 2, memory = true, parallel = true, epoch_limit = 3)

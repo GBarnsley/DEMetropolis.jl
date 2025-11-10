@@ -45,30 +45,15 @@ function pick_chains(
         T <: Real, A <: AbstractDifferentialEvolutionAdaptiveState{T},
         L <: AbstractDifferentialEvolutionTemperatureLadder{T},
     }
-    #sample up to the current position (this is mildly more efficient than sample?)
-    indices = Vector{Int}(undef, n_chains)
-    ordered_indices = zeros(Int, n_chains - 1)
-    ordered_indices[1] = current_chain
-    @inbounds for i in 1:(n_chains - 1)
-        idx = rand(state.rngs[current_chain], 1:(length(state.x) - i))
-        @inbounds for j in 1:i
-            if ordered_indices[j] ≤ idx
-                idx += 1
-            end
-        end
-        ordered_indices[end] = idx
-        sort!(ordered_indices; rev = true)
-        indices[i] = idx
-    end
-    idx = rand(state.rngs[current_chain], 1:(length(state.x) - n_chains))
-    @inbounds for oi in ordered_indices
-        if oi ≤ idx
-            idx += 1
-        end
-    end
-    indices[end] = idx
-
-    return state.x[indices]
+    return fast_sample_chains!(
+        state.rngs[current_chain],
+        state.x,
+        length(state.x),
+        n_chains,
+        state.memory.indices_INTERNAL[current_chain],
+        state.memory.ordered_indices_INTERNAL[current_chain],
+        current_chain
+    )
 end
 
 function pick_chains(
@@ -81,8 +66,14 @@ function pick_chains(
         V <: AbstractVector{T}, VV <: AbstractVector{V},
         M <: AbstractDifferentialEvolutionMemoryFormat{T, VV},
     }
-    #sample with replacement, its faster and the proposals can handle it
-    return rand(state.rngs[current_chain], state.memory.mem_x, n_chains)
+    return fast_sample_chains!(
+        state.rngs[current_chain],
+        state.memory.mem_x,
+        length(state.memory.mem_x),
+        n_chains,
+        state.memory.indices_INTERNAL[current_chain],
+        state.memory.ordered_indices_INTERNAL[current_chain]
+    )
 end
 
 function pick_chains(
@@ -96,8 +87,14 @@ function pick_chains(
         L <: AbstractDifferentialEvolutionTemperatureLadder{T},
         V <: AbstractVector{T}, VV <: AbstractVector{V},
     }
-    #sample up to the current position, with replacement, its faster and the proposals can handle it
-    return rand(state.rngs[current_chain], view(state.memory.mem_x, 1:state.memory.fill.position), n_chains)
+    return fast_sample_chains!(
+        state.rngs[current_chain],
+        state.memory.mem_x,
+        state.memory.fill.position,
+        n_chains,
+        state.memory.indices_INTERNAL[current_chain],
+        state.memory.ordered_indices_INTERNAL[current_chain]
+    )
 end
 
 function update_state(
@@ -383,6 +380,7 @@ and returns the initial sample and state that can be used with `AbstractMCMC.sam
     memory setup) when `true`. Defaults to `false`.
 - `temperature_ladder`: Pre-defined temperature ladder as a vector of vectors. If provided,
   overrides automatic temperature ladder creation. Defaults to `create_temperature_ladder(n_chains, n_hot_chains, α, max_temp_pt, max_temp_sa, annealing_steps)`.
+- `n_preallocated_indices`: This package provides fast sampling-with-out replacement by pre-allocating indices, defaults to 3 (which the most asked for by the implemented samplers). Consider increasing it if you implement your own proposal that calls `pick_chains` with `n_chains > 3`.
 - `kwargs...`: Additional keyword arguments (unused in this method)
 
 # Returns
@@ -447,6 +445,7 @@ function step(
         temperature_ladder::Vector{Vector{T}} = create_temperature_ladder(
             n_chains, n_hot_chains, α, max_temp_pt, max_temp_sa, annealing_steps
         ),
+        n_preallocated_indices::Int = 3,
         kwargs...
     ) where {T <: Real}
     model = model_wrapper.logdensity
@@ -573,10 +572,15 @@ function step(
         end
 
         memory = DifferentialEvolutionMemoryFill{T, typeof(mem_x)}(
-            true_memory, memory_method, memory_refill
+            true_memory, memory_method, memory_refill,
+            [Vector{Int}(undef, n_preallocated_indices) for _ in 1:n_true_chains],
+            [Vector{Int}(undef, n_preallocated_indices - 1) for _ in 1:n_true_chains]
         )
     else
-        memory = DifferentialEvolutionMemoryless{T}()
+        memory = DifferentialEvolutionMemoryless{T}(
+            [Vector{Int}(undef, n_preallocated_indices) for _ in 1:n_true_chains],
+            [Vector{Int}(undef, n_preallocated_indices) for _ in 1:n_true_chains]
+        )
     end
 
     if !silent

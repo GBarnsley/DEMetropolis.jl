@@ -89,6 +89,7 @@ end
 
 include("temperature.jl")
 include("memory.jl")
+include("fast_sample.jl")
 include("chains.jl")
 include("differential_evolution_update.jl")
 include("snooker_update.jl")

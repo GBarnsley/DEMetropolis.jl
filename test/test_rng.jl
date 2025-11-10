@@ -188,4 +188,120 @@
         @test all(equality_x)
         @test all(equality_ld)
     end
+    @testset "Stress check fast sample" begin
+        pop_size = 5
+        rng = backwards_compat_rng(1234)
+        x = [randn(rng, 5) for _ in 1:(pop_size * 2)]
+        n_chains = pop_size
+        max_length = pop_size
+        N_tests = 1000
+
+        @testset "no current_chain" begin
+            indices = Vector{Int}(undef, n_chains)
+            ordered_indices = Array{Int}(undef, n_chains - 1)
+
+            res = [
+                DEMetropolis.fast_sample_chains!(
+                        rng,
+                        x,
+                        max_length,
+                        n_chains,
+                        indices,
+                        ordered_indices
+                    )
+                    for _ in 1:N_tests
+            ]
+
+            @test all(length(unique(r)) == n_chains for r in res)
+            @test all(all(findlast(r[i:i] .== x) ≤ max_length for i in 1:n_chains) for r in res)
+        end
+        @testset "current_chain" begin
+            current_chain = 3
+            n_chains_2 = n_chains - 1
+            indices = Vector{Int}(undef, n_chains_2)
+            ordered_indices = Array{Int}(undef, n_chains_2)
+
+            res = [
+                DEMetropolis.fast_sample_chains!(
+                        rng,
+                        x,
+                        max_length,
+                        n_chains_2,
+                        indices,
+                        ordered_indices,
+                        current_chain
+                    )
+                    for _ in 1:N_tests
+            ]
+
+            @test all(length(unique(r)) == n_chains_2 for r in res)
+            @test all(all(findlast(r[i:i] .== x) ≤ max_length for i in 1:n_chains_2) for r in res)
+            @test all(all(r[i] != current_chain for i in 1:n_chains_2) for r in res)
+        end
+
+        max_length = round(Int, 1.5 * pop_size)
+        @testset "no current_chain no prealloc" begin
+            indices = Vector{Int}(undef, 2)
+            ordered_indices = Array{Int}(undef, 1)
+
+            disable_logging(Logging.Warn)
+            res = [
+                DEMetropolis.fast_sample_chains!(
+                        rng,
+                        x,
+                        max_length,
+                        n_chains,
+                        indices,
+                        ordered_indices
+                    )
+                    for _ in 1:N_tests
+            ]
+            disable_logging(Logging.Info)
+            @test_logs (:warn, "Picking $n_chains chains but only $(length(indices)) preallocated, consider setting `n_preallocated_indices = $n_chains`.")  DEMetropolis.fast_sample_chains!(
+                rng,
+                x,
+                max_length,
+                n_chains,
+                indices,
+                ordered_indices
+            )
+            @test all(length(unique(r)) == n_chains for r in res)
+            @test all(all(findlast(r[i:i] .== x) ≤ max_length for i in 1:n_chains) for r in res)
+        end
+        @testset "current_chain" begin
+            current_chain = 3
+            n_chains_2 = n_chains - 1
+            indices = Vector{Int}(undef, 2)
+            ordered_indices = Array{Int}(undef, 1)
+
+            disable_logging(Logging.Warn)
+            res = [
+                DEMetropolis.fast_sample_chains!(
+                        rng,
+                        x,
+                        max_length,
+                        n_chains_2,
+                        indices,
+                        ordered_indices,
+                        current_chain
+                    )
+                    for _ in 1:N_tests
+            ]
+            disable_logging(Logging.Info)
+
+
+            @test_logs (:warn, "Picking $n_chains_2 chains but only $(length(indices)) preallocated, consider setting `n_preallocated_indices = $n_chains_2`.")  DEMetropolis.fast_sample_chains!(
+                rng,
+                x,
+                max_length,
+                n_chains_2,
+                indices,
+                ordered_indices,
+                current_chain
+            )
+            @test all(length(unique(r)) == n_chains_2 for r in res)
+            @test all(all(findlast(r[i:i] .== x) ≤ max_length for i in 1:n_chains_2) for r in res)
+            @test all(all(r[i] != current_chain for i in 1:n_chains_2) for r in res)
+        end
+    end
 end

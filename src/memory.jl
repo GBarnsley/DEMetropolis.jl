@@ -1,5 +1,8 @@
 #no memory
 struct DifferentialEvolutionMemoryless{T} <: AbstractDifferentialEvolutionMemory{T}
+    #for preallocation only for internal use
+    indices_INTERNAL::Vector{Vector{Int}}
+    ordered_indices_INTERNAL::Vector{Vector{Int}}
 end
 
 #abstract memory-full type
@@ -12,6 +15,9 @@ AbstractDifferentialEvolutionMemory{T} end
 struct DifferentialEvolutionMemoryFull{T, VV <: AbstractVector{<:AbstractVector{T}}} <:
     AbstractDifferentialEvolutionMemoryFormat{T, VV}
     mem_x::VV
+    #for preallocation only for internal use
+    indices_INTERNAL::Vector{Vector{Int}}
+    ordered_indices_INTERNAL::Vector{Vector{Int}}
 end
 
 function update_memory!!(
@@ -29,6 +35,9 @@ struct DifferentialEvolutionMemoryRefill{T, VV <: AbstractVector{<:AbstractVecto
     AbstractDifferentialEvolutionMemoryFormat{T, VV}
     mem_x::VV
     fill::AbstractDifferentialEvolutionMemoryFillMethod
+    #for preallocation only for internal use
+    indices_INTERNAL::Vector{Vector{Int}}
+    ordered_indices_INTERNAL::Vector{Vector{Int}}
 end
 
 function update_memory!!(
@@ -52,6 +61,9 @@ struct DifferentialEvolutionMemoryFill{T, VV <: AbstractVector{<:AbstractVector{
     mem_x::VV
     fill::AbstractDifferentialEvolutionMemoryFillMethod
     refill::Bool
+    #for preallocation only for internal use
+    indices_INTERNAL::Vector{Vector{Int}}
+    ordered_indices_INTERNAL::Vector{Vector{Int}}
 end
 
 function update_memory!!(
@@ -66,10 +78,10 @@ function update_memory!!(
 
     if memory.fill.position == length(memory.mem_x)
         if memory.refill
-            memory = DifferentialEvolutionMemoryRefill(memory.mem_x, memory.fill)
+            memory = DifferentialEvolutionMemoryRefill(memory.mem_x, memory.fill, memory.indices_INTERNAL, memory.ordered_indices_INTERNAL)
             memory.fill.position = 0
         else
-            memory = DifferentialEvolutionMemoryFull(memory.mem_x)
+            memory = DifferentialEvolutionMemoryFull(memory.mem_x, memory.indices_INTERNAL, memory.ordered_indices_INTERNAL)
         end
     end
     return memory
