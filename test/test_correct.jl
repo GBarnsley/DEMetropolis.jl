@@ -169,9 +169,9 @@
         return pass
     end
 
-    rng = Xoshiro(1234)
+    rng = backwards_compat_rng(1234)
     attempts = 300
-    steps_per_attempt = 5000
+    steps_per_attempt = 6000
     base_model = NormalNormalModel(1.0, 0.5, 0.0)
     sig = 0.05
     @testset "Without memory" begin
