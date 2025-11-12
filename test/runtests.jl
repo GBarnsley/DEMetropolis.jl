@@ -1,6 +1,6 @@
 using DEMetropolis
 using Test
-using LogDensityProblems, Random, Distributions, AbstractMCMC, MCMCChains
+using LogDensityProblems, Random, Distributions, AbstractMCMC, MCMCChains, StatsBase
 using Aqua
 using Logging
 
@@ -54,6 +54,7 @@ end
     include("test_convergence.jl")
     include("test_templates.jl")
     include("test_temperature.jl")
+    include("test_correct.jl")
     #include("test_diagnostics.jl")
 
     #if VERSION ≥ v"1.11"

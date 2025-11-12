@@ -466,6 +466,7 @@ function step(
         x = [randn(rng, dimension(model)) for _ in 1:n_true_chains]
     else
         push!(log, "DEMetropolis: adjusting provided initial positions...")
+        initial_position = copy.(initial_position)
         current_N = length(initial_position)
         current_pars = length(initial_position[1])
         if current_pars != dimension(model)
