@@ -219,12 +219,12 @@ function step(
 
     # loop through chains running the update
     if parallel
-        @inbounds Threads.@threads for i in eachindex(x)
+        Threads.@threads for i in eachindex(x)
             offset, = proposal!(state, sampler, i)
             update_chain!(model, state, offset, i)
         end
     else
-        @inbounds for i in eachindex(x)
+        for i in eachindex(x)
             offset, = proposal!(state, sampler, i)
             update_chain!(model, state, offset, i)
         end
