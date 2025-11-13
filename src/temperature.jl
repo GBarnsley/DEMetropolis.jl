@@ -14,7 +14,9 @@ function create_temperature_ladder(
 
     if annealing_steps > 0
         step_size = (max_temp_sa .- final_temperature) ./ annealing_steps
-        return [max_temp_sa .- step_size .* step for step in 0:annealing_steps]
+        ladder = [max_temp_sa .- step_size .* step for step in 0:annealing_steps]
+        ladder[end] = final_temperature
+        return ladder
     else
         return [final_temperature]
     end

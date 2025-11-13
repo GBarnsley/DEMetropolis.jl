@@ -14,7 +14,7 @@ function samples_to_array(
     # Pre-allocate the 3D array
     result = Array{T, 3}(undef, n_draws, n_chains, n_params)
 
-    @inbounds for (i, sample) in enumerate(samples)
+    for (i, sample) in enumerate(samples)
         for (j, chain) in enumerate(sample.x)
             for (k, param) in enumerate(chain)
                 result[i, j, k] = param
@@ -38,7 +38,7 @@ function ld_to_array(
     # Pre-allocate the 3D array
     result = Array{T, 2}(undef, n_draws, n_chains)
 
-    @inbounds for (i, sample) in enumerate(samples)
+    for (i, sample) in enumerate(samples)
         for (j, ld) in enumerate(sample.ld)
             result[i, j] = ld
         end
@@ -140,7 +140,7 @@ function convert(
 
     new_ld = Array{T, 3}(undef, size(output.ld, 1), 1, size(output.ld, 2))
     #can replace with insertdims(output.ld, dims = 2) in julia 1.12+
-    @inbounds for i in 1:size(output.ld, 1)
+    for i in 1:size(output.ld, 1)
         for j in 1:size(output.ld, 2)
             new_ld[i, 1, j] = output.ld[i, j]
         end

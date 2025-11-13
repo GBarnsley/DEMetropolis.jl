@@ -45,7 +45,7 @@ function update_memory!!(
         x::VV
     ) where {T <: Real, VV <: AbstractVector{<:AbstractVector{T}}}
     if update_position!(memory.fill)
-        @inbounds for i in 1:memory.fill.n_chains
+        for i in 1:memory.fill.n_chains
             memory.mem_x[memory.fill.position - i + 1] .= x[i]
         end
     end
@@ -71,7 +71,7 @@ function update_memory!!(
         x::VV
     ) where {T <: Real, VV <: AbstractVector{<:AbstractVector{T}}}
     if update_position!(memory.fill)
-        @inbounds for i in 1:memory.fill.n_chains
+        for i in 1:memory.fill.n_chains
             memory.mem_x[memory.fill.position - i + 1] .= x[i]
         end
     end

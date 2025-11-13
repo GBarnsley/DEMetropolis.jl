@@ -23,7 +23,7 @@ function calculate_running_variance!(
         adaptive_state::DifferentialEvolutionAdaptiveSubspace{T},
         new_values::Vector{V}
     ) where {T <: Real, V <: Vector{T}}
-    @inbounds for new_value in new_values
+    for new_value in new_values
         adaptive_state.var_count += 1
         adaptive_state.delta .= new_value .- adaptive_state.var_mean
         adaptive_state.var_mean .+= adaptive_state.delta ./ adaptive_state.var_count
@@ -141,7 +141,7 @@ function step_warmup(
         Δ_update = zeros(T, length(x))
         cr_update = Vector{Int}(undef, length(x))
 
-        @inbounds Threads.@threads for i in eachindex(x)
+        Threads.@threads for i in eachindex(x)
             prop = proposal!(state, fixed_sampler, i)
             accepted = update_chain!(model, state, prop.offset, i)
             cr_update[i] = findfirst(prop.cr .== adaptive_state.cr_spl.support)
@@ -157,7 +157,7 @@ function step_warmup(
             adaptive_state.Δ[cr_update[i]] += Δ_update[i]
         end
     else
-        @inbounds for i in eachindex(x)
+        for i in eachindex(x)
             prop = proposal!(state, fixed_sampler, i)
             accepted = update_chain!(model, state, prop.offset, i)
 

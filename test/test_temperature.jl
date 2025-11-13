@@ -82,6 +82,7 @@
                 save_burnt = false
             )
             @test isa(result, DifferentialEvolutionOutput)
+            @test size(result.samples, 2) == 4  # Only cold chains
         end
 
         @testset "deMCzs with Simulated Annealing" begin
@@ -97,6 +98,7 @@
 
             @test isa(result, DifferentialEvolutionOutput)
             @test size(result.samples, 3) == n_dims
+            @test size(result.samples, 2) == 4  # Only cold chains
         end
 
         @testset "DREAMz with Simulated Annealing" begin
@@ -112,6 +114,7 @@
 
             @test isa(result, DifferentialEvolutionOutput)
             @test size(result.samples, 3) == n_dims
+            @test size(result.samples, 2) == 4  # Only cold chains
         end
     end
 
