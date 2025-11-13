@@ -1,4 +1,4 @@
-using DEMetropolis
+using .DEMetropolis
 using Test
 using LogDensityProblems, Random, Distributions, AbstractMCMC, MCMCChains, StatsBase
 using Aqua

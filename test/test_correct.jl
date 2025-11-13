@@ -41,29 +41,13 @@
 
     LogDensityProblems.capabilities(model::NormalNormalModel) = LogDensityProblems.LogDensityOrder{0}()
 
-    function test_for_correctness(rng, update, memory, base_model, attempts, steps_per_attempt, sig; pt = false)
-        if memory
-            n_chains = 4
-            n_extra = 4 * LogDensityProblems.dimension(base_model) - n_chains
-            n_hot_chains = 0
-        elseif pt
-            n_chains = 4
-            n_hot_chains = 3 * LogDensityProblems.dimension(base_model) - n_chains
-            n_extra = 0
-        else
-            n_chains = 2 * LogDensityProblems.dimension(base_model)
-            n_extra = 0
-            n_hot_chains = 0
-        end
-
-        M_sampler = Distributions.sampler(DiscreteUniform(1, steps_per_attempt))
-        #rank based on ld so its less stuff to store
-        initial_positions = [Vector{Float64}(undef, LogDensityProblems.dimension(base_model)) for i in 1:(n_chains + n_extra + n_hot_chains)]
-        complete_chain = Array{Float64, 2}(undef, steps_per_attempt, n_chains)
-        ordinal_ranks = Array{Int, 2}(undef, attempts, n_chains)
-        sum_of_rank_of_ranks = zeros(Int, n_chains)
-
-        for attempt in 1:attempts
+    function test_for_correctness!(
+            rng, p_values, sum_of_rank_of_ranks, update, base_model, sample_kwargs, n, L,
+            M_sampler, initial_positions, complete_chain, ordinal_ranks
+        )
+        d = LogDensityProblems.dimension(base_model)
+        n_chains = sample_kwargs.n_chains
+        for attempt in 1:n
             M = rand(rng, M_sampler)
             initial_positions[1], y = sample_joint(rng, base_model)
             new_model = NormalNormalModel(base_model.σ, base_model.σ_ϵ, y)
@@ -75,119 +59,171 @@
             #randomly permute the initial position so its a bit fairer
             initial_positions[1:n_chains] = initial_positions[randperm(rng, n_chains)]
 
-            complete_chain[M, :] .= [LogDensityProblems.logdensity(new_model, initial_positions[i]) for i in 1:n_chains]
-            if M < steps_per_attempt
-                complete_chain[(M + 1):steps_per_attempt, :] .= sample(
+            if M < L
+                res = sample(
                     rng,
                     AbstractMCMC.LogDensityModel(new_model),
                     update,
-                    steps_per_attempt - M;
+                    L - M + 1;
                     initial_position = initial_positions,
-                    memory = memory,
-                    N₀ = n_extra,
-                    n_chains = n_chains,
-                    progress = false,
-                    chain_type = DifferentialEvolutionOutput,
-                    silent = true,
-                    n_hot_chains = n_hot_chains
-                ).ld
+                    sample_kwargs...
+                )
+                complete_chain[M:L, :, 1:(end - 1)] .= res.samples
+                complete_chain[M:L, :, end] .= res.ld
+            else
+                complete_chain[M, :, 1:(end - 1)] .= cat(initial_positions[1:n_chains]...; dims = 2)'
+                complete_chain[M, :, end] .= [LogDensityProblems.logdensity(new_model, initial_positions[i]) for i in 1:n_chains]
             end
 
             if M > 1
-                complete_chain[1:(M - 1), :] .= reverse(
-                    sample(
-                        rng,
-                        AbstractMCMC.LogDensityModel(new_model),
-                        update,
-                        M - 1;
-                        initial_position = initial_positions,
-                        memory = memory,
-                        N₀ = n_extra,
-                        n_chains = n_chains,
-                        progress = false,
-                        chain_type = DifferentialEvolutionOutput,
-                        silent = true,
-                        n_hot_chains = n_hot_chains
-                    ).ld; dims = 1
+                res = sample(
+                    rng,
+                    AbstractMCMC.LogDensityModel(new_model),
+                    update,
+                    M;
+                    initial_position = initial_positions,
+                    sample_kwargs...
                 )
+                #append but ignore the value at M, its already on there
+                if res.samples[1, :, :] != complete_chain[M, :, 1:(end - 1)]
+                    error("Something went wrong with chaining the results together")
+                end
+                complete_chain[1:(M - 1), :, 1:(end - 1)] .= reverse(res.samples; dims = 1)[1:(end - 1), :, :]
+                complete_chain[1:(M - 1), :, end] .= reverse(res.ld; dims = 1)[1:(end - 1), :]
             end
 
             for chain in 1:n_chains
-                ordinal_ranks[attempt, chain] = ordinalrank(complete_chain[:, chain])[M]
+                for parameter in 1:(d + 1)
+                    ordinal_ranks[attempt, chain, parameter] = ordinalrank(complete_chain[:, chain, parameter])[M]
+                end
             end
 
-            sum_of_rank_of_ranks .+= ordinalrank(ordinal_ranks[attempt, :])
+            for parameter in 1:(d + 1)
+                sum_of_rank_of_ranks[:, parameter] .+= ordinalrank(ordinal_ranks[attempt, :, parameter])
+            end
+        end
+
+        #across iterations, assuming they are all independent, we'll use sum_of_rank_of_ranks to test within iterations later
+        p_values .= 0.0 #holds test statistic for now
+        expected = n * (n_chains) / L
+        for v in 1:L
+            for p in 1:(d + 1)
+                n_v = count(==(v), ordinal_ranks[1:n, :, p][:])
+                p_values[p] += (n_v - expected)^2 / expected
+            end
+        end
+        #convert to p-values
+        p_values .= ccdf.(Chisq(L - 1), p_values)
+
+        return nothing
+    end
+
+    function friedman_statistic(sum_of_rank_of_ranks, attempts, n_chains)
+        return ((12 / (attempts * n_chains * (n_chains + 1))) * sum(sum_of_rank_of_ranks .^ 2)) - 3 * attempts * (n_chains + 1)
+    end
+
+    function sequential_testing(
+            rng, update, base_model, L, α, k, Δ, initial_n, memory::Bool;
+            d = LogDensityProblems.dimension(base_model),
+            n_chains = memory ? 5 : 3 * d,
+            n_hot_chains = 0,
+            N₀ = memory ? 5 * d - n_chains : 0
+        )
+        #setup for model
+        sample_kwargs = (
+            memory = memory, N₀ = N₀, n_chains = n_chains, progress = false,
+            chain_type = DifferentialEvolutionOutput, silent = true, n_hot_chains = n_hot_chains,
+        )
+
+        #setup for checks
+        M_sampler = Distributions.sampler(DiscreteUniform(1, L))
+        #rank based on values and ld so its less stuff to store
+        n_positions = n_chains + N₀ + n_hot_chains
+        initial_positions = [Vector{Float64}(undef, d) for i in 1:n_positions]
+        complete_chain = Array{Float64, 3}(undef, L, n_chains, d + 1)
+        ordinal_ranks = Array{Int, 3}(undef, Δ * initial_n, n_chains, d + 1)
+        sum_of_rank_of_ranks = zeros(Int, n_chains, d + 1)
+
+        β = α / k
+        γ = β^(1 / k)
+        n = initial_n
+
+        p_values = Vector{Float64}(undef, d + 1)
+
+        #sequential test for uniformity across iterations
+        for i in 1:k
+            test_for_correctness!(
+                rng, p_values, sum_of_rank_of_ranks, update, base_model, sample_kwargs, n, L,
+                M_sampler, initial_positions, complete_chain, ordinal_ranks
+            )
+            q = minimum(p_values) * (d + 1)
+            if q ≤ β
+                @warn "Failed rank-uniformity across all iterations test with p-value $(minimum(p_values))"
+                return false
+            elseif q > γ + β
+                break
+            else
+                β = β / γ
+                if i == 1
+                    n *= Δ
+                end
+            end
         end
 
         #test for uniformity within iterations
-        friedman_statistic = ((12 / (attempts * n_chains * (n_chains + 1))) * sum(sum_of_rank_of_ranks .^ 2)) - 3 * attempts * (n_chains + 1)
+        #since we can only rank 1:n_chains we can calculate the number of attempts as
+        attempts = Int(sum(sum_of_rank_of_ranks, dims = 1)[1, 1] / sum(1:n_chains))
 
-        B = 10000
-        running_count = 0
-        res = zeros(Float64, attempts, n_chains)
-        ranks = zeros(Int, attempts, n_chains)
-        soror = similar(sum_of_rank_of_ranks)
-        for _ in 1:B
-            res .= randn(rng, attempts, n_chains)
-            for i in 1:n_chains
-                ranks[:, i] .= ordinalrank(res[:, i])
-            end
-            soror .= ordinalrank(ranks[1, :])
-            for i in 2:attempts
-                soror .+= ordinalrank(ranks[i, :])
-            end
-            running_count += (((12 / (attempts * n_chains * (n_chains + 1))) * sum(soror .^ 2)) - 3 * attempts * (n_chains + 1)) ≥ friedman_statistic
-        end
+        statistic = maximum([friedman_statistic(sum_of_rank_of_ranks[:, p], attempts, n_chains) for p in 1:(d + 1)])
 
-        p_values_within = running_count /= B
+        # good approx when n_chains > 4 and attempts > 15
+        p_value_within = ccdf(Chisq(L - 1), statistic)
 
-        #across iterations, assuming they are all independent
-        test_statistic = 0.0
-        expected = length(ordinal_ranks[:]) / steps_per_attempt
-        for v in 1:steps_per_attempt
-            n_v = count(==(v), ordinal_ranks[:])
-            test_statistic += (n_v - expected)^2 / expected
-        end
-        p_values_across = ccdf(Chisq(steps_per_attempt - 1), test_statistic)
-
-        pass = true
-        if p_values_within < sig
-            @warn "Failed rank-uniformity between DE-chains test with p-value $p_values_within"
-            W = friedman_statistic / (attempts * (n_chains - 1))
+        if p_value_within < α
+            @warn "Failed rank-uniformity between DE-chains test with p-value $p_value_within"
+            W = statistic / (attempts * (n_chains - 1))
             if W > 0.01
                 @warn "Large coefficient of concordance W = $W"
-                pass = false
+                return false
             else
                 @warn "But small coefficient of concordance W = $W."
             end
         end
-        if p_values_across < sig
-            @warn "Failed rank-uniformity across all iterations test with p-value $p_values_across"
-            pass = false
-        end
 
-        return pass
+        return true
     end
 
     rng = backwards_compat_rng(1234)
-    attempts = 300
-    steps_per_attempt = 6000
+    initial_n = 50
+    Δ = 10
+    L = 100
     base_model = NormalNormalModel(1.0, 0.5, 0.0)
-    sig = 0.05
+    α = 0.05
+    k = 10
+
+    composite_update = setup_sampler_scheme(
+        setup_de_update(n_dims = LogDensityProblems.dimension(base_model)),
+        setup_snooker_update(),
+        setup_subspace_sampling()
+    )
+
     @testset "Without memory" begin
-        @test test_for_correctness(rng, setup_de_update(n_dims = 2), false, base_model, attempts, steps_per_attempt, sig)
-        @test test_for_correctness(rng, setup_snooker_update(), false, base_model, attempts, steps_per_attempt, sig)
-        @test test_for_correctness(rng, setup_subspace_sampling(), false, base_model, attempts, steps_per_attempt, sig)
+        @test sequential_testing(rng, setup_de_update(n_dims = LogDensityProblems.dimension(base_model)), base_model, L, α, k, Δ, initial_n, false)
+        @test sequential_testing(rng, setup_snooker_update(), base_model, L, α, k, Δ, initial_n, false)
+        @test sequential_testing(rng, setup_subspace_sampling(), base_model, L, α, k, Δ, initial_n, false)
+        @test sequential_testing(rng, composite_update, base_model, L, α, k, Δ, initial_n, false)
     end
     @testset "With memory" begin
-        @test test_for_correctness(rng, setup_de_update(n_dims = 2), true, base_model, attempts, steps_per_attempt, sig)
-        @test test_for_correctness(rng, setup_snooker_update(), true, base_model, attempts, steps_per_attempt, sig)
-        @test test_for_correctness(rng, setup_subspace_sampling(), true, base_model, attempts, steps_per_attempt, sig)
+        @test sequential_testing(rng, setup_de_update(n_dims = LogDensityProblems.dimension(base_model)), base_model, L, α, k, Δ, initial_n, true)
+        @test sequential_testing(rng, setup_snooker_update(), base_model, L, α, k, Δ, initial_n, true)
+        @test sequential_testing(rng, setup_subspace_sampling(), base_model, L, α, k, Δ, initial_n, true)
+        @test sequential_testing(rng, composite_update, base_model, L, α, k, Δ, initial_n, true)
     end
     @testset "With pt" begin
-        @test test_for_correctness(rng, setup_de_update(n_dims = 2), false, base_model, attempts, steps_per_attempt, sig; pt = true)
-        @test test_for_correctness(rng, setup_snooker_update(), false, base_model, attempts, steps_per_attempt, sig; pt = true)
-        @test test_for_correctness(rng, setup_subspace_sampling(), false, base_model, attempts, steps_per_attempt, sig; pt = true)
+        @test sequential_testing(rng, setup_de_update(n_dims = LogDensityProblems.dimension(base_model)), base_model, L, α, k, Δ, initial_n, false; n_hot_chains = 5)
+        @test sequential_testing(rng, setup_snooker_update(), base_model, L, α, k, Δ, initial_n, false; n_hot_chains = 5)
+        @test sequential_testing(rng, setup_subspace_sampling(), base_model, L, α, k, Δ, initial_n, false; n_hot_chains = 5)
+        @test sequential_testing(rng, composite_update, base_model, L, α, k, Δ, initial_n, false; n_hot_chains = 5)
     end
 
 end
