@@ -21,7 +21,6 @@ import Random
 import AbstractMCMC: LogDensityModel, AbstractSampler, step, step_warmup, AbstractModel,
     sample, bundle_samples
 import AbstractMCMC
-import MCMCChains: Chains, replacenames
 
 abstract type AbstractDifferentialEvolutionSampler <: AbstractSampler end
 
@@ -105,6 +104,7 @@ include("templates.jl")
 if !isdefined(Base, :get_extension)
     #backwards compat for julia < 1.9
     include("../ext/MCMCDiagnosticToolsExt.jl")
+    include("../ext/MCMCChainsExt.jl")
 end
 
 end

@@ -15,9 +15,11 @@ MCMCDiagnosticTools = "be115224-59cd-429b-ad48-344e309966f0"
 
 [weakdeps]
 MCMCDiagnosticTools = "be115224-59cd-429b-ad48-344e309966f0"
+MCMCChains = "c7f686f2-ff18-58e9-bc7b-31028e88f75d"
 
 [extensions]
 MCMCDiagnosticToolsExt = "MCMCDiagnosticTools"
+MCMCChainsExt = "MCMCChains"
 
 [compat]
 AbstractMCMC = "5.8"
@@ -38,6 +40,7 @@ Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 MCMCDiagnosticTools = "be115224-59cd-429b-ad48-344e309966f0"
+MCMCChains = "c7f686f2-ff18-58e9-bc7b-31028e88f75d"
 
 [targets]
-test = ["Test", "Aqua", "Logging", "MCMCDiagnosticTools"]
+test = ["Test", "Aqua", "Logging", "MCMCDiagnosticTools", "MCMCChains"]
