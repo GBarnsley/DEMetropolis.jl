@@ -351,37 +351,7 @@ and returns the initial sample and state that can be used with `AbstractMCMC.sam
 - `sampler`: Differential evolution sampler to use
 
 # Keyword Arguments
-- `n_chains`: Number of parallel chains. Defaults to `max(2 * dimension, 3)` for adequate mixing.
-- `n_hot_chains`: Number of hot chains for parallel tempering. Defaults to 0 (no parallel tempering).
-- `memory`: Whether to use memory-based sampling that stores past positions. Memory-based
-  samplers can be more efficient for high-dimensional problems. Defaults to `true`.
-- `N₀`: Initial memory size for memory-based samplers. Should be ≥ `n_chains + n_hot_chains`.
-  Defaults to `2 * n_chains + n_hot_chains`.
-- `memory_size`: Maximum number of positions retained per chain in memory. The effective total stored positions is
-    `memory_size * (n_chains + n_hot_chains)`. Defaults to `1001` or `2*num_warmup` if that is provided here or via `sample`. Larger sizes can improve proposal diversity but
-    increase memory usage. Set with consideration of available RAM and expected run length.
-- `memory_refill`: Whether to refill memory when full, will replace from the start. Defaults to `true`.
-- `memory_thin_interval`: Thinning interval for memory updates. If > 0, only every `memory_thin_interval`-th
-  position is stored in memory.
-- `adapt`: Whether to enable adaptive behavior during warm-up (if the sampler supports it).
-  Defaults to `true`.
-- `initial_position`: Starting positions for chains. Can be `nothing` (random initialization),
-  or a vector of parameter vectors. If the provided vector is smaller than `n_chains + n_hot_chains`,
-  it will be expanded; if larger and `memory=true`, excess positions become initial memory. Defaults to `nothing`.
-- `parallel`: Whether to evaluate initial log-densities in parallel. Useful for expensive models.
-  Defaults to `false`.
-- `max_temp_pt`: Maximum temperature for parallel tempering. Defaults to 2*sqrt(dimension).
-- `max_temp_sa`: Maximum temperature for simulated annealing. Defaults to `max_temp_pt`.
-- `α`: Temperature ladder spacing parameter. Controls the geometric spacing between temperatures.
-  Defaults to 1.0.
-- `annealing`: Whether to use simulated annealing (temperature decreases over time). Defaults to `false`.
-- `annealing_steps`: Number of annealing steps. Defaults to `annealing ? num_warmup : 0`.
-- `silent`: Suppress informational logging during initialization (e.g., initial position adjustments and
-    memory setup) when `true`. Defaults to `false`.
-- `temperature_ladder`: Pre-defined temperature ladder as a vector of vectors. If provided,
-  overrides automatic temperature ladder creation. Defaults to `create_temperature_ladder(n_chains, n_hot_chains, α, max_temp_pt, max_temp_sa, annealing_steps)`.
-- `n_preallocated_indices`: This package provides fast sampling-with-out replacement by pre-allocating indices, defaults to 3 (which the most asked for by the implemented samplers). Consider increasing it if you implement your own proposal that calls `pick_chains` with `n_chains > 3`.
-- `kwargs...`: Additional keyword arguments (unused in this method)
+$(generic_de_kwargs)
 
 # Returns
 - `sample`: DifferentialEvolutionSample containing initial positions and log-densities
@@ -409,14 +379,7 @@ sample3, state3 = step(rng, model_wrapper, sampler; initial_position=init_pos)
 ```
 
 # Notes
-- For non-memory samplers, `n_chains` should typically be ≥ dimension for good mixing
-- Memory-based samplers can work effectively with fewer chains than the problem dimension
-- The function handles dimension mismatches and provides informative warnings
-- Initial log-densities are computed automatically for all starting positions
-- When using parallel tempering (`n_hot_chains > 0`), only the cold chains (first `n_chains`)
-  are returned in the sample, but all chains participate in the sampling process
-- Memory-based samplers with parallel tempering may issue warnings since hot chains typically
-  aren't necessary when using memory
+$(generic_notes)
 
 See also [`sample` from AbstractMCMC](https://turinglang.org/AbstractMCMC.jl/dev/api/#Common-keyword-arguments), [`deMC`](@ref), [`deMCzs`](@ref), [`DREAMz`](@ref).
 """

@@ -104,31 +104,29 @@
     end
 
     @testset "non memory runs" begin
-        deMC(ld, 100, memory = false, save_burnt = true)
-        deMCzs(ld, 1000; thin = 2, memory = false, epoch_limit = 3)
-        DREAMz(ld, 1000; thin = 2, memory = false, epoch_limit = 3)
+        deMC(ld, 100; memory = false, save_burnt = true)
+        DREAMz(ld, 1000, 2; memory = false, save_burnt = false)
     end
     @testset "memory runs" begin
-        deMC(ld, 100, memory = true)
-        deMCzs(ld, 1000; thin = 2, memory = true, epoch_limit = 3)
-        DREAMz(ld, 1000; thin = 2, memory = true, epoch_limit = 3)
+        deMCzs(ld, 1000; thinning = 2, memory = true)
+        deMC(ld, 1000, 2; thinning = 2, memory = true)
     end
     @testset "thin memory" begin
         deMC(ld, 100; memory = true, memory_thin_interval = 5)
-        deMCzs(ld, 1000; thin = 2, memory = true, epoch_limit = 3, memory_thin_interval = 5)
+        deMCzs(ld, 1000, 2; thinning = 2, memory = true, memory_thin_interval = 5)
     end
     @testset "non-refill memory" begin
         deMC(ld, 100; memory = true, memory_size = 50, memory_refill = false)
+        deMC(ld, 100, 2; memory = true, memory_size = 50, memory_refill = false)
     end
     @testset "parameter simplifying" begin
         deMC(ld, 100, memory = false, γ₁ = 0.5, γ₂ = 0.5)
-        deMCzs(ld, 1000; thin = 2, memory = false, p_snooker = 0.0, epoch_limit = 3)
-        DREAMz(ld, 1000; thin = 2, memory = true, p_γ₂ = 0.0, epoch_limit = 3)
+        deMCzs(ld, 1000; thinning = 2, memory = false, p_snooker = 0.0, epoch_limit = 3)
+        DREAMz(ld, 1000; thinning = 2, memory = true, p_γ₂ = 0.0, epoch_limit = 3)
     end
     @testset "annealing and parallel tempering" begin
-        DREAMz(ld, 1000; thin = 2, memory = false, epoch_limit = 3, n_hot_chains = 10)
         deMC(ld, 100, memory = false; annealing = true)
-        deMCzs(ld, 1000; thin = 2, memory = true, epoch_limit = 3, annealing = true)
+        deMCzs(ld, 100, 2; thinning = 2, memory = true, annealing = true)
     end
     @testset "warnings" begin
         #check for warning
@@ -139,12 +137,12 @@
                 ]
             )
         )
-        @test_logs (:warn,) deMC(ld_wide, 1000; thin = 2, n_chains = 4)
+        @test_logs (:warn,) deMC(ld_wide, 1000; thinning = 2, n_chains = 4)
     end
     @testset "parallel" begin
-        DREAMz(ld, 1000; thin = 2, memory = true, parallel = true, epoch_limit = 3)
+        DREAMz(ld, 1000; thinning = 2, memory = true, parallel = true, epoch_limit = 3)
     end
-    @testset "initial_state building" begin
+    @testset "initial_position building" begin
         n_dims = LogDensityProblems.dimension(ld.logdensity)
 
         disable_logging(Logging.Debug)
@@ -152,7 +150,7 @@
             :info,
             "   Initial position is smaller than the requested (or required) n_chains (including hot chains). Expanding initial position.",
         ) deMC(
-            ld, 100, initial_state = [
+            ld, 100, initial_position = [
                 randn(n_dims)
                     for _ in 2:(n_dims * 2)
             ]
@@ -161,35 +159,35 @@
             :info,
             "   Done!",
         ) deMC(
-            ld, 100, initial_state = [randn(n_dims) for _ in 1:(n_dims * 2)], n_chains = n_dims * 2, memory = false
+            ld, 100, initial_position = [randn(n_dims) for _ in 1:(n_dims * 2)], n_chains = n_dims * 2, memory = false
         )
         @test_logs match_mode = :any (
             :info,
             "   Assuming initial position size is n_chains. Ignoring extra positions.",
         ) deMC(
-            ld, 100, initial_state = [randn(n_dims) for _ in 1:(n_dims * 2)], n_chains = n_dims * 2 - 1, n_hot_chains = 0, memory = false
+            ld, 100, initial_position = [randn(n_dims) for _ in 1:(n_dims * 2)], n_chains = n_dims * 2 - 1, n_hot_chains = 0, memory = false
         )
         @test_logs match_mode = :any (
             :info,
             "   Initial position is larger than requested number of chains. Shrinking initial position appending the rest to initial memory.",
         ) deMC(
-            ld, 100, initial_state = [randn(n_dims) for _ in 0:(n_dims * 2)], memory = true
+            ld, 100, initial_position = [randn(n_dims) for _ in 0:(n_dims * 2)], memory = true
         )
         @test_throws ErrorException deMC(
-            ld, 100, initial_state = [
+            ld, 100, initial_position = [
                 randn(n_dims - 1)
                     for _ in 1:(n_dims * 2)
             ]
         )
 
         @test_throws ErrorException deMC(
-            ld, 100, initial_state = [randn(n_dims) for _ in 1:10],
+            ld, 100, initial_position = [randn(n_dims) for _ in 1:10],
             n_chains = 5, memory = false, n_hot_chains = 2
         )
         @test_logs match_mode = :any (
             :info, "   Initial memory size greater than N₀, truncating memory.",
         ) deMC(
-            ld, 100, initial_state = [randn(n_dims) for _ in 0:10], N₀ = 5, memory = true
+            ld, 100, initial_position = [randn(n_dims) for _ in 0:10], N₀ = 5, memory = true
         )
 
         disable_logging(Logging.Info)

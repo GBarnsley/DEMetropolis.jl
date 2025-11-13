@@ -47,36 +47,14 @@ chains = sample(rng, model_wrapper, sampler, r̂_stopping_criteria;
 See also [`MCMCDiagnosticTools.rhat`](@extref), [`deMCzs`](@ref), [`DREAMz`](@ref).
 """
 function r̂_stopping_criteria(
-        rng::AbstractRNG,
-        model::AbstractModel,
-        sampler::AbstractDifferentialEvolutionSampler,
-        samples::Vector{DifferentialEvolutionSample{V, VV}},
-        state::DifferentialEvolutionState{T, A, L, M, V, VV},
-        iteration::Int;
-        check_every::Int = 1000,
-        maximum_R̂::T = 1.2,
-        maximum_iterations::Int = 100000,
-        minimum_iterations::Int = 0,
+        rng,
+        model,
+        sampler,
+        samples,
+        state,
+        iteration;
         kwargs...
-    ) where {
-        T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V},
-        A <: AbstractDifferentialEvolutionAdaptiveState{T},
-        M <: AbstractDifferentialEvolutionMemory{T},
-        L <: AbstractDifferentialEvolutionTemperatureLadder{T},
-    }
-    if iteration % check_every != 0 || iteration < minimum_iterations
-        return false
-    elseif iteration >= maximum_iterations
-        println("Maximum iterations reached: ", maximum_iterations)
-        return true
-    else
-        #check the last half of the sampling iterations
-        rhat_ = rhat(samples_to_array(samples[(iteration ÷ 2 + 1):end]))
-        println("Rhat: ", round.(rhat_, sigdigits = 3))
-        if all(rhat_ .< maximum_R̂)
-            return true
-        else
-            return false
-        end
-    end
+    )
+    @error "Please load MCMCDiagnosticTools.jl to use `r̂_stopping_criteria`"
+    return true
 end
