@@ -358,7 +358,7 @@ and returns the initial sample and state that can be used with `AbstractMCMC.sam
 - `N₀`: Initial memory size for memory-based samplers. Should be ≥ `n_chains + n_hot_chains`.
   Defaults to `2 * n_chains + n_hot_chains`.
 - `memory_size`: Maximum number of positions retained per chain in memory. The effective total stored positions is
-    `memory_size * (n_chains + n_hot_chains)`. Defaults to `1001`. Larger sizes can improve proposal diversity but
+    `memory_size * (n_chains + n_hot_chains)`. Defaults to `1001` or `2*num_warmup` if that is provided here or via `sample`. Larger sizes can improve proposal diversity but
     increase memory usage. Set with consideration of available RAM and expected run length.
 - `memory_refill`: Whether to refill memory when full, will replace from the start. Defaults to `true`.
 - `memory_thin_interval`: Thinning interval for memory updates. If > 0, only every `memory_thin_interval`-th
@@ -427,7 +427,6 @@ function step(
         n_chains::Int = max(dimension(model_wrapper.logdensity) * 2, 3),
         n_hot_chains::Int = 0,
         memory::Bool = true,
-        memory_size::Int = 1001,
         memory_refill::Bool = true,
         memory_thin_interval::Int = 0,
         N₀::Int = 2 * (n_chains + n_hot_chains),
@@ -440,6 +439,7 @@ function step(
         α::T = 1.0,
         annealing::Bool = false,
         num_warmup::Int = 0,
+        memory_size::Int = (num_warmup == 0) ? 1001 : num_warmup * 2,
         annealing_steps::Int = annealing ? num_warmup : 0,
         silent::Bool = false,
         temperature_ladder::Vector{Vector{T}} = create_temperature_ladder(
@@ -557,7 +557,10 @@ function step(
 
         total_memory_size = memory_size * n_true_chains
         if memory_size == 1001
-            push!(log, "   Using default memory size, storing a maximum of $total_memory_size chains.")
+            push!(log, "   Using default memory size of 1001, storing a maximum of $total_memory_size chains.")
+            push!(log, "   Consider setting memory_size keyword argument to control memory usage!")
+        elseif memory_size == num_warmup * 2
+            push!(log, "   Using memory size of $memory_size (2x num_warmup/n_burnin) to store a maximum of $total_memory_size chains.")
             push!(log, "   Consider setting memory_size keyword argument to control memory usage!")
         end
         true_memory = vcat(mem_x, [similar(mem_x[1]) for _ in 1:(total_memory_size - N₀)])
