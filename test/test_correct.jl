@@ -127,7 +127,7 @@
             d = LogDensityProblems.dimension(base_model),
             n_chains = memory ? 5 : 3 * d,
             n_hot_chains = 0,
-            N₀ = memory ? 5 * d - n_chains : 0
+            N₀ = memory ? max(5 * d - n_chains, n_chains + n_hot_chains) : 0
         )
         #setup for model
         sample_kwargs = (
@@ -177,7 +177,7 @@
         statistic = maximum([friedman_statistic(sum_of_rank_of_ranks[:, p], attempts, n_chains) for p in 1:(d + 1)])
 
         # good approx when n_chains > 4 and attempts > 15
-        p_value_within = ccdf(Chisq(L - 1), statistic)
+        p_value_within = ccdf(Chisq(n_chains - 1), statistic)
 
         if p_value_within < α
             @warn "Failed rank-uniformity between DE-chains test with p-value $p_value_within"
