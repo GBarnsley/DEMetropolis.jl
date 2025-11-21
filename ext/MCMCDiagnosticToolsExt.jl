@@ -260,7 +260,7 @@ function DEMetropolis.DREAMz(
         save_burnt, epoch_size, warmup_epochs, epoch_limit
     )
 
-    return DEMetropolis._deMCzs(
+    return DEMetropolis._DREAMz(
         model_wrapper,
         DEMetropolis.r̂_stopping_criteria,
         num_warmup,

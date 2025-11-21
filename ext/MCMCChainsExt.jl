@@ -27,7 +27,7 @@ function DEMetropolis.convert(
     chns = replacenames(
         chns, Dict(
             zip(
-                "param_$(axes(array_out, 2))", vcat(DEMetropolis.generate_names(size(output.ld, 3)), "ld")
+                ["param_$i" for i in axes(array_out, 2)], vcat(DEMetropolis.generate_names(size(output.samples, 3)), ["ld"])
             )
         )
     )
