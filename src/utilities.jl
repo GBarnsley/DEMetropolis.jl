@@ -82,8 +82,7 @@ function bundle_samples(
 end
 
 function AbstractMCMC.chainsstack(chns::Vector{DifferentialEvolutionOutput{T}}) where {
-        T <:
-        Real,
+        T <: Real,
     }
     return DifferentialEvolutionOutput{T}(
         cat([c.samples for c in chns]...; dims = 2),
@@ -94,11 +93,10 @@ end
 function AbstractMCMC.chainsstack(
         chns::Vector{
             Tuple{
-                DifferentialEvolutionOutput{T},
-                E,
+                T, E,
             },
         }
-    ) where {T <: Real, E <: DifferentialEvolutionState}
+    ) where {T, E <: DEMetropolis.DifferentialEvolutionState}
     return (
         AbstractMCMC.chainsstack([c[1] for c in chns]),
         [c[2] for c in chns],
@@ -117,4 +115,8 @@ function convert(
         samples::Vector{DifferentialEvolutionSample{V, VV}}
     ) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
     return process_outputs(samples)
+end
+
+function generate_names(n_params::Int)
+    return [Symbol("param_$(i)") for i in 1:n_params]
 end

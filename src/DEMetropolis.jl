@@ -105,6 +105,7 @@ if !isdefined(Base, :get_extension)
     #backwards compat for julia < 1.9
     include("../ext/MCMCDiagnosticToolsExt.jl")
     include("../ext/MCMCChainsExt.jl")
+    include("../ext/FlexiChainsExt.jl")
 end
 
 end

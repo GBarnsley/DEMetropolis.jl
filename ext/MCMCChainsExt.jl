@@ -4,19 +4,6 @@ import DEMetropolis
 import MCMCChains: Chains, replacenames
 import AbstractMCMC
 
-function AbstractMCMC.chainsstack(
-        chns::Vector{
-            Tuple{
-                C, E,
-            },
-        }
-    ) where {C <: Chains, E <: DEMetropolis.DifferentialEvolutionState}
-    return (
-        AbstractMCMC.chainsstack([c[1] for c in chns]),
-        [c[2] for c in chns],
-    )
-end
-
 function DEMetropolis.convert(
         ::Type{Chains},
         samples::Vector{DEMetropolis.DifferentialEvolutionSample{V, VV}}
@@ -37,7 +24,13 @@ function DEMetropolis.convert(
     )
 
     chns = Chains(array_out)
-    chns = replacenames(chns, "param_$(size(output.samples, 3) + 1)" => "ld")
+    chns = replacenames(
+        chns, Dict(
+            zip(
+                "param_$(axes(array_out, 2))", vcat(DEMetropolis.generate_names(size(output.ld, 3)), "ld")
+            )
+        )
+    )
 
     return chns
 end

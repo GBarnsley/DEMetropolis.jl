@@ -62,7 +62,7 @@ generic_notes = """
 """
 
 template_chains_kwargs = """
-- `chain_type`: Type of chain to return (e.g., `Any`, `DifferentialEvolutionOutput`, `MCMCChains.Chains`). Defaults to `DifferentialEvolutionOutput`.
+- `chain_type`: Type of chain to return (e.g., `Any`, `DifferentialEvolutionOutput`, `MCMCChains.Chains`, or `FlexiChains.VNChain`). Defaults to `DifferentialEvolutionOutput`.
 - `save_final_state`: Whether to return the final state along with samples, if true the output will be (samples::chain_type, final_state). Defaults to `false`.
 """
 
