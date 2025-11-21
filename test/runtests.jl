@@ -1,6 +1,6 @@
 using DEMetropolis
 using Test
-using LogDensityProblems, Random, Distributions, AbstractMCMC, MCMCChains
+using LogDensityProblems, Random, Distributions, AbstractMCMC, StatsBase
 using Aqua
 using Logging
 
@@ -51,9 +51,24 @@ end
     include("test_subspace_adaptive_update.jl")
     include("test_composite.jl")
     include("test_rng.jl")
-    include("test_convergence.jl")
-    include("test_templates.jl")
     include("test_temperature.jl")
+    include("test_correct.jl")
+
+    @testset "lack of Diagnostics Tools" begin
+        @test_logs match_mode = :any (
+            :error, "Please load MCMCDiagnosticTools.jl to use `r̂_stopping_criteria`",
+        ) sample(
+            backwards_compat_rng(1234),
+            AbstractMCMC.LogDensityModel(IsotropicNormalModel([-5.0, 5.0])),
+            setup_de_update(),
+            r̂_stopping_criteria;
+            progress = false
+        )
+    end
+
+    using MCMCDiagnosticTools, MCMCChains, FlexiChains
+    include("test_templates.jl")
+    include("test_convergence.jl")
     #include("test_diagnostics.jl")
 
     #if VERSION ≥ v"1.11"

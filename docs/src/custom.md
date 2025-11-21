@@ -4,7 +4,7 @@ This document describes how to extend `DEMetropolis.jl` with your own custom com
 
 ## Custom Stopping Criteria
 
-To create a custom stopping criterion, you need to define a function that follows the AbstractMCMC interface, similar to [`r̂_stopping_criteria`](@ref). The function will be called during sampling to determine when to stop. See the [AbstractMCMC documentation](https://turinglang.org/AbstractMCMC.jl/dev/api/#Sampling-a-single-chain) for details.
+To create a custom stopping criterion, you need to define a function that follows the AbstractMCMC interface, similar to [`r̂_stopping_criteria`](@ref) which is available if `MCMCDiagnosticTools.jl` is loaded. The function will be called during sampling to determine when to stop. See the [AbstractMCMC documentation](https://turinglang.org/AbstractMCMC.jl/dev/api/#Sampling-a-single-chain) for details.
 
 The stopping criterion function has the following signature:
 ```julia

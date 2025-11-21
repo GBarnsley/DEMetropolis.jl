@@ -151,7 +151,7 @@ function proposal!(
     xₚ[to_update] .= zero(eltype(x))
 
     #generate candidate
-    @inbounds for _ in 1:δ
+    for _ in 1:δ
         #pick to random chains find the difference and add to the candidate
         x₁, x₂ = pick_chains(state, current_state, 2)
         xₚ[to_update] .+= x₁[to_update] .- x₂[to_update]

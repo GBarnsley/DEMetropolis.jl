@@ -219,12 +219,12 @@ function step(
 
     # loop through chains running the update
     if parallel
-        @inbounds Threads.@threads for i in eachindex(x)
+        Threads.@threads for i in eachindex(x)
             offset, = proposal!(state, sampler, i)
             update_chain!(model, state, offset, i)
         end
     else
-        @inbounds for i in eachindex(x)
+        for i in eachindex(x)
             offset, = proposal!(state, sampler, i)
             update_chain!(model, state, offset, i)
         end
@@ -351,37 +351,7 @@ and returns the initial sample and state that can be used with `AbstractMCMC.sam
 - `sampler`: Differential evolution sampler to use
 
 # Keyword Arguments
-- `n_chains`: Number of parallel chains. Defaults to `max(2 * dimension, 3)` for adequate mixing.
-- `n_hot_chains`: Number of hot chains for parallel tempering. Defaults to 0 (no parallel tempering).
-- `memory`: Whether to use memory-based sampling that stores past positions. Memory-based
-  samplers can be more efficient for high-dimensional problems. Defaults to `true`.
-- `N₀`: Initial memory size for memory-based samplers. Should be ≥ `n_chains + n_hot_chains`.
-  Defaults to `2 * n_chains + n_hot_chains`.
-- `memory_size`: Maximum number of positions retained per chain in memory. The effective total stored positions is
-    `memory_size * (n_chains + n_hot_chains)`. Defaults to `1001`. Larger sizes can improve proposal diversity but
-    increase memory usage. Set with consideration of available RAM and expected run length.
-- `memory_refill`: Whether to refill memory when full, will replace from the start. Defaults to `true`.
-- `memory_thin_interval`: Thinning interval for memory updates. If > 0, only every `memory_thin_interval`-th
-  position is stored in memory.
-- `adapt`: Whether to enable adaptive behavior during warm-up (if the sampler supports it).
-  Defaults to `true`.
-- `initial_position`: Starting positions for chains. Can be `nothing` (random initialization),
-  or a vector of parameter vectors. If the provided vector is smaller than `n_chains + n_hot_chains`,
-  it will be expanded; if larger and `memory=true`, excess positions become initial memory. Defaults to `nothing`.
-- `parallel`: Whether to evaluate initial log-densities in parallel. Useful for expensive models.
-  Defaults to `false`.
-- `max_temp_pt`: Maximum temperature for parallel tempering. Defaults to 2*sqrt(dimension).
-- `max_temp_sa`: Maximum temperature for simulated annealing. Defaults to `max_temp_pt`.
-- `α`: Temperature ladder spacing parameter. Controls the geometric spacing between temperatures.
-  Defaults to 1.0.
-- `annealing`: Whether to use simulated annealing (temperature decreases over time). Defaults to `false`.
-- `annealing_steps`: Number of annealing steps. Defaults to `annealing ? num_warmup : 0`.
-- `silent`: Suppress informational logging during initialization (e.g., initial position adjustments and
-    memory setup) when `true`. Defaults to `false`.
-- `temperature_ladder`: Pre-defined temperature ladder as a vector of vectors. If provided,
-  overrides automatic temperature ladder creation. Defaults to `create_temperature_ladder(n_chains, n_hot_chains, α, max_temp_pt, max_temp_sa, annealing_steps)`.
-- `n_preallocated_indices`: This package provides fast sampling-with-out replacement by pre-allocating indices, defaults to 3 (which the most asked for by the implemented samplers). Consider increasing it if you implement your own proposal that calls `pick_chains` with `n_chains > 3`.
-- `kwargs...`: Additional keyword arguments (unused in this method)
+$(generic_de_kwargs)
 
 # Returns
 - `sample`: DifferentialEvolutionSample containing initial positions and log-densities
@@ -409,14 +379,7 @@ sample3, state3 = step(rng, model_wrapper, sampler; initial_position=init_pos)
 ```
 
 # Notes
-- For non-memory samplers, `n_chains` should typically be ≥ dimension for good mixing
-- Memory-based samplers can work effectively with fewer chains than the problem dimension
-- The function handles dimension mismatches and provides informative warnings
-- Initial log-densities are computed automatically for all starting positions
-- When using parallel tempering (`n_hot_chains > 0`), only the cold chains (first `n_chains`)
-  are returned in the sample, but all chains participate in the sampling process
-- Memory-based samplers with parallel tempering may issue warnings since hot chains typically
-  aren't necessary when using memory
+$(generic_notes)
 
 See also [`sample` from AbstractMCMC](https://turinglang.org/AbstractMCMC.jl/dev/api/#Common-keyword-arguments), [`deMC`](@ref), [`deMCzs`](@ref), [`DREAMz`](@ref).
 """
@@ -427,8 +390,7 @@ function step(
         n_chains::Int = max(dimension(model_wrapper.logdensity) * 2, 3),
         n_hot_chains::Int = 0,
         memory::Bool = true,
-        memory_size::Int = 1001,
-        memory_refill::Bool = true,
+        memory_refill::Bool = false,
         memory_thin_interval::Int = 0,
         N₀::Int = 2 * (n_chains + n_hot_chains),
         adapt::Bool = true,
@@ -440,6 +402,7 @@ function step(
         α::T = 1.0,
         annealing::Bool = false,
         num_warmup::Int = 0,
+        memory_size::Int = (num_warmup == 0) ? 1001 : num_warmup * 2,
         annealing_steps::Int = annealing ? num_warmup : 0,
         silent::Bool = false,
         temperature_ladder::Vector{Vector{T}} = create_temperature_ladder(
@@ -466,6 +429,7 @@ function step(
         x = [randn(rng, dimension(model)) for _ in 1:n_true_chains]
     else
         push!(log, "DEMetropolis: adjusting provided initial positions...")
+        initial_position = copy.(initial_position)
         current_N = length(initial_position)
         current_pars = length(initial_position[1])
         if current_pars != dimension(model)
@@ -556,7 +520,10 @@ function step(
 
         total_memory_size = memory_size * n_true_chains
         if memory_size == 1001
-            push!(log, "   Using default memory size, storing a maximum of $total_memory_size chains.")
+            push!(log, "   Using default memory size of 1001, storing a maximum of $total_memory_size chains.")
+            push!(log, "   Consider setting memory_size keyword argument to control memory usage!")
+        elseif memory_size == num_warmup * 2
+            push!(log, "   Using memory size of $memory_size (2x num_warmup/n_burnin) to store a maximum of $total_memory_size chains.")
             push!(log, "   Consider setting memory_size keyword argument to control memory usage!")
         end
         true_memory = vcat(mem_x, [similar(mem_x[1]) for _ in 1:(total_memory_size - N₀)])
@@ -572,7 +539,7 @@ function step(
         end
 
         memory = DifferentialEvolutionMemoryFill{T, typeof(mem_x)}(
-            true_memory, memory_method, memory_refill,
+            true_memory, memory_method, memory_refill, length(true_memory),
             [Vector{Int}(undef, n_preallocated_indices) for _ in 1:n_true_chains],
             [Vector{Int}(undef, n_preallocated_indices - 1) for _ in 1:n_true_chains]
         )

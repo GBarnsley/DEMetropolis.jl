@@ -11,22 +11,6 @@ abstract type AbstractDifferentialEvolutionMemoryFormat{
 } <:
 AbstractDifferentialEvolutionMemory{T} end
 
-#full memory no changes
-struct DifferentialEvolutionMemoryFull{T, VV <: AbstractVector{<:AbstractVector{T}}} <:
-    AbstractDifferentialEvolutionMemoryFormat{T, VV}
-    mem_x::VV
-    #for preallocation only for internal use
-    indices_INTERNAL::Vector{Vector{Int}}
-    ordered_indices_INTERNAL::Vector{Vector{Int}}
-end
-
-function update_memory!!(
-        memory::DifferentialEvolutionMemoryFull{T, VV},
-        x::VV
-    ) where {T <: Real, VV <: AbstractVector{<:AbstractVector{T}}}
-    return memory
-end
-
 #abstract type for methods of filling memory
 abstract type AbstractDifferentialEvolutionMemoryFillMethod end
 
@@ -45,7 +29,7 @@ function update_memory!!(
         x::VV
     ) where {T <: Real, VV <: AbstractVector{<:AbstractVector{T}}}
     if update_position!(memory.fill)
-        @inbounds for i in 1:memory.fill.n_chains
+        for i in 1:memory.fill.n_chains
             memory.mem_x[memory.fill.position - i + 1] .= x[i]
         end
     end
@@ -55,12 +39,13 @@ function update_memory!!(
     return memory
 end
 
-#non-full memory, filling up to a max size
+#non-full memory, filling up to a max size then extending or refilling
 struct DifferentialEvolutionMemoryFill{T, VV <: AbstractVector{<:AbstractVector{T}}} <:
     AbstractDifferentialEvolutionMemoryFormat{T, VV}
     mem_x::VV
     fill::AbstractDifferentialEvolutionMemoryFillMethod
     refill::Bool
+    memory_size::Int
     #for preallocation only for internal use
     indices_INTERNAL::Vector{Vector{Int}}
     ordered_indices_INTERNAL::Vector{Vector{Int}}
@@ -69,9 +54,9 @@ end
 function update_memory!!(
         memory::DifferentialEvolutionMemoryFill{T, VV},
         x::VV
-    ) where {T <: Real, VV <: AbstractVector{<:AbstractVector{T}}}
+    ) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
     if update_position!(memory.fill)
-        @inbounds for i in 1:memory.fill.n_chains
+        for i in 1:memory.fill.n_chains
             memory.mem_x[memory.fill.position - i + 1] .= x[i]
         end
     end
@@ -81,7 +66,12 @@ function update_memory!!(
             memory = DifferentialEvolutionMemoryRefill(memory.mem_x, memory.fill, memory.indices_INTERNAL, memory.ordered_indices_INTERNAL)
             memory.fill.position = 0
         else
-            memory = DifferentialEvolutionMemoryFull(memory.mem_x, memory.indices_INTERNAL, memory.ordered_indices_INTERNAL)
+            #increase memory size
+            resize!(memory.mem_x, length(memory.mem_x) + memory.memory_size)
+            dims = size(memory.mem_x[1])
+            for i in (length(memory.mem_x) - memory.memory_size + 1):length(memory.mem_x)
+                memory.mem_x[i] = V(undef, dims)
+            end
         end
     end
     return memory

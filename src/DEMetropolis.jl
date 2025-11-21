@@ -1,8 +1,9 @@
 module DEMetropolis
 export setup_de_update, setup_snooker_update, setup_subspace_sampling, setup_sampler_scheme
 export step, step_warmup, fix_sampler, fix_sampler_state
-export r̂_stopping_criteria, DifferentialEvolutionOutput
+export DifferentialEvolutionOutput
 export deMC, deMCzs, DREAMz
+export r̂_stopping_criteria
 
 import Distributions: UnivariateDistribution, DiscreteUnivariateDistribution,
     ContinuousUnivariateDistribution, DiscreteNonParametricSampler
@@ -20,8 +21,6 @@ import Random
 import AbstractMCMC: LogDensityModel, AbstractSampler, step, step_warmup, AbstractModel,
     sample, bundle_samples
 import AbstractMCMC
-import MCMCChains: Chains, replacenames
-import MCMCDiagnosticTools: rhat
 
 abstract type AbstractDifferentialEvolutionSampler <: AbstractSampler end
 
@@ -87,6 +86,7 @@ struct DifferentialEvolutionOutput{T <: Real}
     ld::Matrix{T}
 end
 
+include("docs.jl")
 include("temperature.jl")
 include("memory.jl")
 include("fast_sample.jl")
@@ -99,5 +99,13 @@ include("composite_sampler.jl")
 include("utilities.jl")
 include("convergence.jl")
 include("templates.jl")
+
+
+if !isdefined(Base, :get_extension)
+    #backwards compat for julia < 1.9
+    include("../ext/MCMCDiagnosticToolsExt.jl")
+    include("../ext/MCMCChainsExt.jl")
+    include("../ext/FlexiChainsExt.jl")
+end
 
 end
