@@ -142,8 +142,8 @@
         deMCzs(ld, 1000, 2; thinning = 2, memory = true, memory_thin_interval = 5)
     end
     @testset "non-refill memory" begin
-        deMC(ld, 100; memory = true, memory_size = 50, memory_refill = false)
-        deMC(ld, 100, 2; memory = true, memory_size = 50, memory_refill = false, save_burnt = true)
+        deMC(ld, 100; memory = true, memory_size = 50, memory_refill = true)
+        deMC(ld, 100, 2; memory = true, memory_size = 50, memory_refill = true, save_burnt = true)
     end
     @testset "parameter simplifying" begin
         deMC(ld, 100, memory = false, γ₁ = 0.5, γ₂ = 0.5)
