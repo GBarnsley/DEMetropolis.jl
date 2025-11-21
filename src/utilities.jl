@@ -82,8 +82,7 @@ function bundle_samples(
 end
 
 function AbstractMCMC.chainsstack(chns::Vector{DifferentialEvolutionOutput{T}}) where {
-        T <:
-        Real,
+        T <: Real,
     }
     return DifferentialEvolutionOutput{T}(
         cat([c.samples for c in chns]...; dims = 2),
@@ -94,24 +93,10 @@ end
 function AbstractMCMC.chainsstack(
         chns::Vector{
             Tuple{
-                DifferentialEvolutionOutput{T},
-                E,
+                T, E,
             },
         }
-    ) where {T <: Real, E <: DifferentialEvolutionState}
-    return (
-        AbstractMCMC.chainsstack([c[1] for c in chns]),
-        [c[2] for c in chns],
-    )
-end
-
-function AbstractMCMC.chainsstack(
-        chns::Vector{
-            Tuple{
-                C, E,
-            },
-        }
-    ) where {C <: Chains, E <: DifferentialEvolutionState}
+    ) where {T, E <: DEMetropolis.DifferentialEvolutionState}
     return (
         AbstractMCMC.chainsstack([c[1] for c in chns]),
         [c[2] for c in chns],
@@ -132,27 +117,6 @@ function convert(
     return process_outputs(samples)
 end
 
-function convert(
-        ::Type{Chains},
-        samples::Vector{DifferentialEvolutionSample{V, VV}}
-    ) where {T <: Real, V <: AbstractVector{T}, VV <: AbstractVector{V}}
-    output = process_outputs(samples)
-
-    new_ld = Array{T, 3}(undef, size(output.ld, 1), 1, size(output.ld, 2))
-    #can replace with insertdims(output.ld, dims = 2) in julia 1.12+
-    for i in 1:size(output.ld, 1)
-        for j in 1:size(output.ld, 2)
-            new_ld[i, 1, j] = output.ld[i, j]
-        end
-    end
-
-    array_out = cat(
-        permutedims(output.samples, (1, 3, 2)),
-        new_ld, dims = 2
-    )
-
-    chns = Chains(array_out)
-    chns = replacenames(chns, "param_$(size(output.samples, 3) + 1)" => "ld")
-
-    return chns
+function generate_names(n_params::Int)
+    return [Symbol("param_$(i)") for i in 1:n_params]
 end

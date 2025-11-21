@@ -25,6 +25,14 @@
         @test size(result_chains, 2) == 3   # parameters (2 + 1 ld)
         @test size(result_chains, 3) == 4   # chains (2 * n_dims)
 
+        # Test FlexiChains output
+        result_chains = deMC(ld, 50, memory = false, chain_type = VNChain)
+        @test isa(result_chains, FlexiChains.FlexiChain)
+        @test size(result_chains, 1) == 50  # iterations
+        @test size(result_chains, 2) == 4   # chains (2 * n_dims)
+        @test size(FlexiChains.parameters(result_chains), 1) == 2   # parameters
+        @test size(FlexiChains.extras(result_chains), 1) == 1   # ld
+
         # Test with save_final_state = true
         result_with_state = deMC(
             ld, 50, memory = false, chain_type = DifferentialEvolutionOutput,
@@ -101,6 +109,24 @@
         )
         @test size(meta_chain[1]) == (n_samples, n_dims + 1, n_total_chains)
         @test isa(meta_chain[2], Vector{<:DEMetropolis.DifferentialEvolutionState})
+
+        meta_chain = sample(
+            ld, setup_subspace_sampling(), MCMCSerial(), n_samples + n_burnin, n_meta_chains;
+            chain_type = VNChain, num_warmup = n_burnin, discard_initial = 0
+        )
+        @test size(meta_chain) == (n_samples + n_burnin, n_total_chains)
+        @test size(FlexiChains.parameters(meta_chain), 1) == n_dims   # parameters
+        @test size(FlexiChains.extras(meta_chain), 1) == 1   # ld
+
+        meta_chain = sample(
+            ld, setup_subspace_sampling(), MCMCSerial(), n_samples, n_meta_chains;
+            chain_type = VNChain, num_warmup = n_burnin, save_final_state = true
+        )
+
+        @test size(meta_chain[1]) == (n_samples, n_total_chains)
+        @test size(FlexiChains.parameters(meta_chain[1]), 1) == n_dims   # parameters
+        @test size(FlexiChains.extras(meta_chain[1]), 1) == 1   # ld
+        @test isa(meta_chain[2], Vector{<:DEMetropolis.DifferentialEvolutionState})
     end
 
     @testset "non memory runs" begin
@@ -108,7 +134,7 @@
         DREAMz(ld, 1000, 2; memory = false, save_burnt = false)
     end
     @testset "memory runs" begin
-        deMCzs(ld, 1000; thinning = 2, memory = true)
+        deMCzs(ld, 1000; thinning = 2, memory = true, save_burnt = true)
         deMC(ld, 1000, 2; thinning = 2, memory = true)
     end
     @testset "thin memory" begin
@@ -116,13 +142,13 @@
         deMCzs(ld, 1000, 2; thinning = 2, memory = true, memory_thin_interval = 5)
     end
     @testset "non-refill memory" begin
-        deMC(ld, 100; memory = true, memory_size = 50, memory_refill = false)
-        deMC(ld, 100, 2; memory = true, memory_size = 50, memory_refill = false)
+        deMC(ld, 100; memory = true, memory_size = 50, memory_refill = true)
+        deMC(ld, 100, 2; memory = true, memory_size = 50, memory_refill = true, save_burnt = true)
     end
     @testset "parameter simplifying" begin
         deMC(ld, 100, memory = false, γ₁ = 0.5, γ₂ = 0.5)
         deMCzs(ld, 1000; thinning = 2, memory = false, p_snooker = 0.0, epoch_limit = 3)
-        DREAMz(ld, 1000; thinning = 2, memory = true, p_γ₂ = 0.0, epoch_limit = 3)
+        DREAMz(ld, 1000; thinning = 2, memory = true, p_γ₂ = 0.0, epoch_limit = 3, save_burnt = true)
     end
     @testset "annealing and parallel tempering" begin
         deMC(ld, 100, memory = false; annealing = true)

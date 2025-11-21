@@ -20,7 +20,7 @@ _generic_de_kwargs_2 = """
 - `memory_size`: Maximum number of positions retained per chain in memory. The effective total stored positions is
     `memory_size * (n_chains + n_hot_chains)`. Defaults to `1001` or `2*num_warmup` if that is provided here or via `sample`. Larger sizes can improve proposal diversity but
     increase memory usage. Set with consideration of available RAM and expected run length.
-- `memory_refill`: Whether to refill memory when full, will replace from the start. Defaults to `true`.
+- `memory_refill`: Whether to refill memory when full instead of extending the memory, will replace from the start. Defaults to `false`.
 - `memory_thin_interval`: Thinning interval for memory updates. If > 0, only every `memory_thin_interval`-th
   position is stored in memory.
 ## Parallel Tempering and Simulated Annealing Arguments
@@ -62,7 +62,7 @@ generic_notes = """
 """
 
 template_chains_kwargs = """
-- `chain_type`: Type of chain to return (e.g., `Any`, `DifferentialEvolutionOutput`, `MCMCChains.Chains`). Defaults to `DifferentialEvolutionOutput`.
+- `chain_type`: Type of chain to return (e.g., `Any`, `DifferentialEvolutionOutput`, `MCMCChains.Chains`, or `FlexiChains.VNChain`). Defaults to `DifferentialEvolutionOutput`.
 - `save_final_state`: Whether to return the final state along with samples, if true the output will be (samples::chain_type, final_state). Defaults to `false`.
 """
 

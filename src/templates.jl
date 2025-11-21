@@ -39,13 +39,9 @@ See also [`deMCzs`](@ref), [`DREAMz`](@ref), [`setup_de_update`](@ref).
 function deMC(
         model_wrapper::LogDensityModel, n_its::Int; n_burnin::Int = n_its * 5, save_burnt::Bool = false, kwargs...
     )
-    if save_burnt
-        n_its = n_its + n_burnin
-    else
-        n_its = n_its
-    end
-
-    num_warmup = n_burnin
+    n_its, num_warmup = set_iterations(
+        save_burnt, n_its, n_burnin
+    )
 
     return _deMC(
         model_wrapper,
@@ -139,13 +135,9 @@ See also [`deMC`](@ref), [`DREAMz`](@ref).
 function deMCzs(
         model_wrapper::LogDensityModel, n_its::Int; n_burnin::Int = n_its * 5, save_burnt::Bool = false, kwargs...
     )
-    if save_burnt
-        n_its = n_its + n_burnin
-    else
-        n_its = n_its
-    end
-
-    num_warmup = n_burnin
+    n_its, num_warmup = set_iterations(
+        save_burnt, n_its, n_burnin
+    )
 
     return _deMCzs(
         model_wrapper,
@@ -235,13 +227,10 @@ See also [`deMC`](@ref), [`deMCzs`](@ref), [`setup_subspace_sampling`](@ref).
 function DREAMz(
         model_wrapper::LogDensityModel, n_its::Int; n_burnin::Int = n_its * 5, save_burnt::Bool = false, kwargs...
     )
-    if save_burnt
-        n_its = n_its + n_burnin
-    else
-        n_its = n_its
-    end
 
-    num_warmup = n_burnin
+    n_its, num_warmup = set_iterations(
+        save_burnt, n_its, n_burnin
+    )
 
     return _DREAMz(
         model_wrapper,
@@ -294,4 +283,17 @@ function _DREAMz(
         chain_type = chain_type,
         kwargs...
     )
+end
+
+function set_iterations(
+        save_burnt::Bool, n_its::Int, n_burnin::Int
+    )
+    if save_burnt
+        n_its = n_its + n_burnin
+    else
+        n_its = n_its
+    end
+    num_warmup = n_burnin
+
+    return n_its, num_warmup
 end
