@@ -390,7 +390,7 @@ function step(
         n_chains::Int = max(dimension(model_wrapper.logdensity) * 2, 3),
         n_hot_chains::Int = 0,
         memory::Bool = true,
-        memory_refill::Bool = true,
+        memory_refill::Bool = false,
         memory_thin_interval::Int = 0,
         N₀::Int = 2 * (n_chains + n_hot_chains),
         adapt::Bool = true,
@@ -539,7 +539,7 @@ function step(
         end
 
         memory = DifferentialEvolutionMemoryFill{T, typeof(mem_x)}(
-            true_memory, memory_method, memory_refill,
+            true_memory, memory_method, memory_refill, length(true_memory),
             [Vector{Int}(undef, n_preallocated_indices) for _ in 1:n_true_chains],
             [Vector{Int}(undef, n_preallocated_indices - 1) for _ in 1:n_true_chains]
         )
