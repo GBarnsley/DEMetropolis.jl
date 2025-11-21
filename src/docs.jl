@@ -9,7 +9,7 @@ _generic_de_kwargs_1 = """
 - `parallel`: Whether to evaluate initial log-densities in parallel. Useful for expensive models.
   Defaults to `false`.
 - `n_preallocated_indices`: This package provides fast sampling-without-replacement by pre-allocating indices, defaults to 3 (which the most asked for by the implemented samplers). Consider increasing it if you implement your own proposal that calls `pick_chains` with `n_chains > 3`.
-- `update_memory`: Whether to update the memory with new positions (for memory-based samplers). Defaults to `true`. Overwrites memory options given at initialization, generally should only of use if calling `step` directly.
+- `update_memory`: Whether to update the memory with new positions (for memory-based samplers). Defaults to `true`. Overwrites memory options given at initialization, generally should only be of use if calling `step` directly.
 - `silent`: Suppress informational logging during initialization (e.g., initial position adjustments and
     memory setup) when `true`. Defaults to `false`.
 ## Memory-based Sampling Arguments
