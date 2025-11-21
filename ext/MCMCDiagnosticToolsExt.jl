@@ -1,12 +1,11 @@
 module MCMCDiagnosticToolsExt
 # stopping criteria that uses rhat from MCMCDiagnosticTools
 
-using DEMetropolis
+import DEMetropolis
 import MCMCDiagnosticTools: rhat
 import AbstractMCMC: LogDensityModel, sample, AbstractModel
 import Random: AbstractRNG, default_rng
 
-export r̂_stopping_criteria
 export deMC, deMCzs, DREAMz
 
 """
@@ -137,23 +136,18 @@ function DEMetropolis.deMC(
         warmup_epochs::Int = 5, save_burnt::Bool = false, kwargs...
     )
 
-    num_warmup = epoch_size * warmup_epochs
-
-    if save_burnt
-        minimum_iterations = num_warmup + 1 #so we don't check during warmup
-        maximum_iterations = (epoch_size * epoch_limit) + num_warmup
-    else
-        minimum_iterations = 0
-        maximum_iterations = epoch_size * epoch_limit
-    end
+    maximum_iterations, minimum_iterations, num_warmup = set_iterations(
+        save_burnt, epoch_size, warmup_epochs, epoch_limit
+    )
 
     return DEMetropolis._deMC(
         model_wrapper,
-        r̂_stopping_criteria,
+        DEMetropolis.r̂_stopping_criteria,
         num_warmup,
         save_burnt;
         minimum_iterations = minimum_iterations,
         maximum_iterations = maximum_iterations,
+        check_every = epoch_size,
         kwargs...
     )
 end
@@ -202,23 +196,18 @@ function DEMetropolis.deMCzs(
         warmup_epochs::Int = 5, save_burnt::Bool = false, kwargs...
     )
 
-    num_warmup = epoch_size * warmup_epochs
-
-    if save_burnt
-        minimum_iterations = num_warmup + 1 #so we don't check during warmup
-        maximum_iterations = (epoch_size * epoch_limit) + num_warmup
-    else
-        minimum_iterations = 0
-        maximum_iterations = epoch_size * epoch_limit
-    end
+    maximum_iterations, minimum_iterations, num_warmup = set_iterations(
+        save_burnt, epoch_size, warmup_epochs, epoch_limit
+    )
 
     return DEMetropolis._deMCzs(
         model_wrapper,
-        r̂_stopping_criteria,
+        DEMetropolis.r̂_stopping_criteria,
         num_warmup,
         save_burnt;
         minimum_iterations = minimum_iterations,
         maximum_iterations = maximum_iterations,
+        check_every = epoch_size,
         kwargs...
     )
 end
@@ -267,6 +256,25 @@ function DEMetropolis.DREAMz(
         warmup_epochs::Int = 5, save_burnt::Bool = false, kwargs...
     )
 
+    maximum_iterations, minimum_iterations, num_warmup = set_iterations(
+        save_burnt, epoch_size, warmup_epochs, epoch_limit
+    )
+
+    return DEMetropolis._deMCzs(
+        model_wrapper,
+        DEMetropolis.r̂_stopping_criteria,
+        num_warmup,
+        save_burnt;
+        minimum_iterations = minimum_iterations,
+        maximum_iterations = maximum_iterations,
+        check_every = epoch_size,
+        kwargs...
+    )
+end
+
+function set_iterations(
+        save_burnt::Bool, epoch_size::Int, warmup_epochs::Int, epoch_limit::Int
+    )
     num_warmup = epoch_size * warmup_epochs
 
     if save_burnt
@@ -277,16 +285,7 @@ function DEMetropolis.DREAMz(
         maximum_iterations = epoch_size * epoch_limit
     end
 
-    return DEMetropolis._deMCzs(
-        model_wrapper,
-        r̂_stopping_criteria,
-        num_warmup,
-        save_burnt;
-        minimum_iterations = minimum_iterations,
-        maximum_iterations = maximum_iterations,
-        kwargs...
-    )
+    return maximum_iterations, minimum_iterations, num_warmup
 end
-
 
 end
