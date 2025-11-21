@@ -134,7 +134,7 @@
         DREAMz(ld, 1000, 2; memory = false, save_burnt = false)
     end
     @testset "memory runs" begin
-        deMCzs(ld, 1000; thinning = 2, memory = true)
+        deMCzs(ld, 1000; thinning = 2, memory = true, save_burnt = true)
         deMC(ld, 1000, 2; thinning = 2, memory = true)
     end
     @testset "thin memory" begin
@@ -148,7 +148,7 @@
     @testset "parameter simplifying" begin
         deMC(ld, 100, memory = false, γ₁ = 0.5, γ₂ = 0.5)
         deMCzs(ld, 1000; thinning = 2, memory = false, p_snooker = 0.0, epoch_limit = 3)
-        DREAMz(ld, 1000; thinning = 2, memory = true, p_γ₂ = 0.0, epoch_limit = 3)
+        DREAMz(ld, 1000; thinning = 2, memory = true, p_γ₂ = 0.0, epoch_limit = 3, save_burnt = true)
     end
     @testset "annealing and parallel tempering" begin
         deMC(ld, 100, memory = false; annealing = true)
